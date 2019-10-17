@@ -78,19 +78,46 @@ def plot_scatter(A, outpdf, figsize=(8, 6), log=True, xlabel=None,
 
 ###########################################################
 if __name__ == '__main__':
-    data = np.loadtxt('conf2-3-cleavage.tsv', comments=None, delimiter='\t')
+    probs = np.loadtxt('conf2/test-cleavage.tsv', comments=None, delimiter='\t')
 
     # Plot efficiency-specificity histograms
     plot_histograms(
-        data, 'test-hist.pdf', nrows=5, ncols=4, figsize=(18, 18),
+        probs, 'test-hist.pdf', nrows=5, ncols=4, figsize=(18, 18),
         func=lambda x, y: x - y, xlog=True, ylog=True,
         xlabel='Log efficiency', ylabel='Log specificity',
         cmap=plt.get_cmap('Blues'), gridsize=30
     )
 
-    # Plot cleavage probability as a function of number of mismatches
-    plot_scatter(
-        data, 'test-curves.pdf', figsize=(8, 6), log=True,
-        xlabel='Number of PAM-distal mismatches', ylabel='Cleavage probability'
+    # Plot speed histograms
+    speeds = 1.0 / np.loadtxt('conf2/test-times.tsv', comments=None, delimiter='\t')
+    plot_histograms(
+        speeds, 'test-speed.pdf', nrows=5, ncols=4, figsize=(18, 18),
+        func=lambda x, y: x - y, xlog=True, ylog=True,
+        xlabel='Log speed', ylabel='Log speed ratio',
+        cmap=plt.get_cmap('Blues'), gridsize=30
     )
+
+    # Plot specificity against speed ratio
+    specs = np.log10(probs[:,0]).reshape(-1, 1) - np.log10(probs[:,1:])
+    ratios = np.log10(speeds[:,0]).reshape(-1, 1) - np.log10(speeds[:,1:])
+    fig, axes = plt.subplots(nrows=5, ncols=4, figsize=(18, 18))
+    for i in range(5):
+        for j in range(4):
+            c = axes[i,j].hexbin(
+                specs[:,i*4+j], ratios[:,i*4+j], bins='log', gridsize=30,
+                cmap=plt.get_cmap('Blues')
+            )
+            plt.colorbar(c, ax=axes[i,j])
+    for i in range(5):
+        axes[i,0].set_ylabel('Log speed ratio')
+    for j in range(4):
+        axes[-1,j].set_xlabel('Log specificity')
+    plt.tight_layout()
+    plt.savefig('test-spec-speed.pdf')
+
+    # Plot cleavage probability as a function of number of mismatches
+    #plot_scatter(
+    #    probs, 'test-curves.pdf', figsize=(8, 6), log=True,
+    #    xlabel='Number of PAM-distal mismatches', ylabel='Cleavage probability'
+    #)
 
