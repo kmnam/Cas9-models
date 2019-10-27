@@ -13,7 +13,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     10/16/2019
+ *     10/26/2019
  */
 std::pair<double, double> computeCleavageStats(GridGraph* model, double kdis = 1.0,
                                                double kcat = 1.0)
@@ -76,7 +76,9 @@ std::pair<double, double> computeCleavageStats(GridGraph* model, double kdis = 1
 int main(int argc, char** argv)
 {
     // Instantiate a GridGraph of length 20
-    unsigned length = 20;
+    unsigned length;
+    if (argc < 5) length = 20;
+    else          sscanf(argv[4], "%u", &length);
     GridGraph* model = new GridGraph(length);
 
     // Instantiate random number generator 
@@ -149,7 +151,7 @@ int main(int argc, char** argv)
         
         // Compute cleavage probability and mean first passage time 
         // to cleaved state
-        std::pair<double, double> data = computeCleavageStats(model);
+        std::pair<double, double> data = computeCleavageStats(model, 1, 1);
         probs(i,0) = data.first;
         times(i,0) = data.second;
 
@@ -157,7 +159,7 @@ int main(int argc, char** argv)
         for (unsigned j = 1; j <= length; ++j)
         {
             model->setRungLabels(length - j, mismatch_params);
-            data = computeCleavageStats(model);
+            data = computeCleavageStats(model, 1, 1);
             probs(i,j) = data.first;
             times(i,j) = data.second;
         }
