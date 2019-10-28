@@ -12,7 +12,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     10/16/2019
+ *     10/28/2019
  */
 using namespace Eigen;
 typedef Matrix<double, 5, 1> Vector5d;
@@ -105,37 +105,6 @@ class GridGraph
              * Set the edge labels for the i-th rung to the given values. 
              */
             this->labels[i] = labels;
-        }
-
-        GridGraph* reflect()
-        {
-            /*
-             * Return a version of the graph flipped diagonally, sending
-             * (A,i) -> (B,N-i) and (B,i) -> (A,N-i).
-             */
-            unsigned N = this->N;
-            GridGraph* mirror = new GridGraph(N);
-            mirror->setStartLabels(this->labels[N-1][5], this->labels[N-1][4]);
-            for (int i = N - 2; i >= -1; --i)
-            {
-                std::array<double, 6> labels_ref;
-                labels_ref[0] = this->labels[i+1][3];
-                labels_ref[1] = this->labels[i+1][2];
-                labels_ref[2] = this->labels[i+1][1];
-                labels_ref[3] = this->labels[i+1][0];
-                if (i >= 0)
-                {
-                    labels_ref[4] = this->labels[i][5];
-                    labels_ref[5] = this->labels[i][4];
-                }
-                else
-                {
-                    labels_ref[4] = this->start[1];
-                    labels_ref[5] = this->start[0];
-                }
-                mirror->setRungLabels(N - 2 - i, labels_ref);
-            }
-            return mirror;
         }
 
         Vector3d recurrenceA(const Ref<const Vector3d>& v, unsigned j)
