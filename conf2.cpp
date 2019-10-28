@@ -13,7 +13,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     10/26/2019
+ *     10/28/2019
  */
 std::pair<double, double> computeCleavageStatsInv(GridGraph* model, double kdis = 1.0,
                                                   double kcat = 1.0)
@@ -28,12 +28,13 @@ std::pair<double, double> computeCleavageStatsInv(GridGraph* model, double kdis 
     MatrixXd laplacian = model->laplacian();
 
     // Update the Laplacian matrix with the specified terminal rates
+    unsigned N = model->getN();
     laplacian(0, 0) += kdis;
-    laplacian(2*this->N+1, 2*this->N+1) += kcat;
+    laplacian(2*N+1, 2*N+1) += kcat;
 
     // Solve matrix equation for cleavage probabilities
-    VectorXd term_rates = VectorXd::Zero(2*this->N+2);
-    term_rates(2*this->N+1) = kcat;
+    VectorXd term_rates = VectorXd::Zero(2*N+2);
+    term_rates(2*N+1) = kcat;
     VectorXd probs = laplacian.colPivHouseholderQr().solve(term_rates);
 
     // Solve matrix equation for mean first passage times
