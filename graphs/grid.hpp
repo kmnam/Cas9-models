@@ -107,6 +107,29 @@ class GridGraph
             this->labels[i] = labels;
         }
 
+        MatrixXd laplacian()
+        {
+            /*
+             * Return the row Laplacian matrix of the graph.
+             */
+            MatrixXd laplacian = MatrixXd::Zero(2*this->N+2, 2*this->N+2);
+            laplacian(0, this->N+1) = -this->start[0];
+            laplacian(this->N+1, 0) = -this->start[1];
+            for (unsigned i = 0; i < this->N; ++i)
+            {
+                laplacian(i, i+1) = -this->labels[i][0];
+                laplacian(i+1, i) = -this->labels[i][1];
+                laplacian(this->N+i+1, this->N+i+2) = -this->labels[i][2];
+                laplacian(this->N+i+2, this->N+i+1) = -this->labels[i][3];
+                laplacian(i+1, this->N+i+2) = -this->labels[i][4];
+                laplacian(this->N+i+2, i+1) = -this->labels[i][5];
+            }
+            for (unsigned i = 0; i < 2*this->N + 2; ++i)
+                laplacian(i, i) = -laplacian.row(i).sum();
+
+            return laplacian;
+        }
+
         Vector3d recurrenceA(const Ref<const Vector3d>& v, unsigned j)
         {
             /*
