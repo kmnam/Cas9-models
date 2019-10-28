@@ -15,13 +15,41 @@
  * Last updated:
  *     10/26/2019
  */
-std::pair<double, double> computeCleavageStats(GridGraph* model, double kdis = 1.0,
-                                               double kcat = 1.0)
+std::pair<double, double> computeCleavageStatsInv(GridGraph* model, double kdis = 1.0,
+                                                  double kcat = 1.0)
+{
+    /*
+     * Compute probability of cleavage and (conditional) mean first passage 
+     * time to the cleaved state in the given model, with the specified
+     * terminal rates of dissociation and cleavage, by inverting the 
+     * row Laplacian matrix.
+     */
+    // Compute the Laplacian of the graph
+    MatrixXd laplacian = model->laplacian();
+
+    // Update the Laplacian matrix with the specified terminal rates
+    laplacian(0, 0) += kdis;
+    laplacian(2*this->N+1, 2*this->N+1) += kcat;
+
+    // Solve matrix equation for cleavage probabilities
+    VectorXd term_rates = VectorXd::Zero(2*this->N+2);
+    term_rates(2*this->N+1) = kcat;
+    VectorXd probs = laplacian.colPivHouseholderQr().solve(term_rates);
+
+    // Solve matrix equation for mean first passage times
+    VectorXd times = (laplacian*laplacian).colPivHouseholderQr().solve(term_rates);
+
+    return std::make_pair(probs(0), times(0));
+}
+
+std::pair<double, double> computeCleavageStatsForests(GridGraph* model, double kdis = 1.0,
+                                                      double kcat = 1.0)
 {
     /*
      * Compute probability of cleavage and (conditional) mean first passage
      * time to the cleaved state in the given model, with the specified
-     * terminal rates of dissociation and cleavage. 
+     * terminal rates of dissociation and cleavage, by enumerating the
+     * required spanning forests of the grid graph. 
      */
     // Compute weight of spanning trees rooted at each vertex
     unsigned N = model->getN();
@@ -151,7 +179,7 @@ int main(int argc, char** argv)
         
         // Compute cleavage probability and mean first passage time 
         // to cleaved state
-        std::pair<double, double> data = computeCleavageStats(model, 1, 1);
+        std::pair<double, double> data = computeCleavageStatsForests(model, 1, 1);
         probs(i,0) = data.first;
         times(i,0) = data.second;
 
@@ -159,7 +187,7 @@ int main(int argc, char** argv)
         for (unsigned j = 1; j <= length; ++j)
         {
             model->setRungLabels(length - j, mismatch_params);
-            data = computeCleavageStats(model, 1, 1);
+            data = computeCleavageStatsForests(model, 1, 1);
             probs(i,j) = data.first;
             times(i,j) = data.second;
         }
