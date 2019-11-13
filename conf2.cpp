@@ -13,94 +13,9 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     10/28/2019
+ *     11/12/2019
  */
-std::pair<double, double> computeCleavageStatsInv(GridGraph* model, double kdis = 1.0,
-                                                  double kcat = 1.0)
-{
-    /*
-     * Compute probability of cleavage and (conditional) mean first passage 
-     * time to the cleaved state in the given model, with the specified
-     * terminal rates of dissociation and cleavage, by inverting the 
-     * row Laplacian matrix.
-     */
-    // Compute the Laplacian of the graph
-    MatrixXd laplacian = model->laplacian();
-
-    // Update the Laplacian matrix with the specified terminal rates
-    unsigned N = model->getN();
-    laplacian(0, 0) += kdis;
-    laplacian(2*N+1, 2*N+1) += kcat;
-
-    // Solve matrix equation for cleavage probabilities
-    VectorXd term_rates = VectorXd::Zero(2*N+2);
-    term_rates(2*N+1) = kcat;
-    VectorXd probs = laplacian.colPivHouseholderQr().solve(term_rates);
-
-    // Solve matrix equation for mean first passage times
-    VectorXd times = (laplacian*laplacian).colPivHouseholderQr().solve(term_rates);
-
-    return std::make_pair(probs(0), times(0));
-}
-
-std::pair<double, double> computeCleavageStatsForests(GridGraph* model, double kdis = 1.0,
-                                                      double kcat = 1.0)
-{
-    /*
-     * Compute probability of cleavage and (conditional) mean first passage
-     * time to the cleaved state in the given model, with the specified
-     * terminal rates of dissociation and cleavage, by enumerating the
-     * required spanning forests of the grid graph. 
-     */
-    // Compute weight of spanning trees rooted at each vertex
-    unsigned N = model->getN();
-    MatrixX2d wt = MatrixX2d::Zero(N+1, 2);
-    for (unsigned i = 0; i <= N; ++i)
-    {
-        wt(i,0) = model->weightTrees(0, i);
-        wt(i,1) = model->weightTrees(1, i);
-    }
-
-    // Compute weights of spanning forests rooted at {(A,0), (B,N)}
-    double wA0BN = model->weightEndToEndForests();
-
-    // Compute the weights of the spanning forests rooted at (X,i) and (B,N)
-    // with paths from (A,0) to (X,i)
-    MatrixX2d wf = MatrixX2d::Zero(N+1, 2);
-    for (unsigned i = 1; i <= N; ++i)
-        wf(i,0) = model->weightDirectedForests(0, i);
-    for (unsigned i = 0; i < N; ++i)
-        wf(i,1) = model->weightDirectedForests(1, i);
-    
-    // Compute the weights of the spanning forests rooted at (A,0) and (B,N)
-    // with paths from (X,i) and (B,N)
-    MatrixX2d wr = MatrixX2d::Zero(N+1, 2);
-    for (unsigned i = 1; i <= N; ++i)
-        wr(i,0) = model->weightDirectedForests2(0, i);
-    for (unsigned i = 0; i < N; ++i)
-        wr(i,1) = model->weightDirectedForests2(1, i);
-
-    // For each vertex in the original graph, compute its contribution
-    // to the mean first passage time
-    double denom = kdis * wt(0,0) + kcat * wt(N,1) + kdis * kcat * wA0BN;
-    double prob = (kcat * wt(N,1)) / denom;
-    double time = 0.0;
-    for (unsigned i = 1; i <= N; ++i)
-    {
-        double term = (kcat * wf(i,0) + wt(i,0)) / denom;
-        term *= (1.0 + (kdis * wr(i,0) / wt(N,1)));
-        time += term;
-    }
-    for (unsigned i = 0; i < N; ++i)
-    {
-        double term = (kcat * wf(i,1) + wt(i,1)) / denom;
-        term *= (1.0 + (kdis * wr(i,1) / wt(N,1)));
-        time += term;
-    }
-    time += (wt(0,0) + wt(N,1) + (kdis + kcat) * wA0BN) / denom;
-
-    return std::make_pair(prob, time);
-}
+using namespace Eigen;
 
 int main(int argc, char** argv)
 {
@@ -108,7 +23,7 @@ int main(int argc, char** argv)
     unsigned length;
     if (argc < 5) length = 20;
     else          sscanf(argv[4], "%u", &length);
-    GridGraph* model = new GridGraph(length);
+    GridGraph<double>* model = new GridGraph<double>(length);
 
     // Instantiate random number generator 
     boost::random::mt19937 rng(1234567890);
@@ -180,17 +95,17 @@ int main(int argc, char** argv)
         
         // Compute cleavage probability and mean first passage time 
         // to cleaved state
-        std::pair<double, double> data = computeCleavageStatsForests(model, 1, 1);
-        probs(i,0) = data.first;
-        times(i,0) = data.second;
+        Vector2d data = model->computeCleavageStatsForests(1, 1);
+        probs(i,0) = data(0);
+        times(i,0) = data(1);
 
         // Introduce distal mismatches and re-compute cleavage probabilities
         for (unsigned j = 1; j <= length; ++j)
         {
             model->setRungLabels(length - j, mismatch_params);
-            data = computeCleavageStatsForests(model, 1, 1);
-            probs(i,j) = data.first;
-            times(i,j) = data.second;
+            data = model->computeCleavageStatsForests(1, 1);
+            probs(i,j) = data(0);
+            times(i,j) = data(1);
         }
     }
     
