@@ -21,7 +21,7 @@
 using namespace Eigen;
 
 // Instantiate a gamma distribution with alpha = 1
-boost::random::gamma_distribution<> gamma(1.0);
+boost::random::gamma_distribution<> gamma_dist(1.0);
 
 MatrixXd sampleFromSimplex(const Ref<const MatrixXd>& vertices, unsigned npoints, boost::random::mt19937& rng)
 {
@@ -50,7 +50,7 @@ MatrixXd sampleFromSimplex(const Ref<const MatrixXd>& vertices, unsigned npoints
     {
         // Sample (dim + 1) independent Gamma-distributed variables 
         // with alpha = 1, and normalize by their sum
-        for (unsigned j = 0; j < dim + 1; j++) barycentric(i,j) = gamma(rng);
+        for (unsigned j = 0; j < dim + 1; j++) barycentric(i,j) = gamma_dist(rng);
         barycentric.row(i) = barycentric.row(i) / barycentric.row(i).sum();
     }
    
