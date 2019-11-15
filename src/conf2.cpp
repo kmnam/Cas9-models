@@ -6,22 +6,25 @@
 #include <iomanip>
 #include <boost/random.hpp>
 #include <Eigen/Dense>
-#include <autodiff/reverse.hpp>
-#include <autodiff/reverse/eigen.hpp>
 #include <boundaryFinder.hpp>
+#include <duals/duals.hpp>
+#include <duals/eigen.hpp>
 #include "../include/graphs/grid.hpp"
 #include "../include/sample.hpp"
 
 /*
+ * Estimates the boundary of the specificity vs. speed ratio region in 
+ * the Cas9 model. 
+ *
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/13/2019
+ *     11/14/2019
  */
 using namespace Eigen;
-using namespace autodiff;
+using Duals::DualNumber;
 
-const unsigned length = 5;
+const unsigned length = 20;
 
 // Instantiate random number generator 
 boost::random::mt19937 rng(1234567890);
@@ -34,13 +37,17 @@ int coin_toss(boost::random::mt19937& rng)
 }
 
 template <unsigned n_mismatches = 1>
-VectorXvar computeCleavageStats(const Ref<const VectorXvar>& params)
+VectorXDual computeCleavageStats(const Ref<const VectorXDual>& params)
 {
     /*
-     *
+     * Compute the specificity and speed ratio with respect to the 
+     * given number of mismatches, with the given set of parameter
+     * values. 
      */
+    using Duals::pow;
+
     // Array of DNA/RNA match parameters
-    std::array<var, 6> match_params;
+    std::array<DualNumber, 6> match_params;
     match_params[0] = pow(10.0, params(0));
     match_params[1] = pow(10.0, params(1));
     match_params[2] = pow(10.0, params(0));
@@ -49,7 +56,7 @@ VectorXvar computeCleavageStats(const Ref<const VectorXvar>& params)
     match_params[5] = pow(10.0, params(5));
 
     // Array of DNA/RNA mismatch parameters
-    std::array<var, 6> mismatch_params;
+    std::array<DualNumber, 6> mismatch_params;
     mismatch_params[0] = pow(10.0, params(2));
     mismatch_params[1] = pow(10.0, params(3));
     mismatch_params[2] = pow(10.0, params(2));
@@ -58,45 +65,45 @@ VectorXvar computeCleavageStats(const Ref<const VectorXvar>& params)
     mismatch_params[5] = pow(10.0, params(5));
 
     // Populate each rung with DNA/RNA match parameters
-    GridGraph<var>* model = new GridGraph<var>(length);
+    GridGraph<DualNumber>* model = new GridGraph<DualNumber>(length);
     model->setStartLabels(match_params[4], match_params[5]);
     for (unsigned j = 0; j < length; ++j)
         model->setRungLabels(j, match_params);
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<var, 2, 1> match_data = model->computeCleavageStatsForests(1, 1).array().log10().matrix();
+    Matrix<DualNumber, 2, 1> match_data = model->computeCleavageStatsForests(1, 1).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
     for (unsigned j = 1; j <= n_mismatches; ++j)
         model->setRungLabels(length - j, mismatch_params);
-    Matrix<var, 2, 1> mismatch_data = model->computeCleavageStatsForests(1, 1).array().log10().matrix();
+    Matrix<DualNumber, 2, 1> mismatch_data = model->computeCleavageStatsForests(1, 1).array().log10().matrix();
 
     // Compute the specificity and speed ratio
-    var specificity = match_data(0) - mismatch_data(0);
-    var speed_ratio = mismatch_data(1) - match_data(1);
-    VectorXvar stats(2);
+    DualNumber specificity = match_data(0) - mismatch_data(0);
+    DualNumber speed_ratio = mismatch_data(1) - match_data(1);
+    VectorXDual stats(2);
     stats << specificity, speed_ratio;
 
     delete model;
     return stats;
 }
 
-VectorXvar mutate_by_delta(const Ref<const VectorXvar>& params, boost::random::mt19937& rng, LinearConstraints* constraints)
+VectorXDual mutate_by_delta(const Ref<const VectorXDual>& params, boost::random::mt19937& rng, LinearConstraints* constraints)
 {
     /*
-     *
+     * Mutate the given parameter values by delta = 0.1. 
      */
-    VectorXvar mutated(params);
-    const var delta = 0.1;
+    VectorXDual mutated(params);
+    const DualNumber delta = 0.1;
     for (unsigned i = 0; i < mutated.size(); ++i)
     {
         int toss = coin_toss(rng);
         if (!toss) mutated(i) += delta;
         else       mutated(i) -= delta;
     }
-    return constraints->nearestL2(mutated.cast<double>()).cast<var>();
+    return constraints->nearestL2(mutated.cast<double>()).cast<DualNumber>();
 }
 
 int main(int argc, char** argv)
@@ -115,20 +122,36 @@ int main(int argc, char** argv)
         throw;
     }
 
+    // Boundary-finding algorithm settings
+    double tol = 1e-4;
+    unsigned max_step_iter = 10;
+    unsigned max_pull_iter = 5;
+    bool simplify = true;
+    bool verbose = true;
+    double sqp_delta = 0.2;
+    unsigned sqp_max_iter = 50;
+    double sqp_tol = 1e-3;
+    bool sqp_verbose = false;
+    std::stringstream ss;
+    ss << argv[3] << "-boundary";
+
     // Run the boundary-finding algorithm
     LinearConstraints constraints;
     constraints.parse(argv[1]);
     MatrixXd A = constraints.getA();
     VectorXd b = constraints.getb();
-
-    BoundaryFinder finder(6, 1e-5, 20, rng, A, b);
-    std::function<VectorXvar(const Ref<const VectorXvar>&)> func = computeCleavageStats<1>;
-    std::function<VectorXvar(const Ref<const VectorXvar>&, boost::random::mt19937&, LinearConstraints*)> mutate = mutate_by_delta;
-    finder.run(func, mutate, params, true, true, "test");
+    BoundaryFinder<DualNumber> finder(6, tol, rng, A, b);
+    std::function<VectorXDual(const Ref<const VectorXDual>&)> func = computeCleavageStats<1>;
+    std::function<VectorXDual(const Ref<const VectorXDual>&, boost::random::mt19937&, LinearConstraints*)> mutate = mutate_by_delta;
+    finder.run(
+        func, mutate, params, max_step_iter, max_pull_iter, simplify, verbose,
+        sqp_delta, sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
+    );
+    params = finder.getParams();
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;
-    oss << argv[3] << "-sample.tsv";
+    oss << argv[3] << "-boundary-params.tsv";
     std::ofstream samplefile(oss.str());
     samplefile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (samplefile.is_open())
