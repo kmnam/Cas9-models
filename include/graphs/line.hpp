@@ -113,32 +113,35 @@ class LineGraph : public MarkovDigraph<T>
              * terminal rates of dissociation and cleavage, by enumerating the
              * required spanning forests of the grid graph. 
              */
+            auto bi = [this, kdis, kcat](int i)
+            {
+                return (i < this->N ? this->line_labels[i][0] : kcat);
+            };
+
+            auto di = [this, kdis, kcat](int i)
+            {
+                return (i == 0 ? kdis : this->line_labels[i-1][1]);
+            };
+
             // Compute the probability of cleavage ...
-            T prob = 1.0 + (kdis / this->line_labels[0][0]);
-            for (unsigned i = 1; i < this->N; ++i)
-                prob += (this->line_labels[i-1][1] / this->line_labels[i][0]);
-            prob += (this->line_labels[this->N-1][1] / kcat);
+            T prob = 1.0;
+            for (int i = 0; i < this->N; ++i)
+            {
+                T t = 1.0;
+                for (int j = 0; j < i; ++j) t *= di(i) / bi(i);
+                prob += t;
+            }
             prob = 1.0 / prob;
 
             // ... and the mean first passage time to the cleaved state
             T time = 0.0;
             for (int i = 0; i < this->N; ++i)
             {
-                T bi = this->line_labels[i][0];
-                T t1 = 1.0;
-                for (int j = i + 1; j < this->N; ++j)
-                    t1 += (this->line_labels[j-1][1] / this->line_labels[j][0]);
-                t1 += (this->line_labels[this->N-1][1] / kcat);
-                T t2 = 1.0;
-                if (i > 0)
-                {
-                    t2 += (kdis / this->line_labels[0][0]);
-                    for (int j = 1; j < i - 1; ++j)
-                        t2 += (this->line_labels[j-1][1] / this->line_labels[j][0]);
-                }
-                time += (1.0 / bi) * (1.0 + t1) * (1.0 + t2);
+                T t1 = 1.0, t2 = 1.0;
+                for (int j = i + 1; i < this->N; ++i) t1 *= di(i) / bi(i); 
+                for (int j = 0; i < i - 1; ++i)       t2 *= di(i) / bi(i);
+                time += ((1.0 + t1) * (1.0 + t2) / bi(i));
             }
-            time += (1.0 / kcat) / prob; 
             time *= prob;
 
             // Collect the two required quantities
