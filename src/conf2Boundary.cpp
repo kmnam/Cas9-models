@@ -4,7 +4,7 @@
 #include <array>
 #include <utility>
 #include <iomanip>
-#include <boost/random.hpp>
+#include <random>
 #include <Eigen/Dense>
 #include <boundaryFinder.hpp>
 #include <duals/duals.hpp>
@@ -27,11 +27,11 @@ using Duals::DualNumber;
 const unsigned length = 20;
 
 // Instantiate random number generator 
-boost::random::mt19937 rng(1234567890);
+std::mt19937 rng(1234567890);
 
-boost::random::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
+std::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
 
-int coin_toss(boost::random::mt19937& rng)
+int coin_toss(std::mt19937& rng)
 {
     return fair_bernoulli_dist(rng);
 }
@@ -72,13 +72,13 @@ VectorXDual computeCleavageStats(const Ref<const VectorXDual>& params)
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<DualNumber, 2, 1> match_data = model->computeCleavageStats(1, 1, FORESTS).array().log10().matrix();
+    Matrix<DualNumber, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
     for (unsigned j = 1; j <= n_mismatches; ++j)
         model->setRungLabels(length - j, mismatch_params);
-    Matrix<DualNumber, 2, 1> mismatch_data = model->computeCleavageStats(1, 1, FORESTS).array().log10().matrix();
+    Matrix<DualNumber, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
 
     // Compute the specificity and speed ratio
     DualNumber specificity = match_data(0) - mismatch_data(0);
@@ -90,7 +90,7 @@ VectorXDual computeCleavageStats(const Ref<const VectorXDual>& params)
     return stats;
 }
 
-VectorXDual mutate_by_delta(const Ref<const VectorXDual>& params, boost::random::mt19937& rng)
+VectorXDual mutate_by_delta(const Ref<const VectorXDual>& params, std::mt19937& rng)
 {
     /*
      * Mutate the given parameter values by delta = 0.1. 
@@ -141,7 +141,7 @@ int main(int argc, char** argv)
     VectorXd b = constraints.getb();
     BoundaryFinder<DualNumber> finder(6, tol, rng, A, b);
     std::function<VectorXDual(const Ref<const VectorXDual>&)> func = computeCleavageStats<1>;
-    std::function<VectorXDual(const Ref<const VectorXDual>&, boost::random::mt19937&)> mutate = mutate_by_delta;
+    std::function<VectorXDual(const Ref<const VectorXDual>&, std::mt19937&)> mutate = mutate_by_delta;
     finder.run(
         func, mutate, params, max_step_iter, max_pull_iter, simplify, verbose,
         sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
