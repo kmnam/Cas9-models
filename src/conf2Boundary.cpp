@@ -90,7 +90,7 @@ VectorXDual computeCleavageStats(const Ref<const VectorXDual>& params)
     return stats;
 }
 
-VectorXDual mutate_by_delta(const Ref<const VectorXDual>& params, boost::random::mt19937& rng, LinearConstraints* constraints)
+VectorXDual mutate_by_delta(const Ref<const VectorXDual>& params, boost::random::mt19937& rng)
 {
     /*
      * Mutate the given parameter values by delta = 0.1. 
@@ -103,7 +103,7 @@ VectorXDual mutate_by_delta(const Ref<const VectorXDual>& params, boost::random:
         if (!toss) mutated(i) += delta;
         else       mutated(i) -= delta;
     }
-    return constraints->nearestL2(mutated.cast<double>()).cast<DualNumber>();
+    return mutated;
 }
 
 int main(int argc, char** argv)
@@ -128,7 +128,6 @@ int main(int argc, char** argv)
     unsigned max_pull_iter = 5;
     bool simplify = true;
     bool verbose = true;
-    double sqp_delta = 0.2;
     unsigned sqp_max_iter = 50;
     double sqp_tol = 1e-3;
     bool sqp_verbose = false;
@@ -142,10 +141,10 @@ int main(int argc, char** argv)
     VectorXd b = constraints.getb();
     BoundaryFinder<DualNumber> finder(6, tol, rng, A, b);
     std::function<VectorXDual(const Ref<const VectorXDual>&)> func = computeCleavageStats<1>;
-    std::function<VectorXDual(const Ref<const VectorXDual>&, boost::random::mt19937&, LinearConstraints*)> mutate = mutate_by_delta;
+    std::function<VectorXDual(const Ref<const VectorXDual>&, boost::random::mt19937&)> mutate = mutate_by_delta;
     finder.run(
         func, mutate, params, max_step_iter, max_pull_iter, simplify, verbose,
-        sqp_delta, sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
+        sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
     );
     params = finder.getParams();
 
