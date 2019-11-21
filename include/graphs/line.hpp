@@ -138,9 +138,19 @@ class LineGraph : public MarkovDigraph<T>
             for (int i = 0; i < this->N; ++i)
             {
                 T t1 = 1.0, t2 = 1.0;
-                for (int j = i + 1; i < this->N; ++i) t1 *= di(i) / bi(i); 
-                for (int j = 0; i < i - 1; ++i)       t2 *= di(i) / bi(i);
-                time += ((1.0 + t1) * (1.0 + t2) / bi(i));
+                for (int j = i + 1; j < this->N; ++j)
+                {
+                    T u1 = 1.0;
+                    for (int k = i + 1; k <= j; ++k) u1 *= di(k) / bi(k);
+                    t1 += u1;
+                }
+                for (int j = 0; j < i; ++j)
+                {
+                    T u2 = 1.0;
+                    for (int k = 0; k <= j; ++k) u2 *= di(k) / bi(k);
+                    t2 += u2;
+                }
+                time += (t1 * t2 / bi(i));
             }
             time *= prob;
 
