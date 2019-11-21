@@ -19,7 +19,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/14/2019
+ *     11/20/2019
  */
 using namespace Eigen;
 using Duals::DualNumber;
@@ -72,13 +72,13 @@ VectorXDual computeCleavageStats(const Ref<const VectorXDual>& params)
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<DualNumber, 2, 1> match_data = model->computeCleavageStatsForests(1, 1).array().log10().matrix();
+    Matrix<DualNumber, 2, 1> match_data = model->computeCleavageStats(1, 1, FORESTS).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
     for (unsigned j = 1; j <= n_mismatches; ++j)
         model->setRungLabels(length - j, mismatch_params);
-    Matrix<DualNumber, 2, 1> mismatch_data = model->computeCleavageStatsForests(1, 1).array().log10().matrix();
+    Matrix<DualNumber, 2, 1> mismatch_data = model->computeCleavageStats(1, 1, FORESTS).array().log10().matrix();
 
     // Compute the specificity and speed ratio
     DualNumber specificity = match_data(0) - mismatch_data(0);
