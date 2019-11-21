@@ -1,7 +1,7 @@
 #ifndef GRID_GRAPH_HPP
 #define GRID_GRAPH_HPP
 
-#include <iostream>
+#include <sstream>
 #include <array>
 #include <vector>
 #include <utility>

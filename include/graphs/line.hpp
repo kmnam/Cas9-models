@@ -1,12 +1,13 @@
 #ifndef LINE_GRAPH_HPP
 #define LINE_GRAPH_HPP
 
-#include <iostream>
+#include <sstream>
 #include <array>
 #include <vector>
 #include <utility>
 #include <stdexcept>
 #include <Eigen/Dense>
+#include <digraph.hpp>
 
 /* 
  * Authors:
@@ -17,7 +18,7 @@
 using namespace Eigen;
 
 template <typename T>
-class LineGraph
+class LineGraph : public MarkovDigraph<T>
 {
     /*
      * An implementation of the two-state grid graph, with recurrence relations
@@ -27,18 +28,19 @@ class LineGraph
         unsigned N;    // Length of the graph
 
         // Array of edge labels that grows with the length of the graph
-        std::vector<std::array<T, 2> > labels;
+        std::vector<std::array<T, 2> > line_labels;
 
     public:
-        LineGraph()
+        LineGraph() : MarkovDigraph<T>()
         {
             /*
-             * Trivial constructor with length zero.
+             * Trivial constructor with length zero (one vertex, no edges).
              */
+            this->addNode("0");
             this->N = 0;
         }
 
-        LineGraph(unsigned N)
+        LineGraph(unsigned N) : MarkovDigraph<T>()
         {
             /*
              * Trivial constructor with given length; set edge labels to unity.
@@ -46,8 +48,13 @@ class LineGraph
             this->N = N;
             for (unsigned i = 0; i < N; ++i)
             {
+                std::stringstream si, sj;
+                si << i;
+                sj << i + 1;
+                this->addEdge(si.str(), sj.str(), 1.0);
+                this->addEdge(sj.str(), si.str(), 1.0);
                 std::array<T, 2> labels = {1.0, 1.0};
-                this->labels.push_back(labels);
+                this->line_labels.push_back(labels);
             }
         }
 
@@ -66,14 +73,19 @@ class LineGraph
             return this->N;
         }
 
-        void addNode(std::array<T, 2> labels)
+        void addEndNode(std::array<T, 2> labels)
         {
             /*
              * Add new node onto the end of the graph, with the two 
              * additional edges. 
              */
             this->N++;
-            this->labels.push_back(labels);
+            this->line_labels.push_back(labels);
+            std::stringstream si, sj;
+            si << this->N - 1;
+            sj << this->N;
+            this->addEdge(si.str(), sj.str(), labels[0]);
+            this->addEdge(sj.str(), si.str(), labels[1]);
         }
 
         void setLabels(unsigned i, std::array<T, 2> labels)
@@ -85,7 +97,12 @@ class LineGraph
              * That is, if i == 0, then the labels between nodes 0 and 1
              * are updated, and so on.
              */
-            this->labels[i] = labels;
+            this->line_labels[i] = labels;
+            std::stringstream si, sj;
+            si << i;
+            sj << i + 1;
+            this->setEdgeLabel(si.str(), sj.str(), labels[0]);
+            this->setEdgeLabel(sj.str(), si.str(), labels[1]);
         }
 
         Matrix<T, 2, 1> computeCleavageStats(T kdis = 1.0, T kcat = 1.0)
@@ -97,24 +114,28 @@ class LineGraph
              * required spanning forests of the grid graph. 
              */
             // Compute the probability of cleavage ...
-            T prob = 1.0 + (kdis / this->labels[0][0]);
+            T prob = 1.0 + (kdis / this->line_labels[0][0]);
             for (unsigned i = 1; i < this->N; ++i)
-                prob += (this->labels[i-1][1] / this->labels[i][0]);
-            prob += (this->labels[this->N-1][1] / kcat);
+                prob += (this->line_labels[i-1][1] / this->line_labels[i][0]);
+            prob += (this->line_labels[this->N-1][1] / kcat);
             prob = 1.0 / prob;
 
             // ... and the mean first passage time to the cleaved state
             T time = 0.0;
-            for (unsigned i = 0; i < this->N; ++i)
+            for (int i = 0; i < this->N; ++i)
             {
-                T bi = this->labels[i][0];
+                T bi = this->line_labels[i][0];
                 T t1 = 1.0;
-                for (unsigned j = i + 1; j < this->N; ++j)
-                    t1 += (this->labels[j-1][1] / this->labels[j][0]);
-                t1 += (this->labels[this->N-1][1] / kcat);
-                T t2 = 1.0 + (kdis / this->labels[0][0]);
-                for (unsigned j = 0; j < i - 1; ++j)
-                    t2 += (this->labels[j-1][1] / this->labels[j][0]);
+                for (int j = i + 1; j < this->N; ++j)
+                    t1 += (this->line_labels[j-1][1] / this->line_labels[j][0]);
+                t1 += (this->line_labels[this->N-1][1] / kcat);
+                T t2 = 1.0;
+                if (i > 0)
+                {
+                    t2 += (kdis / this->line_labels[0][0]);
+                    for (int j = 1; j < i - 1; ++j)
+                        t2 += (this->line_labels[j-1][1] / this->line_labels[j][0]);
+                }
                 time += (1.0 / bi) * (1.0 + t1) * (1.0 + t2);
             }
             time += (1.0 / kcat) / prob; 
