@@ -16,15 +16,6 @@
  */
 using namespace Eigen;
 
-enum SolutionMethod
-{
-    /*
-     * List of methods for solving for cleavage statistics.
-     */
-    FORESTS,
-    LAPLACIAN
-};
-
 template <typename T>
 class GridGraph
 {
@@ -555,7 +546,36 @@ class GridGraph
             return v(1);
         }
 
-        Matrix<T, 2, 1> computeCleavageStats(T kdis = 1.0, T kcat = 1.0, SolutionMethod method)
+        Matrix<T, 2, 1> computeCleavageStatsByInverse(T kdis = 1.0, T kcat = 1.0)
+        {
+            /*
+             * Compute probability of cleavage and (conditional) mean first passage
+             * time to the cleaved state in the given model, with the specified
+             * terminal rates of dissociation and cleavage, by directly solving
+             * for the inverse of the Laplacian and its square.
+             */
+            // Compute the Laplacian of the graph
+            Matrix<T, Dynamic, Dynamic> laplacian = this->laplacian();
+
+            // Update the Laplacian matrix with the specified terminal rates
+            laplacian(0, 0) += kdis;
+            laplacian(2*this->N+1, 2*this->N+1) += kcat;
+
+            // Solve matrix equation for cleavage probabilities
+            Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(2*this->N+2);
+            term_rates(2*this->N+1) = kcat;
+            Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
+
+            // Solve matrix equation for mean first passage times
+            Matrix<T, Dynamic, 1> times = (laplacian * laplacian).colPivHouseholderQr().solve(term_rates);
+            
+            // Collect the two required quantities
+            Matrix<T, 2, 1> stats;
+            stats << probs(0), times(0);
+            return stats;
+        }
+
+        Matrix<T, 2, 1> computeCleavageStats(T kdis = 1.0, T kcat = 1.0)
         {
             /*
              * Compute probability of cleavage and (conditional) mean first passage
@@ -563,79 +583,55 @@ class GridGraph
              * terminal rates of dissociation and cleavage, by enumerating the
              * required spanning forests of the grid graph. 
              */
-            Matrix<T, 2, 1> stats;
-            if (method == FORESTS)
+            // Compute weight of spanning trees rooted at each vertex
+            Matrix<T, Dynamic, 2> wt = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
+            for (unsigned i = 0; i <= this->N; ++i)
             {
-                // Compute weight of spanning trees rooted at each vertex
-                Matrix<T, Dynamic, 2> wt = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-                for (unsigned i = 0; i <= this->N; ++i)
-                {
-                    wt(i, 0) = this->weightTrees(0, i);
-                    wt(i, 1) = this->weightTrees(1, i);
-                }
-
-                // Compute weights of spanning forests rooted at {(A,0), (B,N)}
-                T wA0BN = this->weightEndToEndForests();
-
-                // Compute the weights of the spanning forests rooted at (X,i) and (B,N)
-                // with paths from (A,0) to (X,i)
-                Matrix<T, Dynamic, 2> wf = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-                for (unsigned i = 1; i <= this->N; ++i)
-                    wf(i, 0) = this->weightDirectedForests(0, i);
-                for (unsigned i = 0; i < this->N; ++i)
-                    wf(i, 1) = this->weightDirectedForests(1, i);
-                
-                // Compute the weights of the spanning forests rooted at (A,0) and (B,N)
-                // with paths from (X,i) and (B,N)
-                Matrix<T, Dynamic, 2> wr = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-                for (unsigned i = 1; i <= this->N; ++i)
-                    wr(i, 0) = this->weightDirectedForests2(0, i);
-                for (unsigned i = 0; i < this->N; ++i)
-                    wr(i, 1) = this->weightDirectedForests2(1, i);
-
-                // For each vertex in the original graph, compute its contribution
-                // to the mean first passage time
-                T denom = kdis * wt(0,0) + kcat * wt(this->N,1) + kdis * kcat * wA0BN;
-                T prob = (kcat * wt(this->N,1)) / denom;
-                T time = 0.0;
-                for (unsigned i = 1; i <= this->N; ++i)
-                {
-                    T term = (kcat * wf(i,0) + wt(i,0)) / denom;
-                    term *= (1.0 + (kdis * wr(i,0) / wt(this->N,1)));
-                    time += term;
-                }
-                for (unsigned i = 0; i < this->N; ++i)
-                {
-                    T term = (kcat * wf(i,1) + wt(i,1)) / denom;
-                    term *= (1.0 + (kdis * wr(i,1) / wt(this->N,1)));
-                    time += term;
-                }
-                time += (wt(0,0) + wt(this->N,1) + (kdis + kcat) * wA0BN) / denom;
-
-                // Collect the two required quantities
-                stats << prob, time;
+                wt(i, 0) = this->weightTrees(0, i);
+                wt(i, 1) = this->weightTrees(1, i);
             }
-            else if (method == LAPLACIAN)
-            {
-                // Compute the Laplacian of the graph
-                Matrix<T, Dynamic, Dynamic> laplacian = this->laplacian();
 
-                // Update the Laplacian matrix with the specified terminal rates
-                laplacian(0, 0) += kdis;
-                laplacian(2*this->N+1, 2*this->N+1) += kcat;
+            // Compute weights of spanning forests rooted at {(A,0), (B,N)}
+            T wA0BN = this->weightEndToEndForests();
 
-                // Solve matrix equation for cleavage probabilities
-                Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(2*this->N+2);
-                term_rates(2*this->N+1) = kcat;
-                Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
-
-                // Solve matrix equation for mean first passage times
-                Matrix<T, Dynamic, 1> times = (laplacian * laplacian).colPivHouseholderQr().solve(term_rates);
-                
-                // Collect the two required quantities
-                stats << probs(0), times(0);
-            }
+            // Compute the weights of the spanning forests rooted at (X,i) and (B,N)
+            // with paths from (A,0) to (X,i)
+            Matrix<T, Dynamic, 2> wf = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
+            for (unsigned i = 1; i <= this->N; ++i)
+                wf(i, 0) = this->weightDirectedForests(0, i);
+            for (unsigned i = 0; i < this->N; ++i)
+                wf(i, 1) = this->weightDirectedForests(1, i);
             
+            // Compute the weights of the spanning forests rooted at (A,0) and (B,N)
+            // with paths from (X,i) and (B,N)
+            Matrix<T, Dynamic, 2> wr = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
+            for (unsigned i = 1; i <= this->N; ++i)
+                wr(i, 0) = this->weightDirectedForests2(0, i);
+            for (unsigned i = 0; i < this->N; ++i)
+                wr(i, 1) = this->weightDirectedForests2(1, i);
+
+            // For each vertex in the original graph, compute its contribution
+            // to the mean first passage time
+            T denom = kdis * wt(0,0) + kcat * wt(this->N,1) + kdis * kcat * wA0BN;
+            T prob = (kcat * wt(this->N,1)) / denom;
+            T time = 0.0;
+            for (unsigned i = 1; i <= this->N; ++i)
+            {
+                T term = (kcat * wf(i,0) + wt(i,0)) / denom;
+                term *= (1.0 + (kdis * wr(i,0) / wt(this->N,1)));
+                time += term;
+            }
+            for (unsigned i = 0; i < this->N; ++i)
+            {
+                T term = (kcat * wf(i,1) + wt(i,1)) / denom;
+                term *= (1.0 + (kdis * wr(i,1) / wt(this->N,1)));
+                time += term;
+            }
+            time += (wt(0,0) + wt(this->N,1) + (kdis + kcat) * wA0BN) / denom;
+
+            // Collect the two required quantities
+            Matrix<T, 2, 1> stats;
+            stats << prob, time;
             return stats; 
         }
 };
