@@ -12,7 +12,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/12/2019
+ *     11/20/2019
  */
 using namespace Eigen;
 
@@ -122,6 +122,27 @@ class GridGraph
                 laplacian(i, i) = -laplacian.row(i).sum();
 
             return laplacian;
+        }
+
+        Matrix<T, Dynamic, Dynamic> recurrenceForestWeightMatrix(unsigned k)
+        {
+            /*
+             * Return the k-th forest weight matrix with the recurrence 
+             * relation of Chebotarev and Agaev.
+             */
+            Matrix<T, Dynamic, Dynamic> weights;   // k-th forest weight matrix
+            T sigma;                               // Sum of all k-th forest weights
+            Matrix<T, Dynamic, Dynamic> identity = Matrix<T, Dynamic, Dynamic>::Identity(2*this->N+2);
+
+            laplacian = this->laplacian();
+            weights = Matrix<T, Dynamic, Dynamic>::Identity(2*this->N+2);
+            for (unsigned i = 0; i < k; ++i)
+            {
+                sigma = (laplacian * weights).trace() / (i + 1);
+                weights = -laplacian * weights + sigma * identity;
+            }
+
+            return weights;
         }
 
         Matrix<T, 3, 1> recurrenceA(const Ref<const Matrix<T, 3, 1> >& v, unsigned j)
