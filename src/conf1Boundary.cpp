@@ -81,6 +81,83 @@ VectorXDual computeCleavageStats(const Ref<const VectorXDual>& params)
     return stats;
 }
 
+std::function<VectorXDual(const Ref<const VectorXDual>&)> cleavageFunc(unsigned n_mismatches)
+{
+    /*
+     * Return the function instance with the given number of mismatches.
+     */
+    std::function<VectorXDual(const Ref<const VectorXDual>&)> func;
+    switch (n_mismatches)
+    {
+        case 0:
+            func = computeCleavageStats<0>;
+            break;
+        case 1:
+            func = computeCleavageStats<1>;
+            break;
+        case 2:
+            func = computeCleavageStats<2>;
+            break;
+        case 3:
+            func = computeCleavageStats<3>;
+            break;
+        case 4:
+            func = computeCleavageStats<4>;
+            break;
+        case 5:
+            func = computeCleavageStats<5>;
+            break;
+        case 6:
+            func = computeCleavageStats<6>;
+            break;
+        case 7:
+            func = computeCleavageStats<7>;
+            break;
+        case 8:
+            func = computeCleavageStats<8>;
+            break;
+        case 9:
+            func = computeCleavageStats<9>;
+            break;
+        case 10:
+            func = computeCleavageStats<10>;
+            break;
+        case 11:
+            func = computeCleavageStats<11>;
+            break;
+        case 12:
+            func = computeCleavageStats<12>;
+            break;
+        case 13:
+            func = computeCleavageStats<13>;
+            break;
+        case 14:
+            func = computeCleavageStats<14>;
+            break;
+        case 15:
+            func = computeCleavageStats<15>;
+            break;
+        case 16:
+            func = computeCleavageStats<16>;
+            break;
+        case 17:
+            func = computeCleavageStats<17>;
+            break;
+        case 18:
+            func = computeCleavageStats<18>;
+            break;
+        case 19:
+            func = computeCleavageStats<19>;
+            break;
+        case 20:
+            func = computeCleavageStats<20>;
+            break;
+        default:
+            break;
+    }
+    return func;
+}
+
 VectorXDual mutate_by_delta(const Ref<const VectorXDual>& params, std::mt19937& rng)
 {
     /*
@@ -100,9 +177,10 @@ VectorXDual mutate_by_delta(const Ref<const VectorXDual>& params, std::mt19937& 
 int main(int argc, char** argv)
 {
     // Sample model parameter combinations
-    unsigned n;
-    sscanf(argv[4], "%u", &n);
-    MatrixXd params(n, 6);
+    unsigned n, m;
+    sscanf(argv[4], "%u", &m);
+    sscanf(argv[5], "%u", &n);
+    MatrixXd params(n, 4);
     try
     {
         params = sampleFromConvexPolytopeTriangulation(argv[2], n, rng);
@@ -131,8 +209,7 @@ int main(int argc, char** argv)
     MatrixXd A = constraints.getA();
     VectorXd b = constraints.getb();
     BoundaryFinder<DualNumber> finder(4, tol, rng, A, b);
-    params = params.block(0, 0, params.rows(), 4);
-    std::function<VectorXDual(const Ref<const VectorXDual>&)> func = computeCleavageStats<1>;
+    std::function<VectorXDual(const Ref<const VectorXDual>&)> func = cleavageFunc(m);
     std::function<VectorXDual(const Ref<const VectorXDual>&, std::mt19937&)> mutate = mutate_by_delta;
     finder.run(
         func, mutate, params, max_step_iter, max_pull_iter, simplify, verbose,
