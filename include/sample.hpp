@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include <regex>
-#include <boost/random.hpp>
+#include <random>
 #include <Eigen/Dense>
 
 /*
@@ -16,14 +16,14 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/12/2019
+ *     11/21/2019
  */
 using namespace Eigen;
 
 // Instantiate a gamma distribution with alpha = 1
-boost::random::gamma_distribution<> gamma_dist(1.0);
+std::gamma_distribution<> gamma_dist(1.0);
 
-MatrixXd sampleFromSimplex(const Ref<const MatrixXd>& vertices, unsigned npoints, boost::random::mt19937& rng)
+MatrixXd sampleFromSimplex(const Ref<const MatrixXd>& vertices, unsigned npoints, std::mt19937& rng)
 {
     /*
      * Given an array of vertices for a simplex and a desired number of 
@@ -36,7 +36,7 @@ MatrixXd sampleFromSimplex(const Ref<const MatrixXd>& vertices, unsigned npoints
      *     (D+1) x D matrix of vertex coordinates, with each row a vertex. 
      * unsigned points
      *     Number of points to sample from the simplex.
-     * boost::random::mt19937& rng
+     * std::mt19937& rng
      *     Reference to random number generator instance.   
      */
     unsigned dim = vertices.cols();     // Dimension of the ambient space
@@ -63,8 +63,7 @@ MatrixXd sampleFromSimplex(const Ref<const MatrixXd>& vertices, unsigned npoints
 }
 
 MatrixXd sampleFromConvexPolytopeTriangulation(std::string triangulation_file,
-                                               unsigned npoints,
-                                               boost::random::mt19937& rng)
+                                               unsigned npoints, std::mt19937& rng)
 {
     /*
      * Given a .delv file specifying a convex polytope in terms of its 
@@ -176,7 +175,7 @@ MatrixXd sampleFromConvexPolytopeTriangulation(std::string triangulation_file,
     double sum_volumes = 0.0;
     for (auto&& v : volumes) sum_volumes += v;
     for (auto&& v : volumes) v /= sum_volumes;
-    boost::random::discrete_distribution<> dist(volumes);
+    std::discrete_distribution<> dist(volumes.begin(), volumes.end());
 
     // Maintain an array of points ...
     MatrixXd sample(npoints, dim);
