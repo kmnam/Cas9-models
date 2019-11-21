@@ -7,17 +7,18 @@
 #include <utility>
 #include <stdexcept>
 #include <Eigen/Dense>
+#include <digraph.hpp>
 
 /* 
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/20/2019
+ *     11/21/2019
  */
 using namespace Eigen;
 
 template <typename T>
-class GridGraph
+class GridGraph : public MarkovDigraph<T>
 {
     /*
      * An implementation of the two-state grid graph, with recurrence relations
@@ -30,31 +31,46 @@ class GridGraph
         std::array<T, 2> start;
 
         // Array of edge labels that grows with the length of the graph
-        std::vector<std::array<T, 6> > labels;
+        std::vector<std::array<T, 6> > rung_labels;
 
     public:
-        GridGraph()
+        GridGraph() : MarkovDigraph<T>()
         {
             /*
              * Trivial constructor with length zero; set edge labels to unity.
              */
+            this->addEdge("A0", "B0", 1.0);
+            this->addEdge("B0", "A0", 1.0);
             this->N = 0;
             this->start[0] = 1.0;
             this->start[1] = 1.0;
         }
 
-        GridGraph(unsigned N)
+        GridGraph(unsigned N) : MarkovDigraph<T>()
         {
             /*
              * Trivial constructor with given length; set edge labels to unity.
              */
+            this->addEdge("A0", "B0", 1.0);
+            this->addEdge("B0", "A0", 1.0);
             this->N = N;
             this->start[0] = 1.0;
             this->start[1] = 1.0;
             for (unsigned i = 0; i < N; ++i)
             {
+                std::stringstream sai, sbi, saj, sbj;
+                sai << "A" << i;
+                sbi << "B" << i;
+                saj << "A" << i + 1;
+                sbj << "B" << i + 1;
+                this->addEdge(sai.str(), saj.str(), 1.0);
+                this->addEdge(saj.str(), sai.str(), 1.0);
+                this->addEdge(sbi.str(), sbj.str(), 1.0);
+                this->addEdge(sbj.str(), sbi.str(), 1.0);
+                this->addEdge(saj.str(), sbj.str(), 1.0);
+                this->addEdge(sbj.str(), saj.str(), 1.0);
                 std::array<T, 6> labels = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
-                this->labels.push_back(labels);
+                this->rung_labels.push_back(labels);
             }
         }
 
@@ -79,6 +95,8 @@ class GridGraph
              * Set the edge labels of the zeroth rung of the graph to the
              * given values.
              */
+            this->setEdgeLabel("A0", "B0", A_to_B);
+            this->setEdgeLabel("B0", "A0", B_to_A);
             this->start[0] = A_to_B;
             this->start[1] = B_to_A;
         }
@@ -90,7 +108,18 @@ class GridGraph
              * six new edge labels. 
              */
             this->N++;
-            this->labels.push_back(labels);
+            this->rung_labels.push_back(labels);
+            std::stringstream sai, sbi, saj, sbj;
+            sai << "A" << this->N - 1;
+            sbi << "B" << this->N - 1;
+            saj << "A" << this->N;
+            sbj << "B" << this->N;
+            this->addEdge(sai.str(), saj.str(), labels[0]);
+            this->addEdge(saj.str(), sai.str(), labels[1]);
+            this->addEdge(sbi.str(), sbj.str(), labels[2]);
+            this->addEdge(sbj.str(), sbi.str(), labels[3]);
+            this->addEdge(saj.str(), sbj.str(), labels[4]);
+            this->addEdge(sbj.str(), saj.str(), labels[5]);
         }
 
         void setRungLabels(unsigned i, std::array<T, 6> labels)
@@ -98,30 +127,18 @@ class GridGraph
             /*
              * Set the edge labels for the i-th rung to the given values. 
              */
-            this->labels[i] = labels;
-        }
-
-        Matrix<T, Dynamic, Dynamic> laplacian()
-        {
-            /*
-             * Return the row Laplacian matrix of the graph.
-             */
-            Matrix<T, Dynamic, Dynamic> laplacian = Matrix<T, Dynamic, Dynamic>::Zero(2*this->N+2, 2*this->N+2);
-            laplacian(0, this->N+1) = -this->start[0];
-            laplacian(this->N+1, 0) = -this->start[1];
-            for (unsigned i = 0; i < this->N; ++i)
-            {
-                laplacian(i, i+1) = -this->labels[i][0];
-                laplacian(i+1, i) = -this->labels[i][1];
-                laplacian(this->N+i+1, this->N+i+2) = -this->labels[i][2];
-                laplacian(this->N+i+2, this->N+i+1) = -this->labels[i][3];
-                laplacian(i+1, this->N+i+2) = -this->labels[i][4];
-                laplacian(this->N+i+2, i+1) = -this->labels[i][5];
-            }
-            for (unsigned i = 0; i < 2*this->N + 2; ++i)
-                laplacian(i, i) = -laplacian.row(i).sum();
-
-            return laplacian;
+            this->rung_labels[i] = labels;
+            std::stringstream sai, sbi, saj, sbj;
+            sai << "A" << i;       // i == 0 means edges between A0/B0 and A1/B1, etc.
+            sbi << "B" << i;
+            saj << "A" << i + 1;
+            sbj << "B" << i + 1;
+            this->setEdgeLabel(sai.str(), saj.str(), labels[0]);
+            this->setEdgeLabel(saj.str(), sai.str(), labels[1]);
+            this->setEdgeLabel(sbi.str(), sbj.str(), labels[2]);
+            this->setEdgeLabel(sbj.str(), sbi.str(), labels[3]);
+            this->setEdgeLabel(saj.str(), sbj.str(), labels[4]);
+            this->setEdgeLabel(sbj.str(), saj.str(), labels[5]);
         }
 
         Matrix<T, 3, 1> recurrenceA(const Ref<const Matrix<T, 3, 1> >& v, unsigned j)
@@ -130,12 +147,12 @@ class GridGraph
              * Apply recurrence A at the j-th rung.
              */
             Matrix<T, 3, 3> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << l*c + k*d + c*d, a*k*d, b*l*c,
                                d,   a*d,     0,
                                c,     0,   b*c;
@@ -148,12 +165,12 @@ class GridGraph
              * Apply recurrence B at the j-th rung. 
              */
             Matrix<T, 3, 3> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << a*(l+d),     b*l, a*b*l,
                      a*k, b*(k+c), a*b*k,
                        a,       b,   a*b;
@@ -166,11 +183,11 @@ class GridGraph
              * Apply recurrence C at the j-th rung.
              */
             Matrix<T, 3, 3> m;
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << l*c + k*d + c*d, 0, b*l*c,
                                d, 0,     0,
                                c, 0,   b*c;
@@ -183,11 +200,11 @@ class GridGraph
              * Apply recurrence D at the j-th rung.
              */
             Matrix<T, 3, 3> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << 0, l*c + k*d + c*d, a*k*d,
                  0,               d,   a*d,
                  0,               c,     0;
@@ -200,12 +217,12 @@ class GridGraph
              * Apply recurrence E at the j-th rung.
              */
             Matrix<T, 3, 4> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << d+l, a*(d+l),     b*l, a*b*l,
                  c+k,     a*k, b*(c+k), a*b*k,
                    1,       a,       b,   a*b;
@@ -218,11 +235,12 @@ class GridGraph
              * Apply recurrence F at the j-th rung.
              */
             Matrix<T, 3, 2> m;
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << d+l,     b*l,
                  c+k, b*(c+k),
                    1,       b;
@@ -235,11 +253,12 @@ class GridGraph
              * Apply recurrence G at the j-th rung.
              */
             Matrix<T, 3, 2> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << d+l, a*(d+l),
                  c+k,     a*k,
                    1,       a;
@@ -252,12 +271,12 @@ class GridGraph
              * Apply recurrence H at the j-th rung.
              */
             Matrix<T, 3, 4> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << d+l, a*(d+l),     b*l, a*b*l,
                  c+k,     a*k, b*(c+k), a*b*k,
                    1,       a,       b,   a*b;
@@ -270,8 +289,8 @@ class GridGraph
              * Apply recurrence I at the j-th rung.
              */
             Matrix<T, 2, 4> m;
-            T a = this->labels[j-1][0];
-            T b = this->labels[j-1][2];
+            T a = this->rung_labels[j-1][0];
+            T b = this->rung_labels[j-1][2];
             m << 0, b, a*b,   0,
                  a, 0,   0, a*b;
             return m * v;
@@ -283,12 +302,12 @@ class GridGraph
              * Apply recurrence J at the j-th rung.
              */
             Matrix<T, 4, 4> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << d+l,   0,       0,     b*l, 
                    0, d+l, a*(d+l),       0,
                  c+k,   0,       0, b*(c+k),
@@ -302,8 +321,8 @@ class GridGraph
              * Apply recurrence K at the j-th rung.
              */
             Matrix<T, 2, 4> m;
-            T a = this->labels[j-1][0];
-            T b = this->labels[j-1][2];
+            T a = this->rung_labels[j-1][0];
+            T b = this->rung_labels[j-1][2];
             m << 1, 0, 0, b,
                  0, 1, a, 0;
             return m * v;
@@ -315,12 +334,12 @@ class GridGraph
              * Apply recurrence L at the j-th rung.
              */
             Matrix<T, 4, 4> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << a*(d+l),     b*l, a*b*l, a*b*l,
                      a*k, b*(c+k), a*b*k, a*b*k,
                        a,       0,   a*b,     0,
@@ -334,12 +353,12 @@ class GridGraph
              * Apply recurrence M at the j-th rung.
              */
             Matrix<T, 2, 6> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << k, a*k, b*k, a*b*k, b*c,   0,
                  l, a*l, b*l, a*b*l,   0, a*d;
             return m * v;
@@ -351,12 +370,12 @@ class GridGraph
              * Apply recurrence N at the j-th rung.
              */
             Matrix<T, 4, 5> m;
-            T a = this->labels[j-1][0];
-            T c = this->labels[j-1][1];
-            T b = this->labels[j-1][2];
-            T d = this->labels[j-1][3];
-            T k = this->labels[j-1][4];
-            T l = this->labels[j-1][5];
+            T a = this->rung_labels[j-1][0];
+            T c = this->rung_labels[j-1][1];
+            T b = this->rung_labels[j-1][2];
+            T d = this->rung_labels[j-1][3];
+            T k = this->rung_labels[j-1][4];
+            T l = this->rung_labels[j-1][5];
             m << a*(d+l),       0, a*b*l,     b*l,       0,
                        0,     b*l, a*b*l,       0, a*(d+l),
                      a*k,       0, a*b*k, b*(c+k),       0,
@@ -370,8 +389,8 @@ class GridGraph
              * Apply recurrence O at the j-th rung.
              */
             Matrix<T, 4, 5> m;
-            T a = this->labels[j-1][0];
-            T b = this->labels[j-1][2];
+            T a = this->rung_labels[j-1][0];
+            T b = this->rung_labels[j-1][2];
             m << 0, 0,   0, b, 0,
                  a, 0, a*b, 0, 0,
                  0, b, a*b, 0, 0,
@@ -417,12 +436,12 @@ class GridGraph
             Matrix<T, 4, 1> w;
             T k0 = this->start[0];
             T l0 = this->start[1];
-            T a = this->labels[0][0];
-            T c = this->labels[0][1];
-            T b = this->labels[0][2];
-            T d = this->labels[0][3];
-            T k1 = this->labels[0][4];
-            T l1 = this->labels[0][5];
+            T a = this->rung_labels[0][0];
+            T c = this->rung_labels[0][1];
+            T b = this->rung_labels[0][2];
+            T d = this->rung_labels[0][3];
+            T k1 = this->rung_labels[0][4];
+            T l1 = this->rung_labels[0][5];
             u << l0*c*d + l0*l1*c + b*l1*c + k1*d*l0, d*l0, b*c + c*l0;
             w << u(0), b*l1 + d*l0 + l0*l1, b*k1 + c*l0 + b*c + l0*k1, b + l0;
 
@@ -555,7 +574,7 @@ class GridGraph
              * for the inverse of the Laplacian and its square.
              */
             // Compute the Laplacian of the graph
-            Matrix<T, Dynamic, Dynamic> laplacian = this->laplacian();
+            Matrix<T, Dynamic, Dynamic> laplacian = this->getLaplacian();
 
             // Update the Laplacian matrix with the specified terminal rates
             laplacian(0, 0) += kdis;
