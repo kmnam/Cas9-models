@@ -18,14 +18,29 @@ if __name__ == '__main__':
     ratios = np.loadtxt(sys.argv[2], comments=None, delimiter='\t')
     
     # Plot specificity against speed ratio
-    fig, axes = plt.subplots(nrows=5, ncols=4, figsize=(18, 18))
+    fig, axes = plt.subplots(nrows=5, ncols=4, figsize=(14, 17))
     for i in range(5):
         for j in range(4):
-            c = axes[i,j].hexbin(
-                specs[:,i*4+j], ratios[:,i*4+j], bins='log', gridsize=30,
-                cmap=plt.get_cmap('Blues')
+            # Get max(specificity + speed ratio)
+            m = np.max(specs[:,i*4+j] + ratios[:,i*4+j])
+            axes[i,j].scatter(
+                specs[:,i*4+j], ratios[:,i*4+j], alpha=0.1, rasterized=True
             )
-            plt.colorbar(c, ax=axes[i,j])
+            tradeoff = lambda x: m - x
+            axes[i,j].plot(
+                [np.min(specs[:,i*4+j]), np.max(specs[:,i*4+j])],
+                [tradeoff(np.min(specs[:,i*4+j])), tradeoff(np.max(specs[:,i*4+j]))],
+                color='red', linestyle='--'
+            )
+            axes[i,j].annotate(
+                '{:.2f}'.format(m),
+                (0.9, 0.9),
+                xytext=None,
+                xycoords='axes fraction',
+                size=14,
+                horizontalalignment='right'
+            )
+            axes[i,j].set_title('{} mismatches'.format(i*4 + j + 1), size=14)
     for i in range(5):
         axes[i,0].set_ylabel('Log speed ratio')
     for j in range(4):
