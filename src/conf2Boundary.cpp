@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <random>
 #include <Eigen/Dense>
+#include <pybind11/embed.h>
 #include <boundaryFinder.hpp>
 #include <duals/duals.hpp>
 #include <duals/eigen.hpp>
@@ -19,7 +20,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/21/2019
+ *     11/25/2019
  */
 using namespace Eigen;
 using Duals::DualNumber;
@@ -30,6 +31,8 @@ const unsigned length = 20;
 std::mt19937 rng(1234567890);
 
 std::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
+
+pybind11::scoped_interpreter guard{};   // Start Python interpreter 
 
 int coin_toss(std::mt19937& rng)
 {
