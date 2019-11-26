@@ -6,7 +6,6 @@
 #include <iomanip>
 #include <random>
 #include <Eigen/Dense>
-#include <pybind11/embed.h>
 #include <boundaryFinder.hpp>
 #include <duals/duals.hpp>
 #include <duals/eigen.hpp>
@@ -31,8 +30,6 @@ const unsigned length = 20;
 std::mt19937 rng(1234567890);
 
 std::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
-
-pybind11::scoped_interpreter guard{};   // Start Python interpreter 
 
 int coin_toss(std::mt19937& rng)
 {
@@ -196,8 +193,8 @@ int main(int argc, char** argv)
 
     // Boundary-finding algorithm settings
     double tol = 1e-4;
-    unsigned max_step_iter = 10;
-    unsigned max_pull_iter = 5;
+    unsigned max_step_iter = 100;
+    unsigned max_pull_iter = 10;
     bool simplify = true;
     bool verbose = true;
     unsigned sqp_max_iter = 50;
