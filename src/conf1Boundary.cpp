@@ -19,7 +19,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/25/2019
+ *     11/30/2019
  */
 using namespace Eigen;
 using Duals::DualNumber;
@@ -191,11 +191,16 @@ int main(int argc, char** argv)
         throw;
     }
 
+    // Define trivial filtering function
+    std::function<bool(const Ref<const VectorXDual>& x)> filter = [](const Ref<const VectorXDual>& x){ return false; };
+
     // Boundary-finding algorithm settings
     double tol = 1e-4;
-    unsigned max_step_iter = 100;
-    unsigned max_pull_iter = 10;
-    bool simplify = true;
+    unsigned min_step_iter = 100;
+    unsigned max_step_iter = 500;
+    unsigned min_pull_iter = 10;
+    unsigned max_pull_iter = 50;
+    unsigned max_edges = 100;
     bool verbose = true;
     unsigned sqp_max_iter = 50;
     double sqp_tol = 1e-3;
@@ -212,8 +217,8 @@ int main(int argc, char** argv)
     std::function<VectorXDual(const Ref<const VectorXDual>&)> func = cleavageFunc(m);
     std::function<VectorXDual(const Ref<const VectorXDual>&, std::mt19937&)> mutate = mutate_by_delta;
     finder.run(
-        func, mutate, params, max_step_iter, max_pull_iter, simplify, verbose,
-        sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
+        func, mutate, filter, params, min_step_iter, max_step_iter, min_pull_iter,
+        max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
     );
     params = finder.getParams();
 
