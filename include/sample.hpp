@@ -16,7 +16,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/21/2019
+ *     12/2/2019
  */
 using namespace Eigen;
 
@@ -62,13 +62,14 @@ MatrixXd sampleFromSimplex(const Ref<const MatrixXd>& vertices, unsigned npoints
     return points;
 }
 
-MatrixXd sampleFromConvexPolytopeTriangulation(std::string triangulation_file,
-                                               unsigned npoints, std::mt19937& rng)
+std::pair<MatrixXd, MatrixXd> sampleFromConvexPolytopeTriangulation(std::string triangulation_file,
+                                                                  unsigned npoints, std::mt19937& rng)
 {
     /*
      * Given a .delv file specifying a convex polytope in terms of its 
      * vertices and its Delaunay triangulation, parse the simplices of
-     * the triangulation and sample uniformly from the polytope. 
+     * the triangulation and sample uniformly from the polytope,
+     * returning the vertices of the polytope and the sampled points.  
      */
     // Vector of vertex coordinates
     std::vector<std::vector<double> > vertices;
@@ -195,8 +196,18 @@ MatrixXd sampleFromConvexPolytopeTriangulation(std::string triangulation_file,
         // Sample a point from the simplex
         sample.row(i) = sampleFromSimplex(simplex, 1, rng);
     }
+
+    // Write vertex coordinates to a matrix
+    MatrixXd vertices_mat(vertices.size(), dim);
+    for (unsigned i = 0; i < vertices.size(); ++i)
+    {
+        for (unsigned j = 0; j < dim; ++j)
+        {
+            vertices_mat(i,j) = vertices[i][j];
+        }
+    }
     
-    return sample;
+    return std::make_pair(vertices_mat, sample);
 }
 
 #endif
