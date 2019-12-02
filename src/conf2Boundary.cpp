@@ -211,7 +211,7 @@ int main(int argc, char** argv)
     unsigned max_step_iter = 500;
     unsigned min_pull_iter = 10;
     unsigned max_pull_iter = 50;
-    unsigned max_edges = 100;
+    unsigned max_edges = 50;
     bool verbose = true;
     unsigned sqp_max_iter = 50;
     double sqp_tol = 1e-3;
