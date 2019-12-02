@@ -5,6 +5,7 @@
 #include <utility>
 #include <iomanip>
 #include <random>
+#include <tuple>
 #include <Eigen/Dense>
 #include "../include/graphs/line.hpp"
 #include "../include/sample.hpp"
@@ -16,7 +17,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/21/2019
+ *     12/2/2019
  */
 using namespace Eigen;
 
@@ -75,14 +76,14 @@ int main(int argc, char** argv)
     // Sample model parameter combinations
     unsigned n;
     sscanf(argv[3], "%u", &n);
-    MatrixXd params(n, 4);
+    MatrixXd vertices;
+    MatrixXd params;
     try
     {
-        params = sampleFromConvexPolytopeTriangulation(argv[1], n, rng);
+        std::tie(vertices, params) = sampleFromConvexPolytopeTriangulation(argv[1], n, rng);
     }
     catch (const std::exception& e)
     {
-        std::cerr << e.what() << std::endl;
         throw;
     }
 

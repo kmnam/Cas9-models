@@ -5,6 +5,7 @@
 #include <utility>
 #include <iomanip>
 #include <random>
+#include <tuple>
 #include <Eigen/Dense>
 #include <boundaryFinder.hpp>
 #include <duals/duals.hpp>
@@ -19,7 +20,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/30/2019
+ *     12/2/2019
  */
 using namespace Eigen;
 using Duals::DualNumber;
@@ -180,10 +181,11 @@ int main(int argc, char** argv)
     unsigned n, m;
     sscanf(argv[4], "%u", &m);
     sscanf(argv[5], "%u", &n);
-    MatrixXd params(n, 4);
+    MatrixXd vertices;
+    MatrixXd params;
     try
     {
-        params = sampleFromConvexPolytopeTriangulation(argv[2], n, rng);
+        std::tie(vertices, params) = sampleFromConvexPolytopeTriangulation(argv[2], n, rng);
     }
     catch (const std::exception& e)
     {
