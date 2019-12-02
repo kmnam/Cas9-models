@@ -4,7 +4,7 @@ Plots specificity vs. speed ratio.
 Author:
     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
 Last updated:
-    11/26/2019
+    12/2/2019
 """
 
 import sys
@@ -34,7 +34,7 @@ if __name__ == '__main__':
             )
             axes[i,j].annotate(
                 '{:.2f}'.format(m),
-                (0.9, 0.9),
+                (0.95, 0.9),
                 xytext=None,
                 xycoords='axes fraction',
                 size=14,
@@ -42,9 +42,9 @@ if __name__ == '__main__':
             )
             axes[i,j].set_title('{} mismatches'.format(i*4 + j + 1), size=14)
     for i in range(5):
-        axes[i,0].set_ylabel('Log speed ratio')
+        axes[i,0].set_ylabel(r'$\log{\,\omega(\sigma)}$', size=14)
     for j in range(4):
-        axes[-1,j].set_xlabel('Log specificity')
+        axes[-1,j].set_xlabel(r'$\log{\,\psi(\sigma)}$', size=14)
     plt.tight_layout()
     plt.savefig(sys.argv[3])
 
