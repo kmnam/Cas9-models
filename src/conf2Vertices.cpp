@@ -7,6 +7,8 @@
 #include <tuple>
 #include <random>
 #include <Eigen/Dense>
+#include <boost/multiprecision/mpfr.hpp>
+#include <boost/multiprecision/eigen.hpp>
 #include "../include/graphs/grid.hpp"
 #include "../include/sample.hpp"
 
@@ -20,20 +22,28 @@
  *     12/2/2019
  */
 using namespace Eigen;
+using boost::multiprecision::number;
+using boost::multiprecision::mpfr_float_backend;
+using boost::multiprecision::et_off;
+typedef number<mpfr_float_backend<200>, et_on> mpfr_200;
+typedef Matrix<mpfr_200, Dynamic, 1> VectorXT;
+typedef Matrix<mpfr_200, Dynamic, Dynamic> MatrixXT;
 
 const unsigned length = 20;
 
 std::mt19937 rng(1234567890);
 
-MatrixXd computeCleavageStats(const Ref<const VectorXd>& params)
+MatrixXT computeCleavageStats(const Ref<const VectorXT>& params)
 {
     /*
      * Compute the specificity and speed ratio with respect to the 
      * given number of mismatches, with the given set of parameter
      * values. 
      */
+    using boost::multiprecision::pow;
+
     // Array of DNA/RNA match parameters
-    std::array<double, 6> match_params;
+    std::array<mpfr_200, 6> match_params;
     match_params[0] = pow(10.0, params(0));
     match_params[1] = pow(10.0, params(1));
     match_params[2] = pow(10.0, params(0));
@@ -42,7 +52,7 @@ MatrixXd computeCleavageStats(const Ref<const VectorXd>& params)
     match_params[5] = pow(10.0, params(5));
 
     // Array of DNA/RNA mismatch parameters
-    std::array<double, 6> mismatch_params;
+    std::array<mpfr_200, 6> mismatch_params;
     mismatch_params[0] = pow(10.0, params(2));
     mismatch_params[1] = pow(10.0, params(3));
     mismatch_params[2] = pow(10.0, params(2));
@@ -51,25 +61,25 @@ MatrixXd computeCleavageStats(const Ref<const VectorXd>& params)
     mismatch_params[5] = pow(10.0, params(5));
 
     // Populate each rung with DNA/RNA match parameters
-    GridGraph<double>* model = new GridGraph<double>(length);
+    GridGraph<mpfr_200>* model = new GridGraph<mpfr_200>(length);
     for (unsigned j = 0; j < length; ++j)
         model->setRungLabels(j, match_params);
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<double, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+    Matrix<mpfr_200, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
-    MatrixXd stats(length, 2);
+    MatrixXT stats(length, 2);
     for (unsigned j = 1; j <= length; ++j)
     {
         model->setRungLabels(length - j, mismatch_params);
-        Matrix<double, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+        Matrix<mpfr_200, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
         
         // Compute the specificity and speed ratio
-        double specificity = match_data(0) - mismatch_data(0);
-        double speed_ratio = mismatch_data(1) - match_data(1);
+        mpfr_200 specificity = match_data(0) - mismatch_data(0);
+        mpfr_200 speed_ratio = mismatch_data(1) - match_data(1);
         stats(j-1, 0) = specificity;
         stats(j-1, 1) = speed_ratio;
     }
@@ -81,24 +91,36 @@ MatrixXd computeCleavageStats(const Ref<const VectorXd>& params)
 int main(int argc, char** argv)
 {
     // Sample model parameter combinations
-    MatrixXd vertices;
-    MatrixXd params;
+    MatrixXd v;
+    MatrixXd p;
     try
     {
-        std::tie(vertices, params) = sampleFromConvexPolytopeTriangulation(argv[1], 1, rng);
+        std::tie(v, p) = sampleFromConvexPolytopeTriangulation(argv[1], 1, rng);
     }
     catch (const std::exception& e)
     {
         throw;
     }
-    unsigned n = vertices.rows();
-
-    // Run the boundary-finding algorithm
-    MatrixXd specs(n, length);
-    MatrixXd speed(n, length);
+    unsigned n = v.rows();
+    unsigned d = v.cols();
+    MatrixXT vertices(n, d);
     for (unsigned i = 0; i < n; ++i)
     {
-        MatrixXd stats = computeCleavageStats(vertices.row(i));
+        for (unsigned j = 0; j < d; ++j)
+        {
+            std::stringstream ss;
+            ss << std::setprecision(std::numeric_limits<double>::max_digits10) << v(i,j);
+            mpfr_200 x(ss.str());
+            vertices(i,j) = x;
+        }
+    }
+
+    // Run the boundary-finding algorithm
+    MatrixXT specs(n, length);
+    MatrixXT speed(n, length);
+    for (unsigned i = 0; i < n; ++i)
+    {
+        MatrixXT stats = computeCleavageStats(vertices.row(i));
         specs.row(i) = stats.col(0).transpose();
         speed.row(i) = stats.col(1).transpose();
     }
@@ -110,13 +132,13 @@ int main(int argc, char** argv)
     vertexfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (vertexfile.is_open())
     {
-        for (unsigned i = 0; i < params.rows(); i++)
+        for (unsigned i = 0; i < vertices.rows(); i++)
         {
-            for (unsigned j = 0; j < params.cols() - 1; j++)
+            for (unsigned j = 0; j < vertices.cols() - 1; j++)
             {
-                vertexfile << params(i,j) << "\t";
+                vertexfile << vertices(i,j) << "\t";
             }
-            vertexfile << params(i,params.cols()-1) << std::endl;
+            vertexfile << vertices(i,vertices.cols()-1) << std::endl;
         }
     }
     vertexfile.close();
