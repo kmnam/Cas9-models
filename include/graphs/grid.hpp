@@ -671,12 +671,12 @@ std::ostream& operator<<(std::ostream& stream, const GridGraph<T>& graph)
     for (unsigned i = 1; i < 2 * graph.N + 1; i += 2)
     {
         unsigned j = (i - 1) / 2;
-        rates(i,0) = static_cast<double>(graph.labels[j][0]);
-        rates(i,1) = static_cast<double>(graph.labels[j][1]);
-        rates(i,4) = static_cast<double>(graph.labels[j][2]);
-        rates(i,5) = static_cast<double>(graph.labels[j][3]);
-        rates(i+1,2) = static_cast<double>(graph.labels[j][4]);
-        rates(i+1,3) = static_cast<double>(graph.labels[j][5]);
+        rates(i,0) = static_cast<double>(graph.rung_labels[j][0]);
+        rates(i,1) = static_cast<double>(graph.rung_labels[j][1]);
+        rates(i,4) = static_cast<double>(graph.rung_labels[j][2]);
+        rates(i,5) = static_cast<double>(graph.rung_labels[j][3]);
+        rates(i+1,2) = static_cast<double>(graph.rung_labels[j][4]);
+        rates(i+1,3) = static_cast<double>(graph.rung_labels[j][5]);
     }
     stream << rates;
     return stream;
