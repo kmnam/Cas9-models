@@ -98,7 +98,7 @@ class LineGraph(object):
                     curr = curr + 1 if toss == 1 else curr - 1
 
                 # Sample an exponentially distributed waiting time
-                time += np.random.exponential(sum(rates))
+                time += np.random.exponential(1.0 / sum(rates))
             
             stats[i,0] = curr
             stats[i,1] = time
@@ -205,7 +205,7 @@ class GridGraph(object):
 
                 # Sample an exponentially distributed waiting time
                 norm = sum(rates)
-                time += np.random.exponential(norm)
+                time += np.random.exponential(1.0 / norm)
 
                 # Sample a new vertex
                 probs = [x / norm for x in rates]
