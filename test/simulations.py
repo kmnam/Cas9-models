@@ -124,6 +124,44 @@ class GridGraph(object):
             + [('B', i) for i in range(0, self.length + 1)]
 
     ##########################################################
+    def laplacian(self, pattern, b=1.0, bp=1.0, d=1.0, dp=1.0, k=1.0, l=1.0):
+        """
+        Return the row Laplacian matrix of the grid graph. 
+
+        Parameters
+        ----------
+        pattern : str
+            String of zeros and ones indicating the pattern of matches (1)
+            and mismatches (0).
+        b : float
+            Forward rate at a matching position.
+        bp : float
+            Forward rate at a mismatching position.
+        d : float
+            Backward rate at a matching position.
+        dp : float
+            Backward rate at a mismatching position.
+        k : float
+            Rate of conversion from (A,i) to (B,i).
+        l : float
+            Rate of conversion from (B,i) to (A,i).
+        """
+        f = lambda i: return b if pattern[i] else bp
+        g = lambda i: return d if pattern[i] else dp
+
+        laplacian = np.zeros((2 * self.length + 2, 2 * self.length + 2))
+        for i in range(self.length):
+            laplacian[i, i+1] = -g(i)
+            laplacian[i+1, i] = -f(i)
+            laplacian[self.length+1+i, self.length+1+i+1] = -g(i)
+            laplacian[self.length+1+i+1, self.length+1+i] = -f(i)
+        for i in range(self.length + 1):
+            laplacian[i, self.length+1+i] = -k
+            laplacian[self.length+1+i, i] = -l
+
+        return laplacian
+
+    ##########################################################
     def simulate(self, nsim, pattern, init=('A',0), b=1.0, bp=1.0, d=1.0, dp=1.0,
                  k=1.0, l=1.0, kdis=1.0, kcat=1.0):
         """
