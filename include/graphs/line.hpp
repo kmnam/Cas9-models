@@ -13,7 +13,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/21/2019
+ *     12/3/2019
  */
 using namespace Eigen;
 
@@ -159,6 +159,25 @@ class LineGraph : public MarkovDigraph<T>
             stats << prob, time;
             return stats; 
         }
+
+        template <typename U>
+        friend std::ostream& operator<<(std::ostream& stream, const LineGraph<U>& graph);
 };
+
+template <typename T>
+std::ostream& operator<<(std::ostream& stream, const LineGraph<T>& graph)
+{
+    /*
+     * Output to the given stream. 
+     */
+    MatrixXd rates(graph.N, 2);
+    for (unsigned i = 0; i < graph.N; ++i)
+    {
+        rates(i,0) = static_cast<double>(graph.labels[i][0]);
+        rates(i,1) = static_cast<double>(graph.labels[i][1]);
+    }
+    stream << rates;
+    return stream;
+} 
 
 #endif 

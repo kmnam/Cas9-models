@@ -1,6 +1,7 @@
 #ifndef GRID_GRAPH_HPP
 #define GRID_GRAPH_HPP
 
+#include <iostream>
 #include <sstream>
 #include <array>
 #include <vector>
@@ -13,7 +14,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     11/21/2019
+ *     12/3/2019
  */
 using namespace Eigen;
 
@@ -653,6 +654,32 @@ class GridGraph : public MarkovDigraph<T>
             stats << prob, time;
             return stats; 
         }
+
+        template <typename U>
+        friend std::ostream& operator<<(std::ostream& stream, const GridGraph<U>& graph);
 };
+
+template <typename T>
+std::ostream& operator<<(std::ostream& stream, const GridGraph<T>& graph)
+{
+    /*
+     * Output to the given stream.
+     */
+    MatrixXd rates = MatrixXd::Zero(2 * graph.N + 1, 6);
+    rates(0,2) = static_cast<double>(graph.start[0]);
+    rates(0,3) = static_cast<double>(graph.start[1]);
+    for (unsigned i = 1; i < 2 * graph.N + 1; i += 2)
+    {
+        unsigned j = (i - 1) / 2;
+        rates(i,0) = static_cast<double>(graph.labels[j][0]);
+        rates(i,1) = static_cast<double>(graph.labels[j][1]);
+        rates(i,4) = static_cast<double>(graph.labels[j][2]);
+        rates(i,5) = static_cast<double>(graph.labels[j][3]);
+        rates(i+1,2) = static_cast<double>(graph.labels[j][4]);
+        rates(i+1,3) = static_cast<double>(graph.labels[j][5]);
+    }
+    stream << rates;
+    return stream;
+}
 
 #endif 
