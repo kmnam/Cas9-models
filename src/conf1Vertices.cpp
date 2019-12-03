@@ -25,9 +25,9 @@ using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::et_on;
-typedef number<mpfr_float_backend<200>, et_on> mpfr_200;
-typedef Matrix<mpfr_200, Dynamic, 1> VectorXT;
-typedef Matrix<mpfr_200, Dynamic, Dynamic> MatrixXT;
+typedef number<mpfr_float_backend<1000>, et_on> mpfr_1000;
+typedef Matrix<mpfr_1000, Dynamic, 1> VectorXT;
+typedef Matrix<mpfr_1000, Dynamic, Dynamic> MatrixXT;
 
 const unsigned length = 20;
 
@@ -43,23 +43,23 @@ MatrixXT computeCleavageStats(const Ref<const VectorXT>& params)
     using boost::multiprecision::pow;
 
     // Array of DNA/RNA match parameters
-    std::array<mpfr_200, 2> match_params;
+    std::array<mpfr_1000, 2> match_params;
     match_params[0] = pow(10.0, params(0));
     match_params[1] = pow(10.0, params(1));
 
     // Array of DNA/RNA mismatch parameters
-    std::array<mpfr_200, 2> mismatch_params;
+    std::array<mpfr_1000, 2> mismatch_params;
     mismatch_params[0] = pow(10.0, params(2));
     mismatch_params[1] = pow(10.0, params(3));
 
     // Populate each rung with DNA/RNA match parameters
-    LineGraph<mpfr_200>* model = new LineGraph<mpfr_200>(length);
+    LineGraph<mpfr_1000>* model = new LineGraph<mpfr_1000>(length);
     for (unsigned j = 0; j < length; ++j)
         model->setLabels(j, match_params);
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<mpfr_200, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+    Matrix<mpfr_1000, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
@@ -67,11 +67,11 @@ MatrixXT computeCleavageStats(const Ref<const VectorXT>& params)
     for (unsigned j = 1; j <= length; ++j)
     {
         model->setLabels(length - j, mismatch_params);
-        Matrix<mpfr_200, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+        Matrix<mpfr_1000, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
         
         // Compute the specificity and speed ratio
-        mpfr_200 specificity = match_data(0) - mismatch_data(0);
-        mpfr_200 speed_ratio = mismatch_data(1) - match_data(1);
+        mpfr_1000 specificity = match_data(0) - mismatch_data(0);
+        mpfr_1000 speed_ratio = mismatch_data(1) - match_data(1);
         stats(j-1, 0) = specificity;
         stats(j-1, 1) = speed_ratio;
     }
@@ -102,7 +102,7 @@ int main(int argc, char** argv)
         {
             std::stringstream ss;
             ss << std::setprecision(std::numeric_limits<double>::max_digits10) << v(i,j);
-            mpfr_200 x(ss.str());
+            mpfr_1000 x(ss.str());
             vertices(i,j) = x;
         }
     }
