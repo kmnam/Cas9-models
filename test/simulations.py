@@ -146,18 +146,22 @@ class GridGraph(object):
         l : float
             Rate of conversion from (B,i) to (A,i).
         """
-        f = lambda i: return b if pattern[i] else bp
-        g = lambda i: return d if pattern[i] else dp
+        f = lambda i: b if pattern[i] == '1' else bp
+        g = lambda i: d if pattern[i] == '1' else dp
 
         laplacian = np.zeros((2 * self.length + 2, 2 * self.length + 2))
         for i in range(self.length):
-            laplacian[i, i+1] = -g(i)
-            laplacian[i+1, i] = -f(i)
-            laplacian[self.length+1+i, self.length+1+i+1] = -g(i)
-            laplacian[self.length+1+i+1, self.length+1+i] = -f(i)
+            laplacian[i, i+1] = -f(i)
+            laplacian[i+1, i] = -g(i)
+            laplacian[self.length+1+i, self.length+1+i+1] = -f(i)
+            laplacian[self.length+1+i+1, self.length+1+i] = -g(i)
         for i in range(self.length + 1):
             laplacian[i, self.length+1+i] = -k
             laplacian[self.length+1+i, i] = -l
+
+        # Set all row sums to zero
+        for i in range(2 * self.length + 2):
+            laplacian[i,i] = -laplacian[i,:].sum()
 
         return laplacian
 
@@ -196,6 +200,7 @@ class GridGraph(object):
         """
         stats = np.zeros((nsim, 2))
 
+        print(b, d, bp, dp, k, l)
         for i in range(nsim):
             curr = init    # Start from the given vertex
             time = 0.0
@@ -226,8 +231,8 @@ class GridGraph(object):
 
                 # If we are anywhere else ...
                 else:
-                    match_next = pattern[curr[1]]
-                    match_prev = pattern[curr[1]-1]
+                    match_next = (pattern[curr[1]] == '1')
+                    match_prev = (pattern[curr[1]-1] == '1')
                     if match_next and match_prev:
                         rates = [b, d, k] if curr[0] == 'A' else [b, d, l]
                     elif match_next:

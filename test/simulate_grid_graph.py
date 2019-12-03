@@ -12,13 +12,15 @@ np.random.seed(1234567890)
 
 ##############################################################
 if __name__ == '__main__':
-    graph = GridGraph(5)    # Define a grid graph of length 5
+    length = 5
+    graph = GridGraph(length)    # Define a grid graph of length 5
     pattern = '11110'
     nsim = 100000
    
-    # Randomly sample 40 parameter combinations 
-    params = 10.0 ** (-1 + 2 * np.random.random((20, 6)))
-    stats = np.zeros((20, 2))
+    # Randomly sample 20 parameter combinations
+    nsample = 20
+    params = 10.0 ** (-1 + 2 * np.random.random((nsample, 6)))
+    stats = np.zeros((nsample, 4))
 
     # Set up a figure with 10 subplots
     fig, axes = plt.subplots(nrows=4, ncols=5, figsize=(16, 13))
@@ -29,6 +31,18 @@ if __name__ == '__main__':
             'b': params[i,0], 'd': params[i,1], 'bp': params[i,2],
             'dp': params[i,3], 'k': params[i,4], 'l': params[i,5]
         }
+
+        # Compute the Laplacian matrix and solve for the cleavage probability and
+        # mean first passage time
+        laplacian = graph.laplacian(pattern, **rates)
+        outrates = np.zeros(2 * length + 2)
+        laplacian[0,0] += 1.0
+        laplacian[-1,-1] += 1.0
+        outrates[-1] = 1.0
+        u = np.linalg.solve(laplacian, outrates)
+        v = np.linalg.solve(laplacian, u)
+
+        # Run the simulation
         data = graph.simulate(nsim, pattern, init=('A',0), **rates, kcat=1.0, kdis=1.0)
 
         # Compute cleavage probability
@@ -50,6 +64,8 @@ if __name__ == '__main__':
             )
         stats[i,0] = prob
         stats[i,1] = time
+        stats[i,2] = u[0]
+        stats[i,3] = v[0] / u[0]
 
     plt.savefig('grid-graph-simulations.pdf')
     np.savetxt('grid-graph-simulations.tsv', np.hstack((params, stats)), delimiter='\t')
