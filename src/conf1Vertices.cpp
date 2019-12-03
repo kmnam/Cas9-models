@@ -9,7 +9,7 @@
 #include <Eigen/Dense>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/multiprecision/eigen.hpp>
-#include "../include/graphs/grid.hpp"
+#include "../include/graphs/line.hpp"
 #include "../include/sample.hpp"
 
 /*
@@ -55,7 +55,7 @@ MatrixXT computeCleavageStats(const Ref<const VectorXT>& params)
     // Populate each rung with DNA/RNA match parameters
     LineGraph<mpfr_200>* model = new LineGraph<mpfr_200>(length);
     for (unsigned j = 0; j < length; ++j)
-        model->setRungLabels(j, match_params);
+        model->setLabels(j, match_params);
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
@@ -66,7 +66,7 @@ MatrixXT computeCleavageStats(const Ref<const VectorXT>& params)
     MatrixXT stats(length, 2);
     for (unsigned j = 1; j <= length; ++j)
     {
-        model->setRungLabels(length - j, mismatch_params);
+        model->setLabels(length - j, mismatch_params);
         Matrix<mpfr_200, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
         
         // Compute the specificity and speed ratio
