@@ -17,7 +17,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/2/2019
+ *     12/3/2019
  */
 using namespace Eigen;
 
@@ -53,6 +53,7 @@ MatrixXd computeCleavageStats(const Ref<const VectorXd>& params)
 
     // Populate each rung with DNA/RNA match parameters
     GridGraph<double>* model = new GridGraph<double>(length);
+    model->setStartLabels(match_params[4], match_params[5]);
     for (unsigned j = 0; j < length; ++j)
         model->setRungLabels(j, match_params);
     

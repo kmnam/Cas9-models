@@ -19,7 +19,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/2/2019
+ *     12/3/2019
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -62,6 +62,7 @@ MatrixXT computeCleavageStats(const Ref<const VectorXT>& params)
 
     // Populate each rung with DNA/RNA match parameters
     GridGraph<mpfr_200>* model = new GridGraph<mpfr_200>(length);
+    model->setStartLabels(match_params[4], match_params[5]);
     for (unsigned j = 0; j < length; ++j)
         model->setRungLabels(j, match_params);
     
