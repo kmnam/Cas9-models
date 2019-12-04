@@ -655,6 +655,72 @@ class GridGraph : public MarkovDigraph<T>
             return stats; 
         }
 
+        Matrix<T, 2, 1> computeRejectionStats(T kdis = 1.0, T kcat = 1.0)
+        {
+            /*
+             * Compute probability of rejection and (conditional) mean first passage
+             * time to the dissociated state in the given model, with the specified
+             * terminal rates of dissociation and cleavage, by enumerating the
+             * required spanning forests of the grid graph. 
+             */
+            // Compute weight of spanning trees rooted at each vertex
+            Matrix<T, Dynamic, 2> wt = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
+            for (unsigned i = 0; i <= this->N; ++i)
+            {
+                wt(i, 0) = this->weightTrees(0, i);
+                wt(i, 1) = this->weightTrees(1, i);
+            }
+
+            // Compute weights of spanning forests rooted at {(A,0), (B,N)}
+            T wA0BN = this->weightEndToEndForests();
+
+            // Compute the weights of the spanning forests rooted at (X,i) and (B,N)
+            // with paths from (A,0) to (X,i)
+            Matrix<T, Dynamic, 2> wf = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
+            for (unsigned i = 1; i <= this->N; ++i)
+                wf(i, 0) = this->weightDirectedForests(0, i);
+            for (unsigned i = 0; i < this->N; ++i)
+                wf(i, 1) = this->weightDirectedForests(1, i);
+            
+            // Compute the weights of the spanning forests rooted at (A,0) and (B,N)
+            // with paths from (X,i) to (B,N)
+            Matrix<T, Dynamic, 2> wr = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
+            for (unsigned i = 1; i <= this->N; ++i)
+                wr(i, 0) = this->weightDirectedForests2(0, i);
+            for (unsigned i = 0; i < this->N; ++i)
+                wr(i, 1) = this->weightDirectedForests2(1, i);
+
+            // Compute the weights of the spanning forests rooted at (A,0) and (B,N)
+            // with paths from (X,i) to (A,0)
+            Matrix<T, Dynamic, 2> wr2 = (wA0BN - wr.array()).matrix();
+            wr2(0, 0) = 0.0;
+            wr2(this->N, 1) = 0.0;
+
+            // For each vertex in the original graph, compute its contribution
+            // to the mean first passage time
+            T denom = kdis * wt(0,0) + kcat * wt(this->N,1) + kdis * kcat * wA0BN;
+            T prob = (kdis * wt(0,0) + kdis * kcat * wA0BN) / denom;
+            T time = 0.0;
+            for (unsigned i = 1; i <= this->N; ++i)
+            {
+                T term = (kcat * wt(0,0) + kcat * kdis * wr2(i,0)) / (kcat * wt(this->N,1) + kcat * kdis * wA0BN);
+                term *= (kcat * wf(i,0) + wt(i,0)) / denom;
+                time += term;
+            }
+            for (unsigned i = 0; i < this->N; ++i)
+            {
+                T term = (kcat * wt(0,0) + kcat * kdis * wr2(i,1)) / (kcat * wt(this->N,1) + kcat * kdis * wA0BN);
+                term *= (kcat * wf(i,1) + wt(i,1)) / denom;
+                time += term;
+            }
+            time += (wt(0,0) + kcat * wA0BN + (kcat * kdis * wt(0,0) * wt(this->N,1)) / (wt(this->N,1) * kdis * wA0BN)) / denom;
+
+            // Collect the two required quantities
+            Matrix<T, 2, 1> stats;
+            stats << prob, time;
+            return stats; 
+        }
+
         template <typename U>
         friend std::ostream& operator<<(std::ostream& stream, const GridGraph<U>& graph);
 };
