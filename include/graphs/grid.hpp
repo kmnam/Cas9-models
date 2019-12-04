@@ -575,7 +575,7 @@ class GridGraph : public MarkovDigraph<T>
              * for the inverse of the Laplacian and its square.
              */
             // Compute the Laplacian of the graph
-            Matrix<T, Dynamic, Dynamic> laplacian = this->getLaplacian();
+            Matrix<T, Dynamic, Dynamic> laplacian = -this->getLaplacian().transpose();
 
             // Update the Laplacian matrix with the specified terminal rates
             laplacian(0, 0) += kdis;
@@ -587,11 +587,11 @@ class GridGraph : public MarkovDigraph<T>
             Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
 
             // Solve matrix equation for mean first passage times
-            Matrix<T, Dynamic, 1> times = (laplacian * laplacian).colPivHouseholderQr().solve(term_rates);
+            Matrix<T, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
             
             // Collect the two required quantities
             Matrix<T, 2, 1> stats;
-            stats << probs(0), times(0);
+            stats << probs(0), times(0) / probs(0);
             return stats;
         }
 
