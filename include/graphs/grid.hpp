@@ -575,7 +575,7 @@ class GridGraph : public MarkovDigraph<T>
              * for the inverse of the Laplacian and its square.
              */
             // Compute the Laplacian of the graph
-            Matrix<T, Dynamic, Dynamic> laplacian = this->getLaplacian();
+            Matrix<T, Dynamic, Dynamic> laplacian = -this->getLaplacian().transpose();
 
             // Update the Laplacian matrix with the specified terminal rates
             laplacian(0, 0) += kdis;
@@ -587,11 +587,11 @@ class GridGraph : public MarkovDigraph<T>
             Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
 
             // Solve matrix equation for mean first passage times
-            Matrix<T, Dynamic, 1> times = (laplacian * laplacian).colPivHouseholderQr().solve(term_rates);
+            Matrix<T, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
             
             // Collect the two required quantities
             Matrix<T, 2, 1> stats;
-            stats << probs(0), times(0);
+            stats << probs(0), times(0) / probs(0);
             return stats;
         }
 
@@ -703,17 +703,17 @@ class GridGraph : public MarkovDigraph<T>
             T time = 0.0;
             for (unsigned i = 1; i <= this->N; ++i)
             {
-                T term = (kcat * wt(0,0) + kcat * kdis * wr2(i,0)) / (kcat * wt(this->N,1) + kcat * kdis * wA0BN);
+                T term = (kdis * wt(0,0) + kcat * kdis * wr2(i,0)) / (kdis * wt(0,0) + kcat * kdis * wA0BN);
                 term *= (kcat * wf(i,0) + wt(i,0)) / denom;
                 time += term;
             }
             for (unsigned i = 0; i < this->N; ++i)
             {
-                T term = (kcat * wt(0,0) + kcat * kdis * wr2(i,1)) / (kcat * wt(this->N,1) + kcat * kdis * wA0BN);
+                T term = (kdis * wt(0,0) + kcat * kdis * wr2(i,1)) / (kdis * wt(0,0) + kcat * kdis * wA0BN);
                 term *= (kcat * wf(i,1) + wt(i,1)) / denom;
                 time += term;
             }
-            time += (wt(0,0) + kcat * wA0BN + (kcat * kdis * wt(0,0) * wt(this->N,1)) / (wt(this->N,1) * kdis * wA0BN)) / denom;
+            time += (wt(0,0) + kcat * wA0BN + (kdis * wt(0,0) * wt(this->N,1)) / (kdis * wt(0,0) + kdis * kcat * wA0BN)) / denom;
 
             // Collect the two required quantities
             Matrix<T, 2, 1> stats;
