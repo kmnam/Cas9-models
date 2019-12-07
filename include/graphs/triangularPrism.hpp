@@ -145,12 +145,12 @@ class TriangularPrismGraph : public MarkovDigraph<T>
             this->N++;
             this->rung_labels.push_back(labels);
             std::stringstream sai, sbi, sci, saj, sbj, scj;
-            sai << "A" << i;
-            sbi << "B" << i;
-            sci << "C" << i;
-            saj << "A" << i + 1;
-            sbj << "B" << i + 1;
-            scj << "C" << i + 1;
+            sai << "A" << this->N - 1;
+            sbi << "B" << this->N - 1;
+            sci << "C" << this->N - 1;
+            saj << "A" << this->N;
+            sbj << "B" << this->N;
+            scj << "C" << this->N;
             this->addEdge(sai.str(), saj.str(), labels[0]);   // (A,i) <--> (A,i+1)
             this->addEdge(saj.str(), sai.str(), labels[1]);
             this->addEdge(sbi.str(), sbj.str(), labels[2]);   // (B,i) <--> (B,i+1)
