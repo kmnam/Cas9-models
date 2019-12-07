@@ -25,16 +25,16 @@ using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::et_off;
-typedef number<mpfr_float_backend<30>, et_off> mpfr_30_noet;
-typedef Matrix<mpfr_30_noet, Dynamic, Dynamic> MatrixX30;
-typedef Matrix<mpfr_30_noet, Dynamic, 1> VectorX30;
+typedef number<mpfr_float_backend<100>, et_off> mpfr_100_noet;
+typedef Matrix<mpfr_100_noet, Dynamic, Dynamic> MatrixX100;
+typedef Matrix<mpfr_100_noet, Dynamic, 1> VectorX100;
 
 const unsigned length = 20;
 
 // Instantiate random number generator 
 std::mt19937 rng(1234567890);
 
-MatrixX30 computeCleavageStats(const Ref<const VectorX30>& params)
+MatrixX100 computeCleavageStats(const Ref<const VectorX100>& params)
 {
     /*
      * Compute the specificity and speed ratio with respect to the 
@@ -44,7 +44,7 @@ MatrixX30 computeCleavageStats(const Ref<const VectorX30>& params)
     using boost::multiprecision::pow;
 
     // Array of DNA/RNA match parameters
-    std::array<mpfr_30_noet, 12> match_params;
+    std::array<mpfr_100_noet, 12> match_params;
     match_params[0] = pow(10.0, params(0));
     match_params[1] = pow(10.0, params(1));
     match_params[2] = pow(10.0, params(0));
@@ -59,7 +59,7 @@ MatrixX30 computeCleavageStats(const Ref<const VectorX30>& params)
     match_params[11] = pow(10.0, params(9));
 
     // Array of DNA/RNA mismatch parameters
-    std::array<mpfr_30_noet, 12> mismatch_params;
+    std::array<mpfr_100_noet, 12> mismatch_params;
     mismatch_params[0] = pow(10.0, params(2));
     mismatch_params[1] = pow(10.0, params(3));
     mismatch_params[2] = pow(10.0, params(2));
@@ -74,7 +74,7 @@ MatrixX30 computeCleavageStats(const Ref<const VectorX30>& params)
     mismatch_params[11] = pow(10.0, params(9));
 
     // Populate each rung with DNA/RNA match parameters
-    TriangularPrismGraph<mpfr_30_noet>* model = new TriangularPrismGraph<mpfr_30_noet>(length);
+    TriangularPrismGraph<mpfr_100_noet>* model = new TriangularPrismGraph<mpfr_100_noet>(length);
     model->setStartLabels(
         match_params[6], match_params[7], match_params[8], match_params[9],
         match_params[10], match_params[11]
@@ -84,19 +84,19 @@ MatrixX30 computeCleavageStats(const Ref<const VectorX30>& params)
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<mpfr_30_noet, 2, 1> match_data = model->computeCleavageStatsByInverse(1, 1).array().log10().matrix();
+    Matrix<mpfr_100_noet, 2, 1> match_data = model->computeCleavageStatsByInverse(1, 1).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
-    MatrixX30 stats(length, 2);
+    MatrixX100 stats(length, 2);
     for (unsigned j = 1; j <= length; ++j)
     {
         model->setRungLabels(length - j, mismatch_params);
-        Matrix<mpfr_30_noet, 2, 1> mismatch_data = model->computeCleavageStatsByInverse(1, 1).array().log10().matrix();
+        Matrix<mpfr_100_noet, 2, 1> mismatch_data = model->computeCleavageStatsByInverse(1, 1).array().log10().matrix();
         
         // Compute the specificity and speed ratio
-        mpfr_30_noet specificity = match_data(0) - mismatch_data(0);
-        mpfr_30_noet speed_ratio = mismatch_data(1) - match_data(1);
+        mpfr_100_noet specificity = match_data(0) - mismatch_data(0);
+        mpfr_100_noet speed_ratio = mismatch_data(1) - match_data(1);
         stats(j-1, 0) = specificity;
         stats(j-1, 1) = speed_ratio;
     }
@@ -123,11 +123,11 @@ int main(int argc, char** argv)
     }
 
     // Run the boundary-finding algorithm
-    MatrixX30 specs(n, length);
-    MatrixX30 speed(n, length);
+    MatrixX100 specs(n, length);
+    MatrixX100 speed(n, length);
     for (unsigned i = 0; i < n; ++i)
     {
-        MatrixX30 stats = computeCleavageStats(params.row(i).cast<mpfr_30_noet>());
+        MatrixX100 stats = computeCleavageStats(params.row(i).cast<mpfr_100_noet>());
         specs.row(i) = stats.col(0).transpose();
         speed.row(i) = stats.col(1).transpose();
     }
