@@ -7,9 +7,9 @@
 #include <random>
 #include <tuple>
 #include <Eigen/Dense>
+#include <boost/multiprecision/mpfr.hpp>
+#include <boost/multiprecision/eigen.hpp>
 #include <boundaryFinder.hpp>
-#include <duals/duals.hpp>
-#include <duals/eigen.hpp>
 #include "../include/graphs/line.hpp"
 #include "../include/sample.hpp"
 
@@ -23,7 +23,11 @@
  *     12/2/2019
  */
 using namespace Eigen;
-using Duals::DualNumber;
+using boost::multiprecision::number;
+using boost::multiprecision::mpfr_float_backend;
+using boost::multiprecision::et_off;
+typedef number<mpfr_float_backend<30>, et_off> mpfr_30_noet;
+typedef Matrix<mpfr_30_noet, Dynamic, 1> VectorX30;
 
 const unsigned length = 20;
 
@@ -38,56 +42,56 @@ int coin_toss(std::mt19937& rng)
 }
 
 template <unsigned n_mismatches = 1>
-VectorXDual computeCleavageStats(const Ref<const VectorXDual>& params)
+VectorX30 computeCleavageStats(const Ref<const VectorX30>& params)
 {
     /*
      * Compute the specificity and speed ratio with respect to the 
      * given number of mismatches, with the given set of parameter
      * values. 
      */
-    using Duals::pow;
+    using boost::multiprecision::pow;
 
     // Array of DNA/RNA match parameters
-    std::array<DualNumber, 2> match_params;
+    std::array<mpfr_30_noet, 2> match_params;
     match_params[0] = pow(10.0, params(0));
     match_params[1] = pow(10.0, params(1));
 
     // Array of DNA/RNA mismatch parameters
-    std::array<DualNumber, 2> mismatch_params;
+    std::array<mpfr_30_noet, 2> mismatch_params;
     mismatch_params[0] = pow(10.0, params(2));
     mismatch_params[1] = pow(10.0, params(3));
 
     // Populate each rung with DNA/RNA match parameters
-    LineGraph<DualNumber>* model = new LineGraph<DualNumber>(length);
+    LineGraph<mpfr_30_noet>* model = new LineGraph<mpfr_30_noet>(length);
     for (unsigned j = 0; j < length; ++j)
         model->setLabels(j, match_params);
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<DualNumber, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+    Matrix<mpfr_30_noet, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
     for (unsigned j = 1; j <= n_mismatches; ++j)
         model->setLabels(length - j, mismatch_params);
-    Matrix<DualNumber, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+    Matrix<mpfr_30_noet, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
 
     // Compute the specificity and speed ratio
-    DualNumber specificity = match_data(0) - mismatch_data(0);
-    DualNumber speed_ratio = mismatch_data(1) - match_data(1);
-    VectorXDual stats(2);
+    mpfr_30_noet specificity = match_data(0) - mismatch_data(0);
+    mpfr_30_noet speed_ratio = mismatch_data(1) - match_data(1);
+    VectorX30 stats(2);
     stats << specificity, speed_ratio;
 
     delete model;
     return stats;
 }
 
-std::function<VectorXDual(const Ref<const VectorXDual>&)> cleavageFunc(unsigned n_mismatches)
+std::function<VectorX30(const Ref<const VectorX30>&)> cleavageFunc(unsigned n_mismatches)
 {
     /*
      * Return the function instance with the given number of mismatches.
      */
-    std::function<VectorXDual(const Ref<const VectorXDual>&)> func;
+    std::function<VectorX30(const Ref<const VectorX30>&)> func;
     switch (n_mismatches)
     {
         case 0:
@@ -159,13 +163,13 @@ std::function<VectorXDual(const Ref<const VectorXDual>&)> cleavageFunc(unsigned 
     return func;
 }
 
-VectorXDual mutate_by_delta(const Ref<const VectorXDual>& params, std::mt19937& rng)
+VectorX30 mutate_by_delta(const Ref<const VectorX30>& params, std::mt19937& rng)
 {
     /*
      * Mutate the given parameter values by delta = 0.1. 
      */
-    VectorXDual mutated(params);
-    const DualNumber delta = 0.1;
+    VectorX30 mutated(params);
+    const mpfr_30_noet delta = 0.1;
     for (unsigned i = 0; i < mutated.size(); ++i)
     {
         int toss = coin_toss(rng);
@@ -194,7 +198,8 @@ int main(int argc, char** argv)
     }
 
     // Define trivial filtering function
-    std::function<bool(const Ref<const VectorXDual>& x)> filter = [](const Ref<const VectorXDual>& x){ return false; };
+    std::function<bool(const Ref<const VectorX30>& x)> filter
+        = [](const Ref<const VectorX30>& x){ return false; };
 
     // Boundary-finding algorithm settings
     double tol = 1e-4;
@@ -215,9 +220,9 @@ int main(int argc, char** argv)
     constraints.parse(argv[1]);
     MatrixXd A = constraints.getA();
     VectorXd b = constraints.getb();
-    BoundaryFinder<DualNumber> finder(4, tol, rng, A, b);
-    std::function<VectorXDual(const Ref<const VectorXDual>&)> func = cleavageFunc(m);
-    std::function<VectorXDual(const Ref<const VectorXDual>&, std::mt19937&)> mutate = mutate_by_delta;
+    BoundaryFinder<mpfr_30_noet> finder(4, tol, rng, A, b);
+    std::function<VectorX30(const Ref<const VectorX30>&)> func = cleavageFunc(m);
+    std::function<VectorX30(const Ref<const VectorX30>&, std::mt19937&)> mutate = mutate_by_delta;
     finder.run(
         func, mutate, filter, params, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
