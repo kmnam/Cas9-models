@@ -5,10 +5,13 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <regex>
-#include <random>
+#include <iomanip>
+#include <limits>
 #include <Eigen/Dense>
+#include <boost/random.hpp>
 
 /*
  * Functions for random sampling.
@@ -16,27 +19,24 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/2/2019
+ *     12/8/2019
  */
 using namespace Eigen;
 
-// Instantiate a gamma distribution with alpha = 1
-std::gamma_distribution<> gamma_dist(1.0);
-
-MatrixXd sampleFromSimplex(const Ref<const MatrixXd>& vertices, unsigned npoints, std::mt19937& rng)
+template <typename T>
+Matrix<T, Dynamic, Dynamic> sampleFromSimplex(const Ref<const MatrixXd>& vertices,
+                                              unsigned npoints, boost::random::mt19937& rng)
 {
     /*
      * Given an array of vertices for a simplex and a desired number of 
      * points, randomly sample the given number of points from the 
      * uniform density (i.e., flat Dirichlet) on the simplex.
      *
-     * Parameters
-     * ----------
-     * MatrixXd vertices
+     * @param MatrixXd vertices
      *     (D+1) x D matrix of vertex coordinates, with each row a vertex. 
-     * unsigned points
+     * @param unsigned points
      *     Number of points to sample from the simplex.
-     * std::mt19937& rng
+     * @param boost::random::mt19937& rng
      *     Reference to random number generator instance.   
      */
     unsigned dim = vertices.cols();     // Dimension of the ambient space
@@ -45,25 +45,29 @@ MatrixXd sampleFromSimplex(const Ref<const MatrixXd>& vertices, unsigned npoints
 
     // Sample the desired number of points from the flat Dirichlet 
     // distribution on the standard simplex of appropriate dimension
-    MatrixXd barycentric(npoints, dim + 1);
-    for (unsigned i = 0; i < npoints; i++)
+    Matrix<T, Dynamic, Dynamic> barycentric(npoints, dim + 1);
+    boost::random::gamma_distribution<T> gamma_dist(1.0);
+    for (unsigned i = 0; i < npoints; ++i)
     {
         // Sample (dim + 1) independent Gamma-distributed variables 
         // with alpha = 1, and normalize by their sum
-        for (unsigned j = 0; j < dim + 1; j++) barycentric(i,j) = gamma_dist(rng);
+        for (unsigned j = 0; j < dim + 1; ++j)
+            barycentric(i,j) = gamma_dist(rng);
         barycentric.row(i) = barycentric.row(i) / barycentric.row(i).sum();
     }
    
     // Convert from barycentric coordinates to Cartesian coordinates
-    MatrixXd points(npoints, dim);
-    for (unsigned i = 0; i < npoints; i++)
-        points.row(i) = barycentric.row(i) * vertices;
+    Matrix<T, Dynamic, Dynamic> points(npoints, dim);
+    for (unsigned i = 0; i < npoints; ++i)
+        points.row(i) = barycentric.row(i) * vertices.cast<T>();
 
     return points;
 }
 
-std::pair<MatrixXd, MatrixXd> sampleFromConvexPolytopeTriangulation(std::string triangulation_file,
-                                                                  unsigned npoints, std::mt19937& rng)
+template <typename T>
+std::pair<Matrix<T, Dynamic, Dynamic>, Matrix<T, Dynamic, Dynamic> >
+    sampleFromConvexPolytopeTriangulation(std::string triangulation_file,
+                                          unsigned npoints, boost::random::mt19937& rng)
 {
     /*
      * Given a .delv file specifying a convex polytope in terms of its 
@@ -176,10 +180,10 @@ std::pair<MatrixXd, MatrixXd> sampleFromConvexPolytopeTriangulation(std::string 
     double sum_volumes = 0.0;
     for (auto&& v : volumes) sum_volumes += v;
     for (auto&& v : volumes) v /= sum_volumes;
-    std::discrete_distribution<> dist(volumes.begin(), volumes.end());
+    boost::random::discrete_distribution<> dist(volumes);
 
     // Maintain an array of points ...
-    MatrixXd sample(npoints, dim);
+    Matrix<T, Dynamic, Dynamic> sample(npoints, dim);
     for (unsigned i = 0; i < npoints; i++)
     {
         // Sample a simplex with probability proportional to its volume
@@ -190,11 +194,14 @@ std::pair<MatrixXd, MatrixXd> sampleFromConvexPolytopeTriangulation(std::string 
         for (unsigned k = 0; k < dim + 1; k++)
         {
             unsigned index = simplices[j][k];
-            for (unsigned l = 0; l < dim; l++) simplex(k,l) = vertices[index][l];
+            for (unsigned l = 0; l < dim; l++)
+            {
+                simplex(k,l) = vertices[index][l];
+            }
         }
 
         // Sample a point from the simplex
-        sample.row(i) = sampleFromSimplex(simplex, 1, rng);
+        sample.row(i) = sampleFromSimplex<T>(simplex, 1, rng);
     }
 
     // Write vertex coordinates to a matrix
