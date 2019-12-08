@@ -4,9 +4,11 @@
 #include <array>
 #include <utility>
 #include <iomanip>
-#include <random>
 #include <tuple>
 #include <Eigen/Dense>
+#include <boost/multiprecision/mpfr.hpp>
+#include <boost/multiprecision/eigen.hpp>
+#include <boost/random.hpp>
 #include "../include/graphs/line.hpp"
 #include "../include/sample.hpp"
 
@@ -17,52 +19,60 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/2/2019
+ *     12/8/2019
  */
 using namespace Eigen;
+using boost::multiprecision::number;
+using boost::multiprecision::mpfr_float_backend;
+using boost::multiprecision::et_off;
+typedef number<mpfr_float_backend<30>, et_off> mpfr_30_noet;
+typedef Matrix<mpfr_30_noet, Dynamic, Dynamic> MatrixX30;
+typedef Matrix<mpfr_30_noet, Dynamic, 1> VectorX30;
 
 const unsigned length = 20;
 
 // Instantiate random number generator 
-std::mt19937 rng(1234567890);
+boost::random::mt19937 rng(1234567890);
 
-MatrixXd computeCleavageStats(const Ref<const VectorXd>& params)
+MatrixX30 computeCleavageStats(const Ref<const VectorX30>& params)
 {
     /*
      * Compute the specificity and speed ratio with respect to the 
      * given number of mismatches, with the given set of parameter
      * values. 
      */
+    using boost::multiprecision::pow;
+
     // Array of DNA/RNA match parameters
-    std::array<double, 2> match_params;
+    std::array<mpfr_30_noet, 2> match_params;
     match_params[0] = pow(10.0, params(0));
     match_params[1] = pow(10.0, params(1));
 
     // Array of DNA/RNA mismatch parameters
-    std::array<double, 2> mismatch_params;
+    std::array<mpfr_30_noet, 2> mismatch_params;
     mismatch_params[0] = pow(10.0, params(2));
     mismatch_params[1] = pow(10.0, params(3));
 
     // Populate each rung with DNA/RNA match parameters
-    LineGraph<double>* model = new LineGraph<double>(length);
+    LineGraph<mpfr_30_noet>* model = new LineGraph<mpfr_30_noet>(length);
     for (unsigned j = 0; j < length; ++j)
         model->setLabels(j, match_params);
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<double, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+    Matrix<mpfr_30_noet, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
-    MatrixXd stats(length, 2);
+    MatrixX30 stats(length, 2);
     for (unsigned j = 1; j <= length; ++j)
     {
         model->setLabels(length - j, mismatch_params);
-        Matrix<double, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+        Matrix<mpfr_30_noet, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
         
         // Compute the specificity and speed ratio
-        double specificity = match_data(0) - mismatch_data(0);
-        double speed_ratio = mismatch_data(1) - match_data(1);
+        mpfr_30_noet specificity = match_data(0) - mismatch_data(0);
+        mpfr_30_noet speed_ratio = mismatch_data(1) - match_data(1);
         stats(j-1, 0) = specificity;
         stats(j-1, 1) = speed_ratio;
     }
@@ -76,23 +86,23 @@ int main(int argc, char** argv)
     // Sample model parameter combinations
     unsigned n;
     sscanf(argv[3], "%u", &n);
-    MatrixXd vertices;
-    MatrixXd params;
+    MatrixX30 vertices;
+    MatrixX30 params;
     try
     {
-        std::tie(vertices, params) = sampleFromConvexPolytopeTriangulation(argv[1], n, rng);
+        std::tie(vertices, params) = sampleFromConvexPolytopeTriangulation<mpfr_30_noet>(argv[1], n, rng);
     }
     catch (const std::exception& e)
     {
         throw;
     }
 
-    // Run the boundary-finding algorithm
-    MatrixXd specs(n, length);
-    MatrixXd speed(n, length);
+    // Compute specificities and speed ratios  
+    MatrixX30 specs(n, length);
+    MatrixX30 speed(n, length);
     for (unsigned i = 0; i < n; ++i)
     {
-        MatrixXd stats = computeCleavageStats(params.row(i));
+        MatrixX30 stats = computeCleavageStats(params.row(i));
         specs.row(i) = stats.col(0).transpose();
         speed.row(i) = stats.col(1).transpose();
     }
@@ -152,8 +162,6 @@ int main(int argc, char** argv)
         }
     }
     speedfile.close();
-    oss.clear();
-    oss.str(std::string());
    
     return 0;
 }

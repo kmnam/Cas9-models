@@ -4,11 +4,11 @@
 #include <array>
 #include <utility>
 #include <iomanip>
-#include <random>
 #include <tuple>
 #include <Eigen/Dense>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/multiprecision/eigen.hpp>
+#include <boost/random.hpp>
 #include "../include/graphs/triangularPrism.hpp"
 #include "../include/sample.hpp"
 
@@ -19,7 +19,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/6/2019
+ *     12/8/2019
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -32,7 +32,7 @@ typedef Matrix<mpfr_100_noet, Dynamic, 1> VectorX100;
 const unsigned length = 20;
 
 // Instantiate random number generator 
-std::mt19937 rng(1234567890);
+boost::random::mt19937 rng(1234567890);
 
 MatrixX100 computeCleavageStats(const Ref<const VectorX100>& params)
 {
@@ -110,24 +110,23 @@ int main(int argc, char** argv)
     // Sample model parameter combinations
     unsigned n;
     sscanf(argv[3], "%u", &n);
-    MatrixXd vertices;
-    MatrixXd params;
+    MatrixX100 vertices;
+    MatrixX100 params;
     try
     {
-        std::tie(vertices, params) = sampleFromConvexPolytopeTriangulation(argv[1], n, rng);
+        std::tie(vertices, params) = sampleFromConvexPolytopeTriangulation<mpfr_100_noet>(argv[1], n, rng);
     }
     catch (const std::exception& e)
     {
-        std::cerr << e.what() << std::endl;
         throw;
     }
 
-    // Run the boundary-finding algorithm
+    // Compute specificities and speed ratios
     MatrixX100 specs(n, length);
     MatrixX100 speed(n, length);
     for (unsigned i = 0; i < n; ++i)
     {
-        MatrixX100 stats = computeCleavageStats(params.row(i).cast<mpfr_100_noet>());
+        MatrixX100 stats = computeCleavageStats(params.row(i));
         specs.row(i) = stats.col(0).transpose();
         speed.row(i) = stats.col(1).transpose();
     }
@@ -187,8 +186,6 @@ int main(int argc, char** argv)
         }
     }
     speedfile.close();
-    oss.clear();
-    oss.str(std::string());
    
     return 0;
 }
