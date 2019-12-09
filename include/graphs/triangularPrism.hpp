@@ -14,7 +14,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/6/2019
+ *     12/9/2019
  */
 using namespace Eigen;
 
@@ -210,10 +210,10 @@ class TriangularPrismGraph : public MarkovDigraph<T>
             // Solve matrix equation for cleavage probabilities
             Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(3*this->N+3);
             term_rates(3*this->N+2) = kcat;
-            Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
+            Matrix<T, Dynamic, 1> probs = laplacian.fullPivHouseholderQr().solve(term_rates);
 
             // Solve matrix equation for mean first passage times
-            Matrix<T, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
+            Matrix<T, Dynamic, 1> times = laplacian.fullPivHouseholderQr().solve(probs);
             
             // Collect the two required quantities
             Matrix<T, 2, 1> stats;
