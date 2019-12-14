@@ -125,7 +125,7 @@ class LineGraph : public MarkovDigraph<T>
 
             // Compute the probability of cleavage ...
             T prob = 1.0;
-            for (int i = 0; i < this->N; ++i)
+            for (int i = 0; i <= this->N; ++i)
             {
                 T t = 1.0;
                 for (int j = 0; j < i; ++j) t *= di(j) / bi(j);
@@ -135,10 +135,10 @@ class LineGraph : public MarkovDigraph<T>
 
             // ... and the mean first passage time to the cleaved state
             T time = 0.0;
-            for (int i = 0; i < this->N; ++i)
+            for (int i = 0; i <= this->N; ++i)
             {
                 T t1 = 1.0, t2 = 1.0;
-                for (int j = i + 1; j < this->N; ++j)
+                for (int j = i + 1; j <= this->N; ++j)
                 {
                     T u1 = 1.0;
                     for (int k = i + 1; k <= j; ++k) u1 *= di(k) / bi(k);
