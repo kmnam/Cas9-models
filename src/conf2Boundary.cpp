@@ -4,11 +4,11 @@
 #include <array>
 #include <utility>
 #include <iomanip>
-#include <random>
 #include <tuple>
 #include <Eigen/Dense>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/multiprecision/eigen.hpp>
+#include <boost/random.hpp>
 #include <boundaryFinder.hpp>
 #include "../include/graphs/grid.hpp"
 #include "../include/sample.hpp"
@@ -32,11 +32,11 @@ typedef Matrix<mpfr_30_noet, Dynamic, 1> VectorX30;
 const unsigned length = 20;
 
 // Instantiate random number generator 
-std::mt19937 rng(1234567890);
+boost::random::mt19937 rng(1234567890);
 
 std::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
 
-int coin_toss(std::mt19937& rng)
+int coin_toss(boost::random::mt19937& rng)
 {
     return fair_bernoulli_dist(rng);
 }
@@ -172,7 +172,7 @@ std::function<VectorX30(const Ref<const VectorX30>&)> cleavageFunc(unsigned n_mi
     return func;
 }
 
-VectorX30 mutate_by_delta(const Ref<const VectorX30>& params, std::mt19937& rng)
+VectorX30 mutate_by_delta(const Ref<const VectorX30>& params, boost::random::mt19937& rng)
 {
     /*
      * Mutate the given parameter values by delta = 0.1. 
@@ -194,17 +194,18 @@ int main(int argc, char** argv)
     unsigned n, m;
     sscanf(argv[4], "%u", &m);
     sscanf(argv[5], "%u", &n);
-    MatrixXd vertices;
     MatrixXd params;
+    std::pair<MatrixX30, MatrixX30> data;
     try
     {
-        std::tie(vertices, params) = sampleFromConvexPolytopeTriangulation(argv[2], n, rng);
+        data = sampleFromConvexPolytopeTriangulation<mpfr_30_noet>(argv[2], n, rng);
     }
     catch (const std::exception& e)
     {
         std::cerr << e.what() << std::endl;
         throw;
     }
+    params = data.second.template cast<double>();
 
     // Define trivial filtering function
     std::function<bool(const Ref<const VectorX30>& x)> filter = [](const Ref<const VectorX30>& x){ return false; };
@@ -230,7 +231,7 @@ int main(int argc, char** argv)
     VectorXd b = constraints.getb();
     BoundaryFinder<mpfr_30_noet> finder(6, tol, rng, A, b);
     std::function<VectorX30(const Ref<const VectorX30>&)> func = cleavageFunc(m);
-    std::function<VectorX30(const Ref<const VectorX30>&, std::mt19937&)> mutate = mutate_by_delta;
+    std::function<VectorX30(const Ref<const VectorX30>&, boost::random::mt19937&)> mutate = mutate_by_delta;
     finder.run(
         func, mutate, filter, params, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
