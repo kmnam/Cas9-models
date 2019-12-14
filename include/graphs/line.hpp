@@ -105,6 +105,35 @@ class LineGraph : public MarkovDigraph<T>
             this->setEdgeLabel(sj.str(), si.str(), labels[1]);
         }
 
+        Matrix<T, 2, 1> computeCleavageStatsByInverse(T kdis = 1.0, T kcat = 1.0)
+        {
+            /*
+             * Compute probability of cleavage and (conditional) mean first passage
+             * time to the cleaved state in the given model, with the specified
+             * terminal rates of dissociation and cleavage, by directly solving
+             * for the inverse of the Laplacian and its square.
+             */
+            // Compute the Laplacian of the graph
+            Matrix<T, Dynamic, Dynamic> laplacian = -this->getLaplacian().transpose();
+
+            // Update the Laplacian matrix with the specified terminal rates
+            laplacian(0, 0) += kdis;
+            laplacian(this->N, this->N) += kcat;
+
+            // Solve matrix equation for cleavage probabilities
+            Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(this->N+1);
+            term_rates(this->N) = kcat;
+            Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
+
+            // Solve matrix equation for mean first passage times
+            Matrix<T, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
+            
+            // Collect the two required quantities
+            Matrix<T, 2, 1> stats;
+            stats << probs(0), times(0) / probs(0);
+            return stats;
+        }
+
         Matrix<T, 2, 1> computeCleavageStats(T kdis = 1.0, T kcat = 1.0)
         {
             /*
@@ -128,7 +157,7 @@ class LineGraph : public MarkovDigraph<T>
             for (int i = 0; i <= this->N; ++i)
             {
                 T t = 1.0;
-                for (int j = 0; j < i; ++j) t *= di(j) / bi(j);
+                for (int j = 0; j <= i; ++j) t *= di(j) / bi(j);
                 prob += t;
             }
             prob = 1.0 / prob;
