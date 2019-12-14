@@ -13,7 +13,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/3/2019
+ *     12/13/2019
  */
 using namespace Eigen;
 
@@ -128,7 +128,7 @@ class LineGraph : public MarkovDigraph<T>
             for (int i = 0; i < this->N; ++i)
             {
                 T t = 1.0;
-                for (int j = 0; j < i; ++j) t *= di(i) / bi(i);
+                for (int j = 0; j < i; ++j) t *= di(j) / bi(j);
                 prob += t;
             }
             prob = 1.0 / prob;
