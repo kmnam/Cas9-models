@@ -241,9 +241,12 @@ computeCleavageStats[L_, k0_, l0_, N_, kdis_, kcat_] :=
     stats = {prob, time};
     Return[stats];
 ];
-labelsMatch = ConstantArray[{100000,1/100000,100000,1/100000,1/100000,100000},20];
-labelsMismatch = ConstantArray[{1/100000,100000,1/100000,100000,1/100000,100000},20];
-statsMatch = computeCleavageStats[labelsMatch,1/100000,100000,20,1,1];
-statsMismatch = computeCleavageStats[labelsMismatch,1/100000,100000,20,1,1];
+labelsMatch = ConstantArray[{x^p, x^-p, x^p, x^-p, x^p, x^-p}, 20];
+labelsMismatch = ConstantArray[{x^-p, x^p, x^-p, x^p, x^p, x^-p}, 20];
+statsMatch = computeCleavageStats[labelsMatch, x^p, x^-p, 20, 1, 1] /. {x -> 10, p -> 5}
+statsMismatch = computeCleavageStats[labelsMismatch, x^p, x^-p, 20, 1, 1] /. {x -> 10, p -> 5}
 N[Log10[statsMatch[[1]]] - Log10[statsMismatch[[1]]]]
 N[Log10[statsMismatch[[2]]] - Log10[statsMatch[[2]]]]
+
+
+
