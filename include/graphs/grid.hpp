@@ -14,7 +14,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/3/2019
+ *     12/23/2019
  */
 using namespace Eigen;
 
@@ -624,6 +624,22 @@ class GridGraph : public MarkovDigraph<T>
             return stats;
         }
 
+        T computeDissociationRate(T kdis = 1.0)
+        {
+            /*
+             * Compute the mean first passage time to the dissociated state,
+             * in the case where cleavage is abrogated. 
+             */
+            // Compute weight of spanning trees rooted at each vertex
+            Matrix<T, Dynamic, 2> wt = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
+            for (unsigned i = 0; i <= this->N; ++i)
+            {
+                wt(i, 0) = this->weightTrees(0, i);
+                wt(i, 1) = this->weightTrees(1, i);
+            }
+
+            return wt.sum() / (kdis * wt(0,0));
+        }
 
         Matrix<T, 2, 1> computeCleavageStats(T kdis = 1.0, T kcat = 1.0)
         {

@@ -13,7 +13,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/13/2019
+ *     12/23/2019
  */
 using namespace Eigen;
 
@@ -103,6 +103,23 @@ class LineGraph : public MarkovDigraph<T>
             sj << i + 1;
             this->setEdgeLabel(si.str(), sj.str(), labels[0]);
             this->setEdgeLabel(sj.str(), si.str(), labels[1]);
+        }
+
+        T computeDissociationRate(T kdis = 1.0)
+        {
+            /*
+             * Compute the mean first passage time to the dissociated state,
+             * in the case where cleavage is abrogated. 
+             */
+            T time = 0.0;
+            for (unsigned i = 0; i <= length; ++i)
+            {
+                T term = 1.0;
+                for (unsigned j = 0; j < i; ++j)
+                    term *= (this->line_labels[j][0] / this->line_labels[j][1]);
+                time += (term / kdis);
+            }
+            return time;
         }
 
         Matrix<T, 2, 1> computeCleavageStatsByInverse(T kdis = 1.0, T kcat = 1.0)
