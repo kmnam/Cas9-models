@@ -13,7 +13,7 @@
 #include "../include/sample.hpp"
 
 /*
- * Samples points uniformly from the specificity vs. speed ratio region in 
+ * Samples points uniformly from the specificity vs. times ratio region in 
  * the two-conformation Cas9 model (grid graph) for double-mismatch substrates.  
  *
  * Authors:
@@ -37,7 +37,7 @@ boost::random::mt19937 rng(1234567890);
 MatrixX30 computeCleavageStats(const Ref<const VectorX30>& params)
 {
     /*
-     * Compute the specificity and speed ratio with respect to the 
+     * Compute the specificity and times ratio with respect to the 
      * given number of mismatches, with the given set of parameter
      * values. 
      */
@@ -72,8 +72,10 @@ MatrixX30 computeCleavageStats(const Ref<const VectorX30>& params)
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
     unsigned npairs = length * (length - 1) / 2;
-    MatrixX30 stats(npairs, 2);
-    unsigned i = 0;
+    MatrixX30 stats(npairs + 1, 2);
+    stats(0, 0) = match_data(0);
+    stats(0, 1) = match_data(1);
+    unsigned i = 1;
     for (unsigned j = 0; j < length - 1; ++j)
     {
         for (unsigned k = j + 1; k < length; ++k)
@@ -83,12 +85,8 @@ MatrixX30 computeCleavageStats(const Ref<const VectorX30>& params)
             model->setRungLabels(j, mismatch_params);
             model->setRungLabels(k, mismatch_params);
             Matrix<mpfr_30_noet, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
-            
-            // Compute the specificity and speed ratio
-            mpfr_30_noet specificity = match_data(0) - mismatch_data(0);
-            mpfr_30_noet speed_ratio = mismatch_data(1) - match_data(1);
-            stats(i, 0) = specificity;
-            stats(i, 1) = speed_ratio;
+            stats(i, 0) = mismatch_data(0);
+            stats(i, 1) = mismatch_data(1);
             i++;
         }
     }
@@ -114,15 +112,15 @@ int main(int argc, char** argv)
         throw;
     }
 
-    // Compute specificities and speed ratios
+    // Compute specificities and times ratios
     unsigned npairs = length * (length - 1) / 2;
-    MatrixX30 specs(n, npairs);
-    MatrixX30 speed(n, npairs);
+    MatrixX30 probs(n, npairs + 1);
+    MatrixX30 times(n, npairs + 1);
     for (unsigned i = 0; i < n; ++i)
     {
         MatrixX30 stats = computeCleavageStats(params.row(i));
-        specs.row(i) = stats.col(0).transpose();
-        speed.row(i) = stats.col(1).transpose();
+        probs.row(i) = stats.col(0).transpose();
+        times.row(i) = stats.col(1).transpose();
     }
 
     // Write sampled parameter combinations to file
@@ -145,41 +143,41 @@ int main(int argc, char** argv)
     oss.clear();
     oss.str(std::string());
 
-    // Write matrix of cleavage specificities
-    oss << argv[2] << "-specificities.tsv";
-    std::ofstream specfile(oss.str());
-    specfile << std::setprecision(std::numeric_limits<double>::max_digits10);
-    if (specfile.is_open())
+    // Write matrix of cleavage efficiencies
+    oss << argv[2] << "-probs.tsv";
+    std::ofstream probsfile(oss.str());
+    probsfile << std::setprecision(std::numeric_limits<double>::max_digits10);
+    if (probsfile.is_open())
     {
-        for (unsigned i = 0; i < specs.rows(); i++)
+        for (unsigned i = 0; i < probs.rows(); i++)
         {
-            for (unsigned j = 0; j < specs.cols() - 1; j++)
+            for (unsigned j = 0; j < probs.cols() - 1; j++)
             {
-                specfile << specs(i,j) << "\t";
+                probsfile << probs(i,j) << "\t";
             }
-            specfile << specs(i,specs.cols()-1) << std::endl;
+            probsfile << probs(i,probs.cols()-1) << std::endl;
         }
     }
-    specfile.close();
+    probsfile.close();
     oss.clear();
     oss.str(std::string());
 
-    // Write matrix of cleavage speed ratios
-    oss << argv[2] << "-speed-ratios.tsv";
-    std::ofstream speedfile(oss.str());
-    speedfile << std::setprecision(std::numeric_limits<double>::max_digits10);
-    if (speedfile.is_open())
+    // Write matrix of mean first passage times
+    oss << argv[2] << "-times.tsv";
+    std::ofstream timesfile(oss.str());
+    timesfile << std::setprecision(std::numeric_limits<double>::max_digits10);
+    if (timesfile.is_open())
     {
-        for (unsigned i = 0; i < speed.rows(); i++)
+        for (unsigned i = 0; i < times.rows(); i++)
         {
-            for (unsigned j = 0; j < speed.cols() - 1; j++)
+            for (unsigned j = 0; j < times.cols() - 1; j++)
             {
-                speedfile << speed(i,j) << "\t";
+                timesfile << times(i,j) << "\t";
             }
-            speedfile << speed(i,speed.cols()-1) << std::endl;
+            timesfile << times(i,times.cols()-1) << std::endl;
         }
     }
-    speedfile.close();
+    timesfile.close();
     oss.clear();
     oss.str(std::string());
    
