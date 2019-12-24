@@ -112,7 +112,7 @@ class LineGraph : public MarkovDigraph<T>
              * in the case where cleavage is abrogated. 
              */
             T time = 0.0;
-            for (unsigned i = 0; i <= length; ++i)
+            for (unsigned i = 0; i <= this->N; ++i)
             {
                 T term = 1.0;
                 for (unsigned j = 0; j < i; ++j)
