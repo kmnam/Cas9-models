@@ -611,13 +611,13 @@ class GridGraph : public MarkovDigraph<T>
             Matrix<T, Dynamic, Dynamic> laplacian = Matrix<T, Dynamic, Dynamic>::Zero(dim, dim); 
             laplacian.block(1, 1, 2*this->N+2, 2*this->N+2) = -this->getLaplacian().transpose();
             laplacian.block(2*this->N+3, 2*this->N+3, 2*graph->getN()+2, 2*graph->getN()+2) = -graph->getLaplacian().transpose();
-            laplacian(0, 0) = kdis_this + kdis_other;
-            laplacian(0, 1) = kdis_this;
-            laplacian(0, 2*this->N+3) = kdis_other;
+            laplacian(0, 0) += kdis_this + kdis_other;
+            laplacian(0, 1) += -kdis_this;
+            laplacian(0, 2*this->N+3) += -kdis_other;
             laplacian(1, 1) += kbind_this;
-            laplacian(1, 0) = kbind_this;
+            laplacian(1, 0) += -kbind_this;
             laplacian(2*this->N+3, 2*this->N+3) += kbind_other;
-            laplacian(2*this->N+3, 0) = kbind_other;
+            laplacian(2*this->N+3, 0) += -kbind_other;
             laplacian(2*this->N+2, 2*this->N+2) += kcat_this;
             laplacian(dim-1, dim-1) += kcat_other;
 
