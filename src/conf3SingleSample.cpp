@@ -14,7 +14,8 @@
 
 /*
  * Samples points uniformly from the specificity vs. times ratio region in 
- * the three-conformation Cas9 model (triangular prism graph).  
+ * the three-conformation Cas9 model (triangular prism graph) against 
+ * single-mismatch substrates. 
  *
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
@@ -91,12 +92,14 @@ MatrixX200 computeCleavageStats(const Ref<const VectorX200>& params)
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
-    for (unsigned j = 1; j <= length; ++j)
+    for (unsigned j = 0; j < length; ++j)
     {
-        model->setRungLabels(length - j, mismatch_params);
+        for (unsigned k = 0; k < length; ++k)
+            model->setRungLabels(k, match_params);
+        model->setRungLabels(j, mismatch_params);
         Matrix<mpfr_200_noet, 2, 1> mismatch_data = model->computeCleavageStatsByInverse(1, 1).array().log10().matrix();
-        stats(j, 0) = mismatch_data(0);
-        stats(j, 1) = mismatch_data(1);
+        stats(j+1, 0) = mismatch_data(0);
+        stats(j+1, 1) = mismatch_data(1);
     }
 
     delete model;
