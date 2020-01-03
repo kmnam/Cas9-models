@@ -14,7 +14,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/23/2019
+ *     1/3/2020
  */
 using namespace Eigen;
 
@@ -595,46 +595,6 @@ class GridGraph : public MarkovDigraph<T>
             return stats;
         }
 
-        Matrix<T, 2, 1> computeCompetitionStatsByInverse(GridGraph<T>* graph,
-                                                         T kbind_this = 1.0,
-                                                         T kbind_other = 1.0,
-                                                         T kdis_this = 1.0,
-                                                         T kdis_other = 1.0,
-                                                         T kcat_this = 1.0,
-                                                         T kcat_other = 1.0)
-        {
-            /*
-             *
-             */
-            // Compute the Laplacian of the competition graph
-            unsigned dim = (2 * this->N + 2) + (2 * graph->getN() + 2) + 1; 
-            Matrix<T, Dynamic, Dynamic> laplacian = Matrix<T, Dynamic, Dynamic>::Zero(dim, dim); 
-            laplacian.block(1, 1, 2*this->N+2, 2*this->N+2) = -this->getLaplacian().transpose();
-            laplacian.block(2*this->N+3, 2*this->N+3, 2*graph->getN()+2, 2*graph->getN()+2) = -graph->getLaplacian().transpose();
-            laplacian(0, 0) += kdis_this + kdis_other;
-            laplacian(0, 1) += -kdis_this;
-            laplacian(0, 2*this->N+3) += -kdis_other;
-            laplacian(1, 1) += kbind_this;
-            laplacian(1, 0) += -kbind_this;
-            laplacian(2*this->N+3, 2*this->N+3) += kbind_other;
-            laplacian(2*this->N+3, 0) += -kbind_other;
-            laplacian(2*this->N+2, 2*this->N+2) += kcat_this;
-            laplacian(dim-1, dim-1) += kcat_other;
-
-            // Solve matrix equation for cleavage probabilities
-            Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(dim);
-            term_rates(2*this->N+2) = kcat_this;
-            Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
-
-            // Solve matrix equation for mean first passage times
-            Matrix<T, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
-            
-            // Collect the two required quantities
-            Matrix<T, 2, 1> stats;
-            stats << probs(0), times(0) / probs(0);
-            return stats;
-        }
-
         Matrix<T, 2, 1> computeRejectionStatsByInverse(T kdis = 1.0, T kcat = 1.0)
         {
             /*
@@ -662,23 +622,6 @@ class GridGraph : public MarkovDigraph<T>
             Matrix<T, 2, 1> stats;
             stats << probs(0), times(0) / probs(0);
             return stats;
-        }
-
-        T computeDissociationRate(T kdis = 1.0)
-        {
-            /*
-             * Compute the mean first passage time to the dissociated state,
-             * in the case where cleavage is abrogated. 
-             */
-            // Compute weight of spanning trees rooted at each vertex
-            Matrix<T, Dynamic, 2> wt = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-            for (unsigned i = 0; i <= this->N; ++i)
-            {
-                wt(i, 0) = this->weightTrees(0, i);
-                wt(i, 1) = this->weightTrees(1, i);
-            }
-
-            return wt.sum() / (kdis * wt(0,0));
         }
 
         Matrix<T, 2, 1> computeCleavageStats(T kdis = 1.0, T kcat = 1.0)
