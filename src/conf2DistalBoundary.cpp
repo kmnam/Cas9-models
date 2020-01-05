@@ -20,7 +20,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/2/2019
+ *     1/4/2020
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -77,13 +77,13 @@ VectorX30 computeCleavageStats(const Ref<const VectorX30>& params)
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<mpfr_30_noet, 2, 1> match_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+    Matrix<mpfr_30_noet, 2, 1> match_data = model->computeCleavageStats(1, 1000).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
     for (unsigned j = 1; j <= n_mismatches; ++j)
         model->setRungLabels(length - j, mismatch_params);
-    Matrix<mpfr_30_noet, 2, 1> mismatch_data = model->computeCleavageStats(1, 1).array().log10().matrix();
+    Matrix<mpfr_30_noet, 2, 1> mismatch_data = model->computeCleavageStats(1, 1000).array().log10().matrix();
 
     // Compute the specificity and speed ratio
     mpfr_30_noet specificity = match_data(0) - mismatch_data(0);
