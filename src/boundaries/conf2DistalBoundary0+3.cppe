@@ -10,8 +10,8 @@
 #include <boost/multiprecision/eigen.hpp>
 #include <boost/random.hpp>
 #include <boundaryFinder.hpp>
-#include "../../include/graphs/grid.hpp"
-#include "../../include/sample.hpp"
+#include "../include/graphs/grid.hpp"
+#include "../include/sample.hpp"
 
 /*
  * Estimates the boundary of the specificity vs. speed ratio region in 

@@ -10,12 +10,12 @@
 #include <boost/multiprecision/eigen.hpp>
 #include <boost/random.hpp>
 #include <boundaryFinder.hpp>
-#include "../../include/graphs/grid.hpp"
-#include "../../include/sample.hpp"
+#include "../include/graphs/line.hpp"
+#include "../include/sample.hpp"
 
 /*
  * Estimates the boundary of the specificity vs. speed ratio region in 
- * the Cas9 model. 
+ * the single-conformation Cas9 model (line graph).  
  *
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
@@ -27,6 +27,7 @@ using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::et_off;
 typedef number<mpfr_float_backend<30>, et_off> mpfr_30_noet;
+typedef Matrix<mpfr_30_noet, Dynamic, Dynamic> MatrixX30; 
 typedef Matrix<mpfr_30_noet, Dynamic, 1> VectorX30;
 
 const unsigned length = 20;
@@ -34,7 +35,7 @@ const unsigned length = 20;
 // Instantiate random number generator 
 boost::random::mt19937 rng(1234567890);
 
-std::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
+boost::random::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
 
 int coin_toss(boost::random::mt19937& rng)
 {
@@ -52,38 +53,29 @@ VectorX30 computeCleavageStats(const Ref<const VectorX30>& params)
     using boost::multiprecision::pow;
 
     // Array of DNA/RNA match parameters
-    std::array<mpfr_30_noet, 6> match_params;
+    std::array<mpfr_30_noet, 2> match_params;
     match_params[0] = pow(10.0, params(0));
     match_params[1] = pow(10.0, params(1));
-    match_params[2] = pow(10.0, params(0));
-    match_params[3] = pow(10.0, params(1));
-    match_params[4] = pow(10.0, params(4));
-    match_params[5] = pow(10.0, params(5));
 
     // Array of DNA/RNA mismatch parameters
-    std::array<mpfr_30_noet, 6> mismatch_params;
+    std::array<mpfr_30_noet, 2> mismatch_params;
     mismatch_params[0] = pow(10.0, params(2));
     mismatch_params[1] = pow(10.0, params(3));
-    mismatch_params[2] = pow(10.0, params(2));
-    mismatch_params[3] = pow(10.0, params(3));
-    mismatch_params[4] = pow(10.0, params(4));
-    mismatch_params[5] = pow(10.0, params(5));
 
     // Populate each rung with DNA/RNA match parameters
-    GridGraph<mpfr_30_noet>* model = new GridGraph<mpfr_30_noet>(length);
-    model->setStartLabels(match_params[4], match_params[5]);
+    LineGraph<mpfr_30_noet>* model = new LineGraph<mpfr_30_noet>(length);
     for (unsigned j = 0; j < length; ++j)
-        model->setRungLabels(j, match_params);
+        model->setLabels(j, match_params);
     
     // Compute cleavage probability and mean first passage time 
     // to cleaved state
-    Matrix<mpfr_30_noet, 2, 1> match_data = model->computeCleavageStats(1, 1000).array().log10().matrix();
+    Matrix<mpfr_30_noet, 2, 1> match_data = model->computeCleavageStats(1, 10).array().log10().matrix();
 
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
     for (unsigned j = 1; j <= n_mismatches; ++j)
-        model->setRungLabels(length - j, mismatch_params);
-    Matrix<mpfr_30_noet, 2, 1> mismatch_data = model->computeCleavageStats(1, 1000).array().log10().matrix();
+        model->setLabels(length - j, mismatch_params);
+    Matrix<mpfr_30_noet, 2, 1> mismatch_data = model->computeCleavageStats(1, 10).array().log10().matrix();
 
     // Compute the specificity and speed ratio
     mpfr_30_noet specificity = match_data(0) - mismatch_data(0);
@@ -208,7 +200,8 @@ int main(int argc, char** argv)
     params = data.second.template cast<double>();
 
     // Define trivial filtering function
-    std::function<bool(const Ref<const VectorX30>& x)> filter = [](const Ref<const VectorX30>& x){ return false; };
+    std::function<bool(const Ref<const VectorX30>& x)> filter
+        = [](const Ref<const VectorX30>& x){ return false; };
 
     // Boundary-finding algorithm settings
     double tol = 1e-4;
@@ -229,7 +222,7 @@ int main(int argc, char** argv)
     constraints.parse(argv[1]);
     MatrixXd A = constraints.getA();
     VectorXd b = constraints.getb();
-    BoundaryFinder<mpfr_30_noet> finder(6, tol, rng, A, b);
+    BoundaryFinder<mpfr_30_noet> finder(4, tol, rng, A, b);
     std::function<VectorX30(const Ref<const VectorX30>&)> func = cleavageFunc(m);
     std::function<VectorX30(const Ref<const VectorX30>&, boost::random::mt19937&)> mutate = mutate_by_delta;
     finder.run(
