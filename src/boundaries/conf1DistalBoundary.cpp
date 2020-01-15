@@ -182,16 +182,15 @@ VectorX30 mutate_by_delta(const Ref<const VectorX30>& params, boost::random::mt1
 int main(int argc, char** argv)
 {
     // Sample model parameter combinations
-    unsigned n, m;
+    unsigned m;
     sscanf(argv[4], "%u", &m);
-    sscanf(argv[5], "%u", &n);
 
     // Define trivial filtering function
     std::function<bool(const Ref<const VectorX30>& x)> filter
         = [](const Ref<const VectorX30>& x){ return false; };
 
     // Boundary-finding algorithm settings
-    double tol = 1e-4;
+    double tol = 1e-8;
     unsigned n_within = 200;
     unsigned n_bound = 200;
     unsigned min_step_iter = 100;
@@ -214,7 +213,7 @@ int main(int argc, char** argv)
         func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
     );
-    params = finder.getParams();
+    MatrixXd params = finder.getParams();
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;

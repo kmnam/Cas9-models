@@ -220,7 +220,7 @@ int main(int argc, char** argv)
         func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose, ss.str()
     );
-    params = finder.getParams();
+    MatrixXd params = finder.getParams();
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;
