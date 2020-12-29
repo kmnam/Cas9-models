@@ -13,12 +13,12 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/23/2019
+ *     12/29/2020
  */
 using namespace Eigen;
 
 template <typename T>
-class LineGraph : public MarkovDigraph<T>
+class LineGraph : public LabeledDigraph<T>
 {
     /*
      * An implementation of the two-state grid graph, with recurrence relations
@@ -27,38 +27,51 @@ class LineGraph : public MarkovDigraph<T>
     private:
         unsigned N;    // Length of the graph
 
+        // Canonical ordering of nodes
+        std::vector<Node*> order;
+
         // Array of edge labels that grows with the length of the graph
         std::vector<std::array<T, 2> > line_labels;
 
     public:
-        LineGraph() : MarkovDigraph<T>()
+        LineGraph() : LabeledDigraph<T>()
         {
             /*
              * Trivial constructor with length zero (one vertex, no edges).
              */
-            this->addNode("0");
             this->N = 0;
+            Node* node = this->addNode("0");
+            this->order.push_back(node);
         }
 
-        LineGraph(unsigned N) : MarkovDigraph<T>()
+        LineGraph(unsigned N) : LabeledDigraph<T>()
         {
             /*
              * Trivial constructor with given length; set edge labels to unity.
              */
+            // Add the zeroth node
             this->N = N;
+            Node* node = this->addNode("0");
+            this->order.push_back(node);
+
             for (unsigned i = 0; i < N; ++i)
             {
-                std::stringstream si, sj;
-                si << i;
-                sj << i + 1;
-                this->addEdge(si.str(), sj.str(), 1.0);
-                this->addEdge(sj.str(), si.str(), 1.0);
-                std::array<T, 2> labels = {1.0, 1.0};
+                // Add the (i+1)-th node
+                std::stringstream ssi, ssj;
+                ssi << i;
+                ssj << i + 1;
+                node = this->addNode(ssj.str());
+                this->order.push_back(node_j);
+
+                // Add edges i -> i+1 and i+1 -> i
+                this->addEdge(ssi.str(), ssj.str());
+                this->addEdge(ssj.str(), ssi.str());
+                std::array<T, 2> labels = {1, 1};
                 this->line_labels.push_back(labels);
             }
         }
 
-        ~LineGraph()
+        ~LineGraph() : ~LabeledDigraph<T>()
         {
             /*
              * Trivial destructor.
@@ -73,19 +86,24 @@ class LineGraph : public MarkovDigraph<T>
             return this->N;
         }
 
-        void addEndNode(std::array<T, 2> labels)
+        void addNodeToEnd(std::array<T, 2> labels)
         {
             /*
              * Add new node onto the end of the graph, with the two 
              * additional edges. 
              */
+            // Add new node to end of graph 
             this->N++;
+            std::stringstream ssi, ssj;
+            ssi << this->N - 1;
+            ssj << this->N;
+            Node* node = this->addNode(ssj.str());
+            this->order.push_back(node);
+
+            // Add edges N-1 -> N and N -> N-1 (with incremented value for N)
+            this->addEdge(ssi.str(), ssj.str(), labels[0]);
+            this->addEdge(ssj.str(), ssi.str(), labels[1]);
             this->line_labels.push_back(labels);
-            std::stringstream si, sj;
-            si << this->N - 1;
-            sj << this->N;
-            this->addEdge(si.str(), sj.str(), labels[0]);
-            this->addEdge(sj.str(), si.str(), labels[1]);
         }
 
         void setLabels(unsigned i, std::array<T, 2> labels)
@@ -93,94 +111,99 @@ class LineGraph : public MarkovDigraph<T>
             /*
              * Set the edge labels between the i-th and (i+1)-th nodes 
              * to the given values.
-             *
-             * That is, if i == 0, then the labels between nodes 0 and 1
-             * are updated, and so on.
              */
             this->line_labels[i] = labels;
-            std::stringstream si, sj;
-            si << i;
-            sj << i + 1;
-            this->setEdgeLabel(si.str(), sj.str(), labels[0]);
-            this->setEdgeLabel(sj.str(), si.str(), labels[1]);
+            std::stringstream ssi, ssj;
+            ssi << i;
+            ssj << i + 1;
+            this->setEdgeLabel(ssi.str(), ssj.str(), labels[0]);
+            this->setEdgeLabel(ssj.str(), ssi.str(), labels[1]);
         }
 
-        T computeDissociationRate(T kdis = 1.0)
+        template <typename U = T>
+        U computeDissociationTime(U kdis = 1)
         {
             /*
              * Compute the mean first passage time to the dissociated state,
              * in the case where cleavage is abrogated. 
              */
-            T time = 0.0;
+            U time = 0;
             for (unsigned i = 0; i <= this->N; ++i)
             {
-                T term = 1.0;
+                U term = 1;
                 for (unsigned j = 0; j < i; ++j)
-                    term *= (this->line_labels[j][0] / this->line_labels[j][1]);
+                {
+                    U forward = this->line_labels[j][0];
+                    U reverse = this->line_labels[j][1];
+                    term *= (forward / reverse);
+                }
                 time += (term / kdis);
             }
             return time;
         }
 
-        Matrix<T, 2, 1> computeCleavageStatsByInverse(T kdis = 1.0, T kcat = 1.0)
+        template <typename U = T>
+        Matrix<U, 2, 1> computeCleavageStatsByInverse(U kdis = 1, U kcat = 1)
         {
             /*
              * Compute probability of cleavage and (conditional) mean first passage
              * time to the cleaved state in the given model, with the specified
              * terminal rates of dissociation and cleavage, by directly solving
-             * for the inverse of the Laplacian and its square.
+             * for the inverse of the modified Laplacian and its square.
              */
             // Compute the Laplacian of the graph
-            Matrix<T, Dynamic, Dynamic> laplacian = -this->getLaplacian().transpose();
+            Matrix<U, Dynamic, Dynamic> laplacian = -this->template getLaplacian<U>(this->order).transpose();
 
             // Update the Laplacian matrix with the specified terminal rates
             laplacian(0, 0) += kdis;
             laplacian(this->N, this->N) += kcat;
 
             // Solve matrix equation for cleavage probabilities
-            Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(this->N+1);
+            Matrix<U, Dynamic, 1> term_rates = Matrix<U, Dynamic, 1>::Zero(this->N+1);
             term_rates(this->N) = kcat;
-            Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
+            Matrix<U, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
 
             // Solve matrix equation for mean first passage times
-            Matrix<T, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
+            Matrix<U, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
             
             // Collect the two required quantities
-            Matrix<T, 2, 1> stats;
+            Matrix<U, 2, 1> stats;
             stats << probs(0), times(0) / probs(0);
             return stats;
         }
 
-        Matrix<T, 2, 1> computeRejectionStatsByInverse(T kdis = 1.0, T kcat = 1.0)
+        template <typename U = T>
+        Matrix<U, 2, 1> computeRejectionStatsByInverse(U kdis = 1, U kcat = 1)
         {
             /*
              * Compute probability of rejection and (conditional) mean first passage
              * time to the dissociated state in the given model, with the specified
              * terminal rates of dissociation and cleavage, by directly solving 
-             * for the inverse of the Laplacian and its square.
+             * for the inverse of the modified Laplacian and its square.
              */
             // Compute the Laplacian of the graph
-            Matrix<T, Dynamic, Dynamic> laplacian = -this->getLaplacian().transpose();
+            Matrix<U, Dynamic, Dynamic> laplacian = -this->template getLaplacian<U>(this->order).transpose();
 
             // Update the Laplacian matrix with the specified terminal rates
             laplacian(0, 0) += kdis;
             laplacian(this->N, this->N) += kcat;
 
             // Solve matrix equation for cleavage probabilities
-            Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(this->N+1);
+            Matrix<U, Dynamic, 1> term_rates = Matrix<U, Dynamic, 1>::Zero(this->N+1);
             term_rates(0) = kdis;
-            Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
+            Matrix<U, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
 
             // Solve matrix equation for mean first passage times
-            Matrix<T, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
+            Matrix<U, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
             
             // Collect the two required quantities
-            Matrix<T, 2, 1> stats;
+            Matrix<U, 2, 1> stats;
             stats << probs(0), times(0) / probs(0);
             return stats;
         }
 
-        Matrix<T, 2, 1> computeCleavageStats(T kdis = 1.0, T kcat = 1.0)
+        template <typename U = T>
+        Matrix<U, 2, 1> computeCleavageStats(U kdis = 1, U kcat = 1)
         {
             /*
              * Compute probability of cleavage and (conditional) mean first passage
@@ -188,40 +211,40 @@ class LineGraph : public MarkovDigraph<T>
              * terminal rates of dissociation and cleavage, by enumerating the
              * required spanning forests of the grid graph. 
              */
-            auto bi = [this, kdis, kcat](int i)
+            std::function<U(int)> bi = [this, kdis, kcat](int i)
             {
                 return (i < this->N ? this->line_labels[i][0] : kcat);
             };
 
-            auto di = [this, kdis, kcat](int i)
+            std::function<U(int)> di = [this, kdis, kcat](int i)
             {
                 return (i == 0 ? kdis : this->line_labels[i-1][1]);
             };
 
             // Compute the probability of cleavage ...
-            T prob = 1.0;
+            U prob = 1;
             for (int i = 0; i <= this->N; ++i)
             {
-                T t = 1.0;
-                for (int j = 0; j <= i; ++j) t *= di(j) / bi(j);
+                U t = 1;
+                for (int j = 0; j <= i; ++j) U *= di(j) / bi(j);
                 prob += t;
             }
-            prob = 1.0 / prob;
+            prob = 1 / prob;
 
             // ... and the mean first passage time to the cleaved state
-            T time = 0.0;
+            U time = 0;
             for (int i = 0; i <= this->N; ++i)
             {
-                T t1 = 1.0, t2 = 1.0;
+                U t1 = 1, t2 = 1;
                 for (int j = i + 1; j <= this->N; ++j)
                 {
-                    T u1 = 1.0;
+                    U u1 = 1;
                     for (int k = i + 1; k <= j; ++k) u1 *= di(k) / bi(k);
                     t1 += u1;
                 }
                 for (int j = 0; j < i; ++j)
                 {
-                    T u2 = 1.0;
+                    U u2 = 1;
                     for (int k = 0; k <= j; ++k) u2 *= di(k) / bi(k);
                     t2 += u2;
                 }
@@ -230,7 +253,7 @@ class LineGraph : public MarkovDigraph<T>
             time *= prob;
 
             // Collect the two required quantities
-            Matrix<T, 2, 1> stats;
+            Matrix<U, 2, 1> stats;
             stats << prob, time;
             return stats; 
         }
@@ -248,8 +271,8 @@ std::ostream& operator<<(std::ostream& stream, const LineGraph<T>& graph)
     MatrixXd rates(graph.N, 2);
     for (unsigned i = 0; i < graph.N; ++i)
     {
-        rates(i,0) = static_cast<double>(graph.labels[i][0]);
-        rates(i,1) = static_cast<double>(graph.labels[i][1]);
+        rates(i,0) = static_cast<double>(graph.line_labels[i][0]);
+        rates(i,1) = static_cast<double>(graph.line_labels[i][1]);
     }
     stream << rates;
     return stream;
