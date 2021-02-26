@@ -13,7 +13,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/29/2020
+ *     2/16/2021
  */
 using namespace Eigen;
 
@@ -30,14 +30,15 @@ class LineGraph : public LabeledDigraph<T>
         // Canonical ordering of nodes
         std::vector<Node*> order;
 
-        // Array of edge labels that grows with the length of the graph
+        // Vector of edge labels that grows with the length of the graph
+        // Each array stores the labels for the edges i -> i+1 and i+1 -> i
         std::vector<std::array<T, 2> > line_labels;
 
     public:
         LineGraph() : LabeledDigraph<T>()
         {
             /*
-             * Trivial constructor with length zero (one vertex, no edges).
+             * Trivial constructor with length 0 (1 vertex named "0").
              */
             this->N = 0;
             Node* node = this->addNode("0");
@@ -61,9 +62,9 @@ class LineGraph : public LabeledDigraph<T>
                 ssi << i;
                 ssj << i + 1;
                 node = this->addNode(ssj.str());
-                this->order.push_back(node_j);
+                this->order.push_back(node);
 
-                // Add edges i -> i+1 and i+1 -> i
+                // Add edges i -> i+1 and i+1 -> i with labels = 1
                 this->addEdge(ssi.str(), ssj.str());
                 this->addEdge(ssj.str(), ssi.str());
                 std::array<T, 2> labels = {1, 1};
@@ -71,7 +72,7 @@ class LineGraph : public LabeledDigraph<T>
             }
         }
 
-        ~LineGraph() : ~LabeledDigraph<T>()
+        ~LineGraph()
         {
             /*
              * Trivial destructor.
@@ -110,7 +111,7 @@ class LineGraph : public LabeledDigraph<T>
         {
             /*
              * Set the edge labels between the i-th and (i+1)-th nodes 
-             * to the given values.
+             * (i -> i+1, then i+1 -> i) to the given values.
              */
             this->line_labels[i] = labels;
             std::stringstream ssi, ssj;
@@ -120,162 +121,112 @@ class LineGraph : public LabeledDigraph<T>
             this->setEdgeLabel(ssj.str(), ssi.str(), labels[1]);
         }
 
-        template <typename U = T>
-        U computeDissociationTime(U kdis = 1)
+        T computeUpperExitProb(T exit_rate_0 = 1, T exit_rate_N = 1)
         {
             /*
-             * Compute the mean first passage time to the dissociated state,
-             * in the case where cleavage is abrogated. 
+             * Compute the probability of exiting the line graph through
+             * the upper vertex N. 
              */
-            U time = 0;
+            // Start with 1 ...
+            T prob = 1;
+
+            // ... then, for each vertex, get the ratio of the reverse 
+            // edge label divided by the forward edge label 
+            T curr = exit_rate_0 / this->line_labels[0][0];
+            prob += curr;
+            for (unsigned i = 1; i < this->N; ++i)
+            {
+                curr *= this->line_labels[i-1][1] / this->line_labels[i][0];
+                prob += curr;
+            }
+            curr *= this->line_labels[this->N - 1][1] / exit_rate_N;
+            prob += curr;
+
+            // ... then take the reciprocal
+            return (1.0 / prob);
+        }
+
+        T computeLowerExitRate(T exit_rate_0 = 1, T exit_rate_N = 1)
+        {
+            /*
+             * Compute the reciprocal of the mean first passage time to exit
+             * through the lower vertex 0, in the case that lower exit does
+             * occur.
+             */
+            // Get the weights of 2-forests rooted at the two exit vertices
+            // with path from i to lower exit, for i = N, ..., 0
+            std::vector<T> two_forest_weights;
+            for (unsigned i = 0; i <= this->N; ++i)
+                two_forest_weights.push_back(0);
+            
+            // Start with i = N
+            T weight = exit_rate_0;
+            for (unsigned i = 0; i < this->N; ++i)
+                weight *= this->line_labels[i][1];
+            two_forest_weights[this->N] = weight;
+
+            // Then run from N-1 to 0
+            for (int i = this->N - 1; i >= 0; --i)
+            {
+                weight = exit_rate_0;
+                for (int j = 0; j < i; ++j)
+                    weight *= this->line_labels[j][1];
+                for (int j = i; j < this->N - 1; ++j)
+                    weight *= this->line_labels[j+1][0];
+                weight *= exit_rate_N;
+                two_forest_weights[i] = two_forest_weights[i+1] + weight;
+            }
+
+            // Now get the weight of the last 2-forest, with a path from 
+            // 0 to upper exit
+            T upper_exit_weight = 1;
+            for (unsigned i = 0; i < this->N; ++i)
+                upper_exit_weight *= this->line_labels[i][0];
+            upper_exit_weight *= exit_rate_N;
+
+            // Now get the weights of 3-forests rooted at the two exit
+            // vertices and i, for i = 0, ..., N, with a path 0 -> i
+            std::vector<T> three_forest_weights;
+            for (unsigned i = 0; i <= this->N; ++i)
+                three_forest_weights.push_back(0);
+
+            // For each i = 0, ... N, start with the weight of the path 0 -> i
             for (unsigned i = 0; i <= this->N; ++i)
             {
-                U term = 1;
+                weight = 1;
                 for (unsigned j = 0; j < i; ++j)
+                    weight *= this->line_labels[j][0];
+
+                // Then run through all the 3-forests with that path ...
+                T total = 0;
+                
+                // Start with the last forest (with the path N -> i)
+                T factor = 1;
+                for (int j = this->N; j > i; --j)
+                    factor *= this->line_labels[j-1][1];
+                total += factor;
+
+                for (unsigned j = i + 1; j <= this->N; ++j)
                 {
-                    U forward = this->line_labels[j][0];
-                    U reverse = this->line_labels[j][1];
-                    term *= (forward / reverse);
+                    // Then run through all forests with path N -> upper exit
+                    factor = exit_rate_N;
+                    for (unsigned k = i + 1; k < j; ++k)
+                        factor *= this->line_labels[k-1][1];
+                    for (unsigned k = j; k < this->N; ++k)
+                        factor *= this->line_labels[k][0];
+                    total += factor;
                 }
-                time += (term / kdis);
+
+                three_forest_weights[i] = weight * total;
             }
-            return time;
+
+            // Finally, compute the reciprocal of the mean first passage time
+            T denom = 0;
+            for (unsigned i = 0; i <= this->N; ++i)
+                denom += (three_forest_weights[i] * two_forest_weights[i]);
+
+            return (two_forest_weights[0] * (two_forest_weights[0] + upper_exit_weight) / denom);
         }
-
-        template <typename U = T>
-        Matrix<U, 2, 1> computeCleavageStatsByInverse(U kdis = 1, U kcat = 1)
-        {
-            /*
-             * Compute probability of cleavage and (conditional) mean first passage
-             * time to the cleaved state in the given model, with the specified
-             * terminal rates of dissociation and cleavage, by directly solving
-             * for the inverse of the modified Laplacian and its square.
-             */
-            // Compute the Laplacian of the graph
-            Matrix<U, Dynamic, Dynamic> laplacian = -this->template getLaplacian<U>(this->order).transpose();
-
-            // Update the Laplacian matrix with the specified terminal rates
-            laplacian(0, 0) += kdis;
-            laplacian(this->N, this->N) += kcat;
-
-            // Solve matrix equation for cleavage probabilities
-            Matrix<U, Dynamic, 1> term_rates = Matrix<U, Dynamic, 1>::Zero(this->N+1);
-            term_rates(this->N) = kcat;
-            Matrix<U, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
-
-            // Solve matrix equation for mean first passage times
-            Matrix<U, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
-            
-            // Collect the two required quantities
-            Matrix<U, 2, 1> stats;
-            stats << probs(0), times(0) / probs(0);
-            return stats;
-        }
-
-        template <typename U = T>
-        Matrix<U, 2, 1> computeRejectionStatsByInverse(U kdis = 1, U kcat = 1)
-        {
-            /*
-             * Compute probability of rejection and (conditional) mean first passage
-             * time to the dissociated state in the given model, with the specified
-             * terminal rates of dissociation and cleavage, by directly solving 
-             * for the inverse of the modified Laplacian and its square.
-             */
-            // Compute the Laplacian of the graph
-            Matrix<U, Dynamic, Dynamic> laplacian = -this->template getLaplacian<U>(this->order).transpose();
-
-            // Update the Laplacian matrix with the specified terminal rates
-            laplacian(0, 0) += kdis;
-            laplacian(this->N, this->N) += kcat;
-
-            // Solve matrix equation for cleavage probabilities
-            Matrix<U, Dynamic, 1> term_rates = Matrix<U, Dynamic, 1>::Zero(this->N+1);
-            term_rates(0) = kdis;
-            Matrix<U, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
-
-            // Solve matrix equation for mean first passage times
-            Matrix<U, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
-            
-            // Collect the two required quantities
-            Matrix<U, 2, 1> stats;
-            stats << probs(0), times(0) / probs(0);
-            return stats;
-        }
-
-        template <typename U = T>
-        Matrix<U, 2, 1> computeCleavageStats(U kdis = 1, U kcat = 1)
-        {
-            /*
-             * Compute probability of cleavage and (conditional) mean first passage
-             * time to the cleaved state in the given model, with the specified
-             * terminal rates of dissociation and cleavage, by enumerating the
-             * required spanning forests of the grid graph. 
-             */
-            std::function<U(int)> bi = [this, kdis, kcat](int i)
-            {
-                return (i < this->N ? this->line_labels[i][0] : kcat);
-            };
-
-            std::function<U(int)> di = [this, kdis, kcat](int i)
-            {
-                return (i == 0 ? kdis : this->line_labels[i-1][1]);
-            };
-
-            // Compute the probability of cleavage ...
-            U prob = 1;
-            for (int i = 0; i <= this->N; ++i)
-            {
-                U t = 1;
-                for (int j = 0; j <= i; ++j) U *= di(j) / bi(j);
-                prob += t;
-            }
-            prob = 1 / prob;
-
-            // ... and the mean first passage time to the cleaved state
-            U time = 0;
-            for (int i = 0; i <= this->N; ++i)
-            {
-                U t1 = 1, t2 = 1;
-                for (int j = i + 1; j <= this->N; ++j)
-                {
-                    U u1 = 1;
-                    for (int k = i + 1; k <= j; ++k) u1 *= di(k) / bi(k);
-                    t1 += u1;
-                }
-                for (int j = 0; j < i; ++j)
-                {
-                    U u2 = 1;
-                    for (int k = 0; k <= j; ++k) u2 *= di(k) / bi(k);
-                    t2 += u2;
-                }
-                time += (t1 * t2 / bi(i));
-            }
-            time *= prob;
-
-            // Collect the two required quantities
-            Matrix<U, 2, 1> stats;
-            stats << prob, time;
-            return stats; 
-        }
-
-        template <typename U>
-        friend std::ostream& operator<<(std::ostream& stream, const LineGraph<U>& graph);
 };
-
-template <typename T>
-std::ostream& operator<<(std::ostream& stream, const LineGraph<T>& graph)
-{
-    /*
-     * Output to the given stream. 
-     */
-    MatrixXd rates(graph.N, 2);
-    for (unsigned i = 0; i < graph.N; ++i)
-    {
-        rates(i,0) = static_cast<double>(graph.line_labels[i][0]);
-        rates(i,1) = static_cast<double>(graph.line_labels[i][1]);
-    }
-    stream << rates;
-    return stream;
-} 
 
 #endif 

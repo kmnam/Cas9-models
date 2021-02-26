@@ -14,12 +14,128 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     1/3/2020
+ *     2/24/2021
  */
 using namespace Eigen;
 
 template <typename T>
-class GridGraph : public MarkovDigraph<T>
+std::array<T, 3> operatorA(std::array<T, 3>& v, std::array<T, 6>& labels)
+{
+    /*
+     * Apply operator A at the j-th rung of the grid graph. 
+     */
+    std::array<T, 3> w;
+    T fA = labels[0];
+    T rA = labels[1];
+    T fB = labels[2];
+    T rB = labels[3];
+    T c = labels[4];
+    T d = labels[5];
+    w[0] = (rA*d + rB*c + rA*rB)*v[0] + (fA*rB*c)*v[1] + (fB*rA*d)*v[2];
+    w[1] = rB*v[0] + (fA*rB)*v[1];
+    w[2] = rA*v[0] + (fB*rA)*v[2];
+   
+    return w; 
+}
+
+template <typename T>
+std::array<T, 9> operatorB(std::array<T, 3>& v, std::array<T, 6>& labels)
+{
+    /*
+     * Apply operator B at the j-th rung of the grid graph. 
+     */
+    std::array<T, 9> w;
+    T fA = labels[0];
+    T rA = labels[1];
+    T fB = labels[2];
+    T rB = labels[3];
+    T c = labels[4];
+    T d = labels[5];
+    w[0] = (rA*d + rB*c + rA*rB)*v[0] + (fB*rA*d)*v[2];
+    w[1] = (rA*d + rB*c + rA*rB)*v[1] + (fA*rB*c)*v[2];
+    w[2] = (fA*d + fA*rB)*v[0] + (fB*d)*v[1] + (fA*fB*d)*v[2];
+    w[3] = (fA*c)*v[0] + (fB*c + fB*rA)*v[1] + (fA*fB*c)*v[2];
+    w[4] = rB*v[0];
+    w[5] = rA*v[0] + (fB*rA)*v[2];
+    w[6] = rB*v[1] + (fA*rB)*v[2];
+    w[7] = rA*v[1];
+    w[8] = fA*v[0] + fB*v[1] + (fA*fB)*v[2];
+
+    return w;
+}
+
+template <typename T>
+std::array<T, 3> operatorC(std::array<T, 4>& v, std::array<T, 6>& labels)
+{
+    /*
+     * Apply operator C at the j-th rung of the grid graph.
+     */
+    std::array<T, 3> w;
+    T fA = labels[0];
+    T rA = labels[1];
+    T fB = labels[2];
+    T rB = labels[3];
+    T c = labels[4];
+    T d = labels[5];
+    w[0] = (d + rB)*v[0] + (fA*d + fA*rB)*v[1] + (fB*d)*v[2] + (fA*fB*d)*v[3];
+    w[1] = (c + rA)*v[0] + (fA*c)*v[1] + (fB*c + fB*rA)*v[2] + (fA*fB*c)*v[3];
+    w[2] = v[0] + fA*v[1] + fB*v[2] + fA*fB*v[3];
+
+    return w;
+}
+
+template <typename T>
+std::array<T, 8> operatorD(std::array<T, 4>& v, std::array<T, 6>& labels)
+{
+    /*
+     * Apply operator D at the j-th rung of the grid graph.
+     */
+    std::array<T, 8> w;
+    T fA = labels[0];
+    T rA = labels[1];
+    T fB = labels[2];
+    T rB = labels[3];
+    T c = labels[4];
+    T d = labels[5];
+    w[0] = (d + rB)*v[0] + (fB*d)*v[3];
+    w[1] = (d + rB)*v[1] + (fA*d + fA*rB)*v[2];
+    w[2] = (c + rA)*v[0] + (fB*c + fB*rA)*v[3];
+    w[3] = (c + rA)*v[1] + (fA*c)*v[2];
+    w[4] = fA*v[0] + (fA*fB)*v[2];
+    w[5] = fB*v[1] + (fA*fB)*v[3];
+    w[6] = v[0] + fB*v[3];
+    w[7] = v[1] + fA*v[2];
+
+    return w;
+}
+
+template <typename T>
+std::array<T, 8> operatorE(std::array<T, 3>& v, std::array<T, 6>& labels)
+{
+    /*
+     * Apply operator E at the j-th rung of the grid graph.
+     */
+    std::array<T, 8> w;
+    T fA = labels[0];
+    T rA = labels[1];
+    T fB = labels[2];
+    T rB = labels[3];
+    T c = labels[4];
+    T d = labels[5];
+    w[0] = (d + rB)*v[0] + (fB*d)*v[2];
+    w[1] = (c + rA)*v[0] + (fB*c + fB*rA)*v[2];
+    w[2] = (d + rB)*v[0] + (fA*d + fA*rB)*v[1];
+    w[3] = (c + rA)*v[0] + (fA*c)*v[1];
+    w[4] = rB*v[0] + (fA*rB)*v[1];
+    w[5] = rA*v[0] + (fB*rA)*v[2];
+    w[6] = v[0] + fB*v[2];
+    w[7] = v[0] + fA*v[1];
+
+    return w;
+}
+
+template <typename T>
+class GridGraph : public LabeledDigraph<T>
 {
     /*
      * An implementation of the two-state grid graph, with recurrence relations
@@ -28,49 +144,74 @@ class GridGraph : public MarkovDigraph<T>
     private:
         unsigned N;    // Length of the graph
 
-        // The A <--> B edge labels for the zeroth rung of the graph
+        // Canonical ordering of the nodes 
+        std::vector<Node*> order;
+
+        // The A <-> B edge labels for the zeroth rung of the graph
         std::array<T, 2> start;
 
         // Array of edge labels that grows with the length of the graph
         std::vector<std::array<T, 6> > rung_labels;
 
     public:
-        GridGraph() : MarkovDigraph<T>()
+        GridGraph() : LabeledDigraph<T>()
         {
             /*
              * Trivial constructor with length zero; set edge labels to unity.
              */
-            this->addEdge("A0", "B0", 1.0);
-            this->addEdge("B0", "A0", 1.0);
+            // Add nodes ...
             this->N = 0;
+            Node* node_A = this->addNode("A0");
+            Node* node_B = this->addNode("B0");
+            this->order.push_back(node_A);
+            this->order.push_back(node_B);
+
+            // ... and edges 
+            this->addEdge("A0", "B0");
+            this->addEdge("B0", "A0");
             this->start[0] = 1.0;
             this->start[1] = 1.0;
         }
 
-        GridGraph(unsigned N) : MarkovDigraph<T>()
+        GridGraph(unsigned N) : LabeledDigraph<T>()
         {
             /*
              * Trivial constructor with given length; set edge labels to unity.
              */
-            this->addEdge("A0", "B0", 1.0);
-            this->addEdge("B0", "A0", 1.0);
+            // Add the zeroth nodes ...
             this->N = N;
+            Node* node_A = this->addNode("A0");
+            Node* node_B = this->addNode("B0");
+            this->order.push_back(node_A);
+            this->order.push_back(node_B);
+
+            // ... and edges 
+            this->addEdge("A0", "B0");
+            this->addEdge("B0", "A0");
             this->start[0] = 1.0;
             this->start[1] = 1.0;
+
             for (unsigned i = 0; i < N; ++i)
             {
+                // Add the (i+1)-th nodes ...
                 std::stringstream sai, sbi, saj, sbj;
                 sai << "A" << i;
                 sbi << "B" << i;
                 saj << "A" << i + 1;
                 sbj << "B" << i + 1;
-                this->addEdge(sai.str(), saj.str(), 1.0);
-                this->addEdge(saj.str(), sai.str(), 1.0);
-                this->addEdge(sbi.str(), sbj.str(), 1.0);
-                this->addEdge(sbj.str(), sbi.str(), 1.0);
-                this->addEdge(saj.str(), sbj.str(), 1.0);
-                this->addEdge(sbj.str(), saj.str(), 1.0);
-                std::array<T, 6> labels = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+                node_A = this->addNode(saj.str());
+                node_B = this->addNode(sbj.str());
+                this->order.push_back(node_A);
+                this->order.push_back(node_B);
+
+                // ... and edges
+                this->addEdge(sai.str(), saj.str());
+                this->addEdge(saj.str(), sai.str());
+                this->addEdge(sbi.str(), sbj.str());
+                this->addEdge(sbj.str(), sbi.str());
+                this->addEdge(saj.str(), sbj.str());
+                this->addEdge(sbj.str(), saj.str());
+                std::array<T, 6> labels = {1, 1, 1, 1, 1, 1};
                 this->rung_labels.push_back(labels);
             }
         }
@@ -108,19 +249,28 @@ class GridGraph : public MarkovDigraph<T>
              * Add new rung onto the end of the graph, keeping track of the
              * six new edge labels. 
              */
+            // Add the new nodes ...
             this->N++;
-            this->rung_labels.push_back(labels);
             std::stringstream sai, sbi, saj, sbj;
             sai << "A" << this->N - 1;
             sbi << "B" << this->N - 1;
             saj << "A" << this->N;
             sbj << "B" << this->N;
+            Node* node_A = this->addNode(saj.str());
+            Node* node_B = this->addNode(sbj.str());
+            this->order.push_back(node_A);
+            this->order.push_back(node_B);
+
+            // ... and edges
+            // The canonical ordering for the edge labels in each rung is:
+            // (A,i) -> (A,j), (A,j) -> (A,i), (B,i) -> (B,j), (B,j) -> (B,i), (A,j) -> (B,j), (B,j) -> (A,j)
             this->addEdge(sai.str(), saj.str(), labels[0]);
             this->addEdge(saj.str(), sai.str(), labels[1]);
             this->addEdge(sbi.str(), sbj.str(), labels[2]);
             this->addEdge(sbj.str(), sbi.str(), labels[3]);
             this->addEdge(saj.str(), sbj.str(), labels[4]);
             this->addEdge(sbj.str(), saj.str(), labels[5]);
+            this->rung_labels.push_back(labels);
         }
 
         void setRungLabels(unsigned i, std::array<T, 6> labels)
@@ -134,6 +284,9 @@ class GridGraph : public MarkovDigraph<T>
             sbi << "B" << i;
             saj << "A" << i + 1;
             sbj << "B" << i + 1;
+
+            // The canonical ordering for the edge labels in each rung is:
+            // (A,i) -> (A,j), (A,j) -> (A,i), (B,i) -> (B,j), (B,j) -> (B,i), (A,j) -> (B,j), (B,j) -> (A,j)
             this->setEdgeLabel(sai.str(), saj.str(), labels[0]);
             this->setEdgeLabel(saj.str(), sai.str(), labels[1]);
             this->setEdgeLabel(sbi.str(), sbj.str(), labels[2]);
@@ -142,640 +295,289 @@ class GridGraph : public MarkovDigraph<T>
             this->setEdgeLabel(sbj.str(), saj.str(), labels[5]);
         }
 
-        Matrix<T, 3, 1> recurrenceA(const Ref<const Matrix<T, 3, 1> >& v, unsigned j)
+        std::tuple<std::vector<T>,
+                   std::vector<T>,
+                   T,
+                   std::vector<T>,
+                   T> computeAllForestWeights()
         {
             /*
-             * Apply recurrence A at the j-th rung.
+             * Compute the following table of spanning forest weights:
+             *
+             * 0) Trees rooted at (Y,i) for Y = A,B and i = 0,...,N
+             * 1) Forests rooted at (Y,i), (B,N) for Y = A,B and i = 0,...,N-1
+             *    with path (A,0) -> (Y,i)
+             * 2) Forests rooted at (A,N), (B,N) with path (A,0) -> (A,N)
+             * 3) Forests rooted at (A,0), (B,N) with path (Y,i) -> (A,0)
+             *    for Y = A,B and i = 0,...,N-1
+             * 4) Forests rooted at (A,0), (B,N) with path (A,N) -> (A,0)
              */
-            Matrix<T, 3, 3> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << l*c + k*d + c*d, a*k*d, b*l*c,
-                               d,   a*d,     0,
-                               c,     0,   b*c;
-            return m * v;
-        }
+            // Require that N >= 1
+            if (this->N < 1)
+                throw std::runtime_error("this->N < 1");
 
-        Matrix<T, 3, 1> recurrenceB(const Ref<const Matrix<T, 3, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence B at the j-th rung. 
-             */
-            Matrix<T, 3, 3> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << a*(l+d),     b*l, a*b*l,
-                     a*k, b*(k+c), a*b*k,
-                       a,       b,   a*b;
-            return m * v;
-        }
+            // All spanning tree weights for N = 1
+            T weight_A0 = this->rung_labels[0][2] * this->rung_labels[0][5] * this->rung_labels[0][1] +
+                this->start[1] * this->rung_labels[0][3] * this->rung_labels[0][4] +
+                this->start[1] * this->rung_labels[0][3] * this->rung_labels[0][1] +
+                this->start[1] * this->rung_labels[0][1] * this->rung_labels[0][5];
+            T weight_B0 = this->start[0] * this->rung_labels[0][1] * this->rung_labels[0][5] + 
+                this->rung_labels[0][3] * this->rung_labels[0][4] * this->rung_labels[0][0] +
+                this->start[0] * this->rung_labels[0][3] * this->rung_labels[0][1] +
+                this->start[0] * this->rung_labels[0][3] * this->rung_labels[0][4];
+            T weight_A1 = this->rung_labels[0][0] * this->start[1] * this->rung_labels[0][3] +
+                this->rung_labels[0][5] * this->rung_labels[0][2] * this->start[0] +
+                this->rung_labels[0][0] * this->rung_labels[0][5] * this->start[1] +
+                this->rung_labels[0][0] * this->rung_labels[0][5] * this->rung_labels[0][2];
+            T weight_B1 = this->rung_labels[0][2] * this->rung_labels[0][1] * this->start[0] +
+                this->rung_labels[0][4] * this->rung_labels[0][0] * this->start[1] +
+                this->rung_labels[0][2] * this->rung_labels[0][4] * this->start[0] +
+                this->rung_labels[0][2] * this->rung_labels[0][4] * this->rung_labels[0][0];
 
-        Matrix<T, 3, 1> recurrenceC(const Ref<const Matrix<T, 3, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence C at the j-th rung.
-             */
-            Matrix<T, 3, 3> m;
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << l*c + k*d + c*d, 0, b*l*c,
-                               d, 0,     0,
-                               c, 0,   b*c;
-            return m * v;
-        }
+            // All required spanning forest weights for N = 1 with path (A,1) -> (A,0)
+            // or (B,1) -> (A,0) or (A,1) -> (B,0) or (B,1) -> (B,0)
+            T weight_A0_A1_with_path_B1_to_A0 = this->start[1] * this->rung_labels[0][3];
+            T weight_A0_B1_with_path_A1_to_A0 = this->rung_labels[0][1] * this->rung_labels[0][2] +
+                this->start[1] * this->rung_labels[0][1];
+            T weight_B0_A1_with_path_B1_to_B0 = this->rung_labels[0][0] * this->rung_labels[0][3] +
+                this->start[0] * this->rung_labels[0][3];
+            T weight_B0_B1_with_path_A1_to_B0 = this->start[0] * this->rung_labels[0][1];
 
-        Matrix<T, 3, 1> recurrenceD(const Ref<const Matrix<T, 3, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence D at the j-th rung.
-             */
-            Matrix<T, 3, 3> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << 0, l*c + k*d + c*d, a*k*d,
-                 0,               d,   a*d,
-                 0,               c,     0;
-            return m * v;
-        }
+            // Spanning forest weights for N = 1 with roots (A,1), (B,1)
+            T weight_A1_B1 = this->rung_labels[0][0] * this->rung_labels[0][2] +
+                this->start[1] * this->rung_labels[0][0] +
+                this->start[0] * this->rung_labels[0][2];
 
-        Matrix<T, 3, 1> recurrenceE(const Ref<const Matrix<T, 4, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence E at the j-th rung.
-             */
-            Matrix<T, 3, 4> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << d+l, a*(d+l),     b*l, a*b*l,
-                 c+k,     a*k, b*(c+k), a*b*k,
-                   1,       a,       b,   a*b;
-            return m * v;
-        }
+            // All required spanning forest weights for N = 1 with paths from (A,0)
+            T weight_A0_A1_with_path_A0_to_A0 = this->start[1] * this->rung_labels[0][5] +
+                this->rung_labels[0][2] * this->rung_labels[0][5] +
+                this->start[1] * this->rung_labels[0][3];
+            T weight_A0_B1_with_path_A0_to_A0 = this->start[1] * this->rung_labels[0][4] +
+                this->rung_labels[0][1] * this->rung_labels[0][2] +
+                this->rung_labels[0][2] * this->rung_labels[0][4] +
+                this->start[1] * this->rung_labels[0][1];
+            T weight_B0_A1_with_path_A0_to_B0 = this->start[0] * this->rung_labels[0][5] +
+                this->start[0] * this->rung_labels[0][3];
+            T weight_B0_B1_with_path_A0_to_B0 = this->start[0] * this->rung_labels[0][4] +
+                this->start[0] * this->rung_labels[0][1];
+            T weight_A1_B1_with_path_A0_to_A1 = this->rung_labels[0][0] * this->rung_labels[0][2] +
+                this->start[1] * this->rung_labels[0][0];
+            T weight_A1_B1_with_path_A0_to_B1 = this->start[0] * this->rung_labels[0][2];
+            T weight_A0_A1_B1_with_path_A0_to_A0 = this->start[1] + this->rung_labels[0][2];
+            T weight_B0_A1_B1_with_path_A0_to_B0 = this->start[0];
 
-        Matrix<T, 3, 1> recurrenceF(const Ref<const Matrix<T, 2, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence F at the j-th rung.
-             */
-            Matrix<T, 3, 2> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << d+l,     b*l,
-                 c+k, b*(c+k),
-                   1,       b;
-            return m * v;
-        }
+            // All required spanning forest weights for N = 1 with paths to (A,0)
+            T weight_A0_A1_with_path_B0_to_A0 = this->start[1] * this->rung_labels[0][5] +
+                this->start[1] * this->rung_labels[0][3];
+            T weight_A0_B1_with_path_B0_to_A0 = this->start[1] * this->rung_labels[0][4] + 
+                this->start[1] * this->rung_labels[0][1];
+            T weight_A0_A1_B1_with_path_B0_to_A0 = this->start[1];
 
-        Matrix<T, 3, 1> recurrenceG(const Ref<const Matrix<T, 2, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence G at the j-th rung.
-             */
-            Matrix<T, 3, 2> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << d+l, a*(d+l),
-                 c+k,     a*k,
-                   1,       a;
-            return m * v;
-        }
+            // Initialize vectors of spanning forest weights 
+            std::vector<std::array<T, 3> > vA;
+            vA.push_back({
+                weight_A0,
+                weight_A0_A1_with_path_B1_to_A0,
+                weight_A0_B1_with_path_A1_to_A0
+            });
+            vA.push_back({
+                weight_B0,
+                weight_B0_A1_with_path_B1_to_B0,
+                weight_B0_B1_with_path_A1_to_B0
+            });
+            std::array<T, 3> vB = {
+                weight_A1,
+                weight_B1,
+                weight_A1_B1
+            };
+            std::vector<std::array<T, 4> > vC;
+            vC.push_back({
+                weight_A0,
+                weight_A0_A1_with_path_A0_to_A0,
+                weight_A0_B1_with_path_A0_to_A0,
+                weight_A0_A1_B1_with_path_A0_to_A0
+            });
+            vC.push_back({
+                weight_B0,
+                weight_B0_A1_with_path_A0_to_B0,
+                weight_B0_B1_with_path_A0_to_B0,
+                weight_B0_A1_B1_with_path_A0_to_B0
+            });
+            std::array<T, 4> vD = {
+                weight_A1,
+                weight_B1,
+                weight_A1_B1_with_path_A0_to_B1,
+                weight_A1_B1_with_path_A0_to_A1
+            };
+            std::vector<std::array<T, 4> > vC1;
+            vC1.push_back({
+                weight_A0,
+                weight_A0_A1_with_path_A0_to_A0,
+                weight_A0_B1_with_path_A0_to_A0,
+                weight_A0_A1_B1_with_path_A0_to_A0
+            });
+            vC1.push_back({
+                weight_A0,
+                weight_A0_A1_with_path_B0_to_A0,
+                weight_A0_B1_with_path_B0_to_A0,
+                weight_A0_A1_B1_with_path_B0_to_A0
+            });
+            std::array<T, 3> vE = {
+                weight_A0,
+                weight_A0_A1_with_path_B1_to_A0,
+                weight_A0_B1_with_path_A1_to_A0
+            };
 
-        Matrix<T, 3, 1> recurrenceH(const Ref<const Matrix<T, 4, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence H at the j-th rung.
-             */
-            Matrix<T, 3, 4> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << d+l, a*(d+l),     b*l, a*b*l,
-                 c+k,     a*k, b*(c+k), a*b*k,
-                   1,       a,       b,   a*b;
-            return m * v;
-        }
-
-        Matrix<T, 2, 1> recurrenceI(const Ref<const Matrix<T, 4, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence I at the j-th rung.
-             */
-            Matrix<T, 2, 4> m;
-            T a = this->rung_labels[j-1][0];
-            T b = this->rung_labels[j-1][2];
-            m << 0, b, a*b,   0,
-                 a, 0,   0, a*b;
-            return m * v;
-        }
-
-        Matrix<T, 4, 1> recurrenceJ(const Ref<const Matrix<T, 4, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence J at the j-th rung.
-             */
-            Matrix<T, 4, 4> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << d+l,   0,       0,     b*l, 
-                   0, d+l, a*(d+l),       0,
-                 c+k,   0,       0, b*(c+k),
-                   0, c+k,     a*k,       0;
-            return m * v;
-        }
-
-        Matrix<T, 2, 1> recurrenceK(const Ref<const Matrix<T, 4, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence K at the j-th rung.
-             */
-            Matrix<T, 2, 4> m;
-            T a = this->rung_labels[j-1][0];
-            T b = this->rung_labels[j-1][2];
-            m << 1, 0, 0, b,
-                 0, 1, a, 0;
-            return m * v;
-        }
-
-        Matrix<T, 4, 1> recurrenceL(const Ref<const Matrix<T, 4, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence L at the j-th rung.
-             */
-            Matrix<T, 4, 4> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << a*(d+l),     b*l, a*b*l, a*b*l,
-                     a*k, b*(c+k), a*b*k, a*b*k,
-                       a,       0,   a*b,     0,
-                       0,       b,     0,   a*b;
-            return m * v;
-        }
-
-        Matrix<T, 2, 1> recurrenceM(const Ref<const Matrix<T, 6, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence M at the j-th rung.
-             */
-            Matrix<T, 2, 6> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << k, a*k, b*k, a*b*k, b*c,   0,
-                 l, a*l, b*l, a*b*l,   0, a*d;
-            return m * v;
-        }
-
-        Matrix<T, 4, 1> recurrenceN(const Ref<const Matrix<T, 5, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence N at the j-th rung.
-             */
-            Matrix<T, 4, 5> m;
-            T a = this->rung_labels[j-1][0];
-            T c = this->rung_labels[j-1][1];
-            T b = this->rung_labels[j-1][2];
-            T d = this->rung_labels[j-1][3];
-            T k = this->rung_labels[j-1][4];
-            T l = this->rung_labels[j-1][5];
-            m << a*(d+l),       0, a*b*l,     b*l,       0,
-                       0,     b*l, a*b*l,       0, a*(d+l),
-                     a*k,       0, a*b*k, b*(c+k),       0,
-                       0, b*(c+k), a*b*k,       0,     a*k;
-            return m * v;
-        }
-
-        Matrix<T, 4, 1> recurrenceO(const Ref<const Matrix<T, 5, 1> >& v, unsigned j)
-        {
-            /*
-             * Apply recurrence O at the j-th rung.
-             */
-            Matrix<T, 4, 5> m;
-            T a = this->rung_labels[j-1][0];
-            T b = this->rung_labels[j-1][2];
-            m << 0, 0,   0, b, 0,
-                 a, 0, a*b, 0, 0,
-                 0, b, a*b, 0, 0,
-                 0, 0,   0, 0, a;
-            return m * v;
-        }
-
-        T weightTrees(const unsigned x, const unsigned i)
-        {
-            /*
-             * Return the weight of the spanning trees rooted at the 
-             * given vertex. 
-             */
-            // Get the initial spanning forest weights of the starting rung
-            Matrix<T, 3, 1> v;
-            v << this->start[1], this->start[0], 1.0;
-
-            // Apply recurrence B as required
-            for (unsigned j = 1; j <= i; ++j) v = this->recurrenceB(v, j);
-
-            // Return the appropriate spanning tree weight if i == N
-            if (i == this->N)
-                return (!x) ? v(0) : v(1);
-
-            // Apply recurrence C or D once, depending on the root identity
-            v = (!x) ? this->recurrenceC(v, i + 1) : this->recurrenceD(v, i + 1);
-
-            // Apply recurrence A until the length of the graph is reached
-            for (unsigned j = i + 2; j <= this->N; ++j) v = this->recurrenceA(v, j);
-
-            // Return the computed spanning tree weight
-            return v(0);
-        }
-
-        T weightEndToEndForests()
-        {
-            /*
-             * Return the weight of the spanning forests rooted at (A,0)
-             * and (B,N). 
-             */
-            // Get the initial spanning forest weights of the starting two rungs
-            Matrix<T, 3, 1> u, v;
-            Matrix<T, 4, 1> w;
-            T k0 = this->start[0];
-            T l0 = this->start[1];
-            T a = this->rung_labels[0][0];
-            T c = this->rung_labels[0][1];
-            T b = this->rung_labels[0][2];
-            T d = this->rung_labels[0][3];
-            T k1 = this->rung_labels[0][4];
-            T l1 = this->rung_labels[0][5];
-            u << l0*c*d + l0*l1*c + b*l1*c + k1*d*l0, d*l0, b*c + c*l0;
-            w << u(0), b*l1 + d*l0 + l0*l1, b*k1 + c*l0 + b*c + l0*k1, b + l0;
-
-            // Alternate between recurrences A and E
-            for (unsigned j = 2; j <= this->N; ++j)
+            for (unsigned i = 1; i < this->N; ++i)  
             {
-                v = this->recurrenceE(w, j);
-                u = this->recurrenceA(u, j);
-                w << u(0), v(0), v(1), v(2);
+                // Apply operator A
+                for (unsigned j = 0; j < vA.size(); ++j)
+                {
+                    std::array<T, 3> wA_j = operatorA(vA[j], this->rung_labels[i]);
+                    vA[j] = wA_j;
+                }
+
+                // Apply operator B
+                std::array<T, 9> wB = operatorB(vB, this->rung_labels[i]);
+                vA.push_back({wB[0], wB[4], wB[5]});
+                vA.push_back({wB[1], wB[6], wB[7]});
+                vB[0] = wB[2];
+                vB[1] = wB[3];
+                vB[2] = wB[8];
+
+                // Apply operator C 
+                for (unsigned j = 0; j < vC.size(); ++j)
+                {
+                    std::array<T, 3> wC_j = operatorC(vC[j], this->rung_labels[i]);
+                    vC[j][0] = vA[j][0];
+                    vC[j][1] = wC_j[0];
+                    vC[j][2] = wC_j[1];
+                    vC[j][3] = wC_j[2];
+                }
+
+                // Apply operator D
+                std::array<T, 8> wD = operatorD(vD, this->rung_labels[i]);
+                vC.push_back({vA[vA.size()-2][0], wD[0], wD[2], wD[6]});
+                vC.push_back({vA[vA.size()-1][0], wD[1], wD[3], wD[7]});
+                vD[0] = vB[0];
+                vD[1] = vB[1];
+                vD[2] = wD[4];
+                vD[3] = wD[5];
+
+                // Apply operator C again
+                for (unsigned j = 0; j < vC1.size(); ++j)
+                {
+                    std::array<T, 3> wC1_j = operatorC(vC1[j], this->rung_labels[i]);
+                    vC1[j][0] = vA[j][0];
+                    vC1[j][1] = wC1_j[0];
+                    vC1[j][2] = wC1_j[1];
+                    vC1[j][3] = wC1_j[2];
+                }
+
+                // Apply operator E 
+                std::array<T, 8> wE = operatorE(vE, this->rung_labels[i]);
+                vC1.push_back({vA[vA.size()-2][0], wE[0], wE[1], wE[6]});
+                vC1.push_back({vA[vA.size()-1][0], wE[2], wE[3], wE[7]});
+                vE[0] = vA[0][0];
+                vE[1] = wE[4];
+                vE[2] = wE[5];
             }
 
-            return v(1);
+            // 0) Write all spanning tree weights 
+            std::vector<T> tree_weights;
+            for (auto&& arr : vA)
+                tree_weights.push_back(arr[0]);
+            tree_weights.push_back(vB[0]);
+            tree_weights.push_back(vB[1]);
+
+            // 1) Write all weights of spanning forests rooted at (Y,i), (B,N)
+            // with path (A,0) -> (Y,i)
+            std::vector<T> forest_weights_Yi_BN_with_path_A0_to_Yi;
+            for (auto&& arr : vC)
+                forest_weights_Yi_BN_with_path_A0_to_Yi.push_back(arr[2]);
+
+            // 2) Weight of spanning forests rooted at (A,N), (B,N) with path 
+            // (A,0) -> (A,N)
+            T forest_weight_AN_BN_with_path_A0_to_AN = vD[3];
+
+            // 3) Write all weights of spanning forests rooted at (A,0), (B,N)
+            // with path (Y,i) -> (A,0)
+            std::vector<T> forest_weights_A0_BN_with_path_Yi_to_A0;
+            for (auto&& arr : vC1)
+                forest_weights_A0_BN_with_path_Yi_to_A0.push_back(arr[2]);
+
+            // 4) Weight of spanning forests rooted at (A,0), (B,N) with path
+            // (A,N) -> (A,0)
+            T forest_weight_A0_BN_with_path_AN_to_A0 = vE[2];
+
+            // Return all accumulated data
+            return std::tie(
+                tree_weights, 
+                forest_weights_Yi_BN_with_path_A0_to_Yi,
+                forest_weight_AN_BN_with_path_A0_to_AN,
+                forest_weights_A0_BN_with_path_Yi_to_A0,
+                forest_weight_A0_BN_with_path_AN_to_A0
+            );
         }
 
-        T weightDirectedForests(const unsigned x, const unsigned i)
+        std::pair<T, T> computeExitStats(T exit_rate_lower_prob = 1, T exit_rate_upper_prob = 1,
+                                         T exit_rate_lower_time = 1, T exit_rate_upper_time = 1)
         {
             /*
-             * Return the weight of the spanning forests rooted at the
-             * given vertex and (B,N), with a path from (A,0) to the
-             * given root. The given root must be distinct from (A,0)
-             * or (B,N).
+             * Compute the probability of upper exit (from (B,N)) and the 
+             * rate of lower exit (from (A,0)). 
              */
-            if ((x == 0 && i == 0) || (x == 1 && i == this->N))
-                throw std::exception();
+            // Compute all spanning forest weights 
+            std::tuple<std::vector<T>,
+                       std::vector<T>,
+                       T,
+                       std::vector<T>,
+                       T> weights = this->computeAllForestWeights();
 
-            // Get the initial spanning forest weights from the starting rung
-            Matrix<T, 3, 1> a;
-            Matrix<T, 2, 1> b;
-            a << this->start[1], this->start[0], 1;
-            b << 0, 1;
+            // Probability of upper exit is given by ...
+            T weight_A0 = std::get<0>(weights)[0];
+            T weight_AN = std::get<0>(weights)[2*(this->N+1)-2];
+            T weight_BN = std::get<0>(weights)[2*(this->N+1)-1];
+            T weight_A0_BN = std::get<1>(weights)[0];
+            T prob_upper_exit = (weight_BN * exit_rate_upper_prob) / (
+                weight_A0 * exit_rate_lower_prob +
+                weight_BN * exit_rate_upper_prob +
+                weight_A0_BN * exit_rate_lower_prob * exit_rate_upper_prob
+            );
 
-            // Apply recurrences B and I as required
-            Matrix<T, 4, 1> c;
-            for (unsigned j = 1; j <= i; ++j)
+            // Mean first passage time to lower exit is given by ...
+            T numer = 0;
+            for (unsigned i = 0; i < 2*this->N; ++i)
             {
-                c << a(0), a(1), b(0), b(1);
-                b = this->recurrenceI(c, j);
-                a = this->recurrenceB(a, j);
+                T weight_Yi = std::get<0>(weights)[i];
+                T weight_Yi_BN_with_path_A0_to_Yi = std::get<1>(weights)[i];
+                T weight_A0_BN_with_path_Yi_to_A0 = std::get<3>(weights)[i];
+                numer += (
+                    (weight_Yi + weight_Yi_BN_with_path_A0_to_Yi * exit_rate_upper_time) *
+                    (weight_A0 * exit_rate_lower_time + weight_A0_BN_with_path_Yi_to_A0 * exit_rate_lower_time * exit_rate_upper_time)
+                );
             }
-            if (x == 0 && i == this->N) return b(1);
+            T weight_AN_BN_with_path_A0_to_AN = std::get<2>(weights);
+            T weight_A0_BN_with_path_AN_to_A0 = std::get<4>(weights);
+            numer += (
+                (weight_AN + weight_AN_BN_with_path_A0_to_AN * exit_rate_upper_time) *
+                (weight_A0 * exit_rate_lower_time + weight_A0_BN_with_path_AN_to_A0 * exit_rate_lower_time * exit_rate_upper_time)
+            );
+            numer += (weight_BN * weight_A0 * exit_rate_lower_time);
 
-            // Apply recurrences J and K once
-            Matrix<T, 4, 1> d;
-            Matrix<T, 2, 1> e;
-            c << a(0), a(1), b(0), b(1);
-            d = this->recurrenceJ(c, i + 1);
-            if (i == this->N - 1)
-                return ((!x) ? d(2) : d(3));
-            e = this->recurrenceK(c, i + 1);
+            // Take the reciprocal of the mean first passage time to get 
+            // the rate of lower exit 
+            T rate_lower_exit = (
+                weight_A0 * exit_rate_lower_time +
+                weight_A0_BN * exit_rate_lower_time * exit_rate_upper_time
+            ) * (
+                weight_A0 * exit_rate_lower_time +
+                weight_A0_BN * exit_rate_lower_time * exit_rate_upper_time +
+                weight_BN * exit_rate_upper_time
+            ) / numer;
 
-            // Apply recurrence C/D once, depending on the root identity
-            Matrix<T, 3, 1> u;
-            u = (!x) ? this->recurrenceC(a, i + 1) : this->recurrenceD(a, i + 1);
-
-            // Apply recurrences A and H until the length of the graph
-            Matrix<T, 3, 1> v;
-            Matrix<T, 4, 1> w;
-            if (!x) w << u(0), d(0), d(2), e(0);
-            else    w << u(0), d(1), d(3), e(1);
-            for (unsigned j = i + 2; j <= this->N; ++j)
-            {
-                v = this->recurrenceH(w, j);
-                u = this->recurrenceA(u, j);
-                w << u(0), v(0), v(1), v(2);
-            }
-
-            return v(1);
-        }
-
-        T weightDirectedForests2(const unsigned x, const unsigned i)
-        {
-            /*
-             * Return the weight of the spanning forests rooted at the
-             * given (A,0) and (B,N), with a path from the given vertex 
-             * to (B,N). The given vertex must be distinct from (A,0)
-             * or (B,N).
-             */
-            if ((x == 0 && i == 0) || (x == 1 && i == this->N))
-                throw std::exception();
-
-            // Get the initial spanning forest weights from the starting rung
-            Matrix<T, 3, 1> a;
-            Matrix<T, 4, 1> b;
-            Matrix<T, 6, 1> c;
-            a << this->start[1], 0, 1; 
-            b << this->start[1], 0, 1, 0;
-            c << this->start[1], 0, 1, 0, 0, 0;
-
-            // Apply recurrences M, A, and E as required
-            Matrix<T, 3, 1> d;
-            Matrix<T, 2, 1> e;
-            d << 0, 1, 0;
-            e << 0, 0;
-            for (unsigned j = 1; j <= i; ++j)
-            {
-                e = this->recurrenceM(c, j);
-                a = this->recurrenceA(a, j);
-                d = this->recurrenceE(b, j);
-                b << a(0), d(0), d(1), d(2);
-                c << a(0), d(0), d(1), d(2), e(0), e(1);
-            }
-            if (x == 0 && i == this->N)
-                return e(0);
-
-            // Apply recurrences N and O once
-            Matrix<T, 5, 1> f;
-            Matrix<T, 4, 1> g, h;
-            f << d(0), d(1), d(2), e(0), e(1);
-            g = this->recurrenceN(f, i + 1);
-            h = this->recurrenceO(f, i + 1);
-            if (i == this->N - 1)
-                return ((!x) ? g(2) : g(3));
-
-            // Apply recurrence L until the length of the graph
-            Matrix<T, 4, 1> v;
-            if (!x) v << g(0), g(2), h(0), h(1);
-            else    v << g(1), g(3), h(2), h(3);
-            for (unsigned j = i + 2; j <= this->N; ++j)
-                v = this->recurrenceL(v, j);
-
-            return v(1);
-        }
-
-        Matrix<T, 2, 1> computeCleavageStatsByInverse(T kdis = 1.0, T kcat = 1.0)
-        {
-            /*
-             * Compute probability of cleavage and (conditional) mean first passage
-             * time to the cleaved state in the given model, with the specified
-             * terminal rates of dissociation and cleavage, by directly solving
-             * for the inverse of the Laplacian and its square.
-             */
-            // Compute the Laplacian of the graph
-            Matrix<T, Dynamic, Dynamic> laplacian = -this->getLaplacian().transpose();
-
-            // Update the Laplacian matrix with the specified terminal rates
-            laplacian(0, 0) += kdis;
-            laplacian(2*this->N+1, 2*this->N+1) += kcat;
-
-            // Solve matrix equation for cleavage probabilities
-            Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(2*this->N+2);
-            term_rates(2*this->N+1) = kcat;
-            Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
-
-            // Solve matrix equation for mean first passage times
-            Matrix<T, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
-            
-            // Collect the two required quantities
-            Matrix<T, 2, 1> stats;
-            stats << probs(0), times(0) / probs(0);
-            return stats;
-        }
-
-        Matrix<T, 2, 1> computeRejectionStatsByInverse(T kdis = 1.0, T kcat = 1.0)
-        {
-            /*
-             * Compute probability of rejection and (conditional) mean first passage
-             * time to the dissociated state in the given model, with the specified
-             * terminal rates of dissociation and cleavage, by directly solving 
-             * for the inverse of the Laplacian and its square.
-             */
-            // Compute the Laplacian of the graph
-            Matrix<T, Dynamic, Dynamic> laplacian = -this->getLaplacian().transpose();
-
-            // Update the Laplacian matrix with the specified terminal rates
-            laplacian(0, 0) += kdis;
-            laplacian(2*this->N+1, 2*this->N+1) += kcat;
-
-            // Solve matrix equation for cleavage probabilities
-            Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(2*this->N+2);
-            term_rates(0) = kdis;
-            Matrix<T, Dynamic, 1> probs = laplacian.colPivHouseholderQr().solve(term_rates);
-
-            // Solve matrix equation for mean first passage times
-            Matrix<T, Dynamic, 1> times = laplacian.colPivHouseholderQr().solve(probs);
-            
-            // Collect the two required quantities
-            Matrix<T, 2, 1> stats;
-            stats << probs(0), times(0) / probs(0);
-            return stats;
-        }
-
-        Matrix<T, 2, 1> computeCleavageStats(T kdis = 1.0, T kcat = 1.0)
-        {
-            /*
-             * Compute probability of cleavage and (conditional) mean first passage
-             * time to the cleaved state in the given model, with the specified
-             * terminal rates of dissociation and cleavage, by enumerating the
-             * required spanning forests of the grid graph. 
-             */
-            // Compute weight of spanning trees rooted at each vertex
-            Matrix<T, Dynamic, 2> wt = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-            for (unsigned i = 0; i <= this->N; ++i)
-            {
-                wt(i, 0) = this->weightTrees(0, i);
-                wt(i, 1) = this->weightTrees(1, i);
-            }
-
-            // Compute weights of spanning forests rooted at {(A,0), (B,N)}
-            T wA0BN = this->weightEndToEndForests();
-
-            // Compute the weights of the spanning forests rooted at (X,i) and (B,N)
-            // with paths from (A,0) to (X,i)
-            Matrix<T, Dynamic, 2> wf = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-            for (unsigned i = 1; i <= this->N; ++i)
-                wf(i, 0) = this->weightDirectedForests(0, i);
-            for (unsigned i = 0; i < this->N; ++i)
-                wf(i, 1) = this->weightDirectedForests(1, i);
-            
-            // Compute the weights of the spanning forests rooted at (A,0) and (B,N)
-            // with paths from (X,i) and (B,N)
-            Matrix<T, Dynamic, 2> wr = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-            for (unsigned i = 1; i <= this->N; ++i)
-                wr(i, 0) = this->weightDirectedForests2(0, i);
-            for (unsigned i = 0; i < this->N; ++i)
-                wr(i, 1) = this->weightDirectedForests2(1, i);
-
-            // For each vertex in the original graph, compute its contribution
-            // to the mean first passage time
-            T denom = kdis * wt(0,0) + kcat * wt(this->N,1) + kdis * kcat * wA0BN;
-            T prob = (kcat * wt(this->N,1)) / denom;
-            T time = 0.0;
-            for (unsigned i = 1; i <= this->N; ++i)
-            {
-                T term = (kcat * wf(i,0) + wt(i,0)) / denom;
-                term *= (1.0 + (kdis * wr(i,0) / wt(this->N,1)));
-                time += term;
-            }
-            for (unsigned i = 0; i < this->N; ++i)
-            {
-                T term = (kcat * wf(i,1) + wt(i,1)) / denom;
-                term *= (1.0 + (kdis * wr(i,1) / wt(this->N,1)));
-                time += term;
-            }
-            time += (wt(0,0) + wt(this->N,1) + (kdis + kcat) * wA0BN) / denom;
-
-            // Collect the two required quantities
-            Matrix<T, 2, 1> stats;
-            stats << prob, time;
-            return stats; 
-        }
-
-        Matrix<T, 2, 1> computeRejectionStats(T kdis = 1.0, T kcat = 1.0)
-        {
-            /*
-             * Compute probability of rejection and (conditional) mean first passage
-             * time to the dissociated state in the given model, with the specified
-             * terminal rates of dissociation and cleavage, by enumerating the
-             * required spanning forests of the grid graph. 
-             */
-            // Compute weight of spanning trees rooted at each vertex
-            Matrix<T, Dynamic, 2> wt = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-            for (unsigned i = 0; i <= this->N; ++i)
-            {
-                wt(i, 0) = this->weightTrees(0, i);
-                wt(i, 1) = this->weightTrees(1, i);
-            }
-
-            // Compute weights of spanning forests rooted at {(A,0), (B,N)}
-            T wA0BN = this->weightEndToEndForests();
-
-            // Compute the weights of the spanning forests rooted at (X,i) and (B,N)
-            // with paths from (A,0) to (X,i)
-            Matrix<T, Dynamic, 2> wf = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-            for (unsigned i = 1; i <= this->N; ++i)
-                wf(i, 0) = this->weightDirectedForests(0, i);
-            for (unsigned i = 0; i < this->N; ++i)
-                wf(i, 1) = this->weightDirectedForests(1, i);
-            
-            // Compute the weights of the spanning forests rooted at (A,0) and (B,N)
-            // with paths from (X,i) to (B,N)
-            Matrix<T, Dynamic, 2> wr = Matrix<T, Dynamic, 2>::Zero(this->N+1, 2);
-            for (unsigned i = 1; i <= this->N; ++i)
-                wr(i, 0) = this->weightDirectedForests2(0, i);
-            for (unsigned i = 0; i < this->N; ++i)
-                wr(i, 1) = this->weightDirectedForests2(1, i);
-
-            // Compute the weights of the spanning forests rooted at (A,0) and (B,N)
-            // with paths from (X,i) to (A,0)
-            Matrix<T, Dynamic, 2> wr2 = (wA0BN - wr.array()).matrix();
-            wr2(0, 0) = 0.0;
-            wr2(this->N, 1) = 0.0;
-
-            // For each vertex in the original graph, compute its contribution
-            // to the mean first passage time
-            T denom = kdis * wt(0,0) + kcat * wt(this->N,1) + kdis * kcat * wA0BN;
-            T prob = (kdis * wt(0,0) + kdis * kcat * wA0BN) / denom;
-            T time = 0.0;
-            for (unsigned i = 1; i <= this->N; ++i)
-            {
-                T term = (kdis * wt(0,0) + kcat * kdis * wr2(i,0)) / (kdis * wt(0,0) + kcat * kdis * wA0BN);
-                term *= (kcat * wf(i,0) + wt(i,0)) / denom;
-                time += term;
-            }
-            for (unsigned i = 0; i < this->N; ++i)
-            {
-                T term = (kdis * wt(0,0) + kcat * kdis * wr2(i,1)) / (kdis * wt(0,0) + kcat * kdis * wA0BN);
-                term *= (kcat * wf(i,1) + wt(i,1)) / denom;
-                time += term;
-            }
-            time += (wt(0,0) + kcat * wA0BN + (kdis * wt(0,0) * wt(this->N,1)) / (kdis * wt(0,0) + kdis * kcat * wA0BN)) / denom;
-
-            // Collect the two required quantities
-            Matrix<T, 2, 1> stats;
-            stats << prob, time;
-            if (prob <= 0 || time <= 0) std::cout << "NOT POSITIVE: " << prob << " " << time << std::endl;
-            return stats; 
-        }
-
-        template <typename U>
-        friend std::ostream& operator<<(std::ostream& stream, const GridGraph<U>& graph);
+            return std::make_pair(prob_upper_exit, rate_lower_exit);
+        } 
 };
-
-template <typename T>
-std::ostream& operator<<(std::ostream& stream, const GridGraph<T>& graph)
-{
-    /*
-     * Output to the given stream.
-     */
-    MatrixXd rates = MatrixXd::Zero(2 * graph.N + 1, 6);
-    rates(0,2) = static_cast<double>(graph.start[0]);
-    rates(0,3) = static_cast<double>(graph.start[1]);
-    for (unsigned i = 1; i < 2 * graph.N + 1; i += 2)
-    {
-        unsigned j = (i - 1) / 2;
-        rates(i,0) = static_cast<double>(graph.rung_labels[j][0]);
-        rates(i,1) = static_cast<double>(graph.rung_labels[j][1]);
-        rates(i,4) = static_cast<double>(graph.rung_labels[j][2]);
-        rates(i,5) = static_cast<double>(graph.rung_labels[j][3]);
-        rates(i+1,2) = static_cast<double>(graph.rung_labels[j][4]);
-        rates(i+1,3) = static_cast<double>(graph.rung_labels[j][5]);
-    }
-    stream << rates;
-    return stream;
-}
 
 #endif 
