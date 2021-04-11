@@ -14,15 +14,15 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     12/9/2019
+ *     4/11/2021
  */
 using namespace Eigen;
 
 template <typename T>
-class TriangularPrismGraph : public MarkovDigraph<T>
+class TriangularPrismGraph : public LabeledDigraph<T>
 {
     /*
-     * An implementation of the two-state grid graph, with recurrence relations
+     * An implementation of the triangular-prism graph, with recurrence relations
      * for the spanning tree weights. 
      */
     private:
@@ -35,7 +35,7 @@ class TriangularPrismGraph : public MarkovDigraph<T>
         std::vector<std::array<T, 12> > rung_labels;
 
     public:
-        TriangularPrismGraph() : MarkovDigraph<T>()
+        TriangularPrismGraph() : LabeledDigraph<T>()
         {
             /*
              * Trivial constructor with length zero; set edge labels to unity.
@@ -55,7 +55,7 @@ class TriangularPrismGraph : public MarkovDigraph<T>
             this->start[5] = 1.0;
         }
 
-        TriangularPrismGraph(unsigned N) : MarkovDigraph<T>()
+        TriangularPrismGraph(unsigned N) : LabeledDigraph<T>()
         {
             /*
              * Trivial constructor with given length; set edge labels to unity.
@@ -192,32 +192,38 @@ class TriangularPrismGraph : public MarkovDigraph<T>
             this->addEdge(saj.str(), scj.str(), labels[11]);
         }
 
-        Matrix<T, 2, 1> computeCleavageStatsByInverse(T kdis = 1.0, T kcat = 1.0)
+        std::pair<T, T> computeExitStats(T exit_rate_lower_prob = 1, T exit_rate_upper_prob = 1,
+                                         T exit_rate_lower_time = 1, T exit_rate_upper_time = 1)
         {
             /*
-             * Compute probability of cleavage and (conditional) mean first passage
-             * time to the cleaved state in the given model, with the specified
-             * terminal rates of dissociation and cleavage, by directly solving
-             * for the inverse of the Laplacian and its square.
+             * Compute the probability of upper exit (from (C,N)) and the 
+             * rate of lower exit (from (A,0)). 
              */
-            // Compute the Laplacian of the graph
-            Matrix<T, Dynamic, Dynamic> laplacian = -this->getLaplacian().transpose();
+            Matrix<T, 2, 1> stats = Matrix<T, 2, 1>::Zero(); 
 
-            // Update the Laplacian matrix with the specified terminal rates
-            laplacian(0, 0) += kdis;
-            laplacian(3*this->N+2, 3*this->N+2) += kcat;
+            // Add terminal nodes 
+            this->addNode("lower");
+            this->addNode("upper");
+            std::stringstream ss;
+            ss << "C" << this->N;
+            this->setEdgeLabel("A0", "lower", exit_rate_lower_prob);
+            this->setEdgeLabel(ss.str(), "upper", exit_rate_upper_prob);
 
-            // Solve matrix equation for cleavage probabilities
-            Matrix<T, Dynamic, 1> term_rates = Matrix<T, Dynamic, 1>::Zero(3*this->N+3);
-            term_rates(3*this->N+2) = kcat;
-            Matrix<T, Dynamic, 1> probs = laplacian.fullPivHouseholderQr().solve(term_rates);
+            // Solve Chebotarev-Agaev recurrence and get the normalized (A0, upper) entry 
+            Matrix<T, Dynamic, Dynamic> forest_matrix = this->getSpanningForestMatrix(3 * (this->N + 1));
+            stats(0) = forest_matrix(0, this->numnodes - 1) / forest_matrix.row(0).sum();
 
-            // Solve matrix equation for mean first passage times
-            Matrix<T, Dynamic, 1> times = laplacian.fullPivHouseholderQr().solve(probs);
-            
-            // Collect the two required quantities
-            Matrix<T, 2, 1> stats;
-            stats << probs(0), times(0) / probs(0);
+            // Solve Chebotarev-Agaev recurrence again and compute the (reciprocal of the)
+            // mean first passage time to the lower state from CN
+            this->setEdgeLabel("A0", "lower", exit_rate_lower_time);
+            this->setEdgeLabel(ss.str(), "upper", exit_rate_upper_time);
+            Matrix<T, Dynamic, Dynamic> forest_matrix_1 = this->getSpanningForestMatrix(3 * (this->N + 1) - 1);
+            Matrix<T, Dynamic, Dynamic> forest_matrix_2 = this->getSpanningForestMatrix(3 * (this->N + 1));
+            T weight = 0;
+            for (unsigned k = 0; k < 3 * (this->N + 1); ++k)
+                weight += (forest_matrix_1(0, k) * forest_matrix_2(k, this->numnodes - 2));
+            stats(1) = (forest_matrix_2(0, this->numnodes - 2) * forest_matrix_2.row(0).sum()) / weight; 
+
             return stats;
         }
 };
