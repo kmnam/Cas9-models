@@ -199,11 +199,13 @@ class TriangularPrismGraph : public LabeledDigraph<T>
              * Compute the probability of upper exit (from (C,N)) and the 
              * rate of lower exit (from (A,0)). 
              */
-            // Add terminal nodes 
+            // Add terminal nodes and edges 
             this->addNode("lower");
             this->addNode("upper");
             std::stringstream ss;
             ss << "C" << this->N;
+            this->addEdge("A0", "lower");
+            this->addEdge(ss.str(), "upper");
             this->setEdgeLabel("A0", "lower", exit_rate_lower_prob);
             this->setEdgeLabel(ss.str(), "upper", exit_rate_upper_prob);
 
