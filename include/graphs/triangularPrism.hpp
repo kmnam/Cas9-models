@@ -199,8 +199,6 @@ class TriangularPrismGraph : public LabeledDigraph<T>
              * Compute the probability of upper exit (from (C,N)) and the 
              * rate of lower exit (from (A,0)). 
              */
-            Matrix<T, 2, 1> stats = Matrix<T, 2, 1>::Zero(); 
-
             // Add terminal nodes 
             this->addNode("lower");
             this->addNode("upper");
@@ -211,7 +209,7 @@ class TriangularPrismGraph : public LabeledDigraph<T>
 
             // Solve Chebotarev-Agaev recurrence and get the normalized (A0, upper) entry 
             Matrix<T, Dynamic, Dynamic> forest_matrix = this->getSpanningForestMatrix(3 * (this->N + 1));
-            stats(0) = forest_matrix(0, this->numnodes - 1) / forest_matrix.row(0).sum();
+            T prob = forest_matrix(0, this->numnodes - 1) / forest_matrix.row(0).sum();
 
             // Solve Chebotarev-Agaev recurrence again and compute the (reciprocal of the)
             // mean first passage time to the lower state from A0
@@ -222,13 +220,13 @@ class TriangularPrismGraph : public LabeledDigraph<T>
             T weight = 0;
             for (unsigned k = 0; k < 3 * (this->N + 1); ++k)
                 weight += (forest_matrix_1(0, k) * forest_matrix_2(k, this->numnodes - 2));
-            stats(1) = (forest_matrix_2(0, this->numnodes - 2) * forest_matrix_2.row(0).sum()) / weight;
+            T rate = (forest_matrix_2(0, this->numnodes - 2) * forest_matrix_2.row(0).sum()) / weight;
 
             // Remove terminal nodes now 
             this->removeNode("lower");
             this->removeNode("upper");
 
-            return stats;
+            return std::make_pair(prob, rate);
         }
 };
 
