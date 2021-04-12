@@ -214,7 +214,7 @@ class TriangularPrismGraph : public LabeledDigraph<T>
             stats(0) = forest_matrix(0, this->numnodes - 1) / forest_matrix.row(0).sum();
 
             // Solve Chebotarev-Agaev recurrence again and compute the (reciprocal of the)
-            // mean first passage time to the lower state from CN
+            // mean first passage time to the lower state from A0
             this->setEdgeLabel("A0", "lower", exit_rate_lower_time);
             this->setEdgeLabel(ss.str(), "upper", exit_rate_upper_time);
             Matrix<T, Dynamic, Dynamic> forest_matrix_1 = this->getSpanningForestMatrix(3 * (this->N + 1) - 1);
@@ -222,7 +222,11 @@ class TriangularPrismGraph : public LabeledDigraph<T>
             T weight = 0;
             for (unsigned k = 0; k < 3 * (this->N + 1); ++k)
                 weight += (forest_matrix_1(0, k) * forest_matrix_2(k, this->numnodes - 2));
-            stats(1) = (forest_matrix_2(0, this->numnodes - 2) * forest_matrix_2.row(0).sum()) / weight; 
+            stats(1) = (forest_matrix_2(0, this->numnodes - 2) * forest_matrix_2.row(0).sum()) / weight;
+
+            // Remove terminal nodes now 
+            this->removeNode("lower");
+            this->removeNode("upper");
 
             return stats;
         }
