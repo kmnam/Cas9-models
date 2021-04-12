@@ -95,7 +95,28 @@ BOOST_AUTO_TEST_CASE(testOneToFive)
     );
     BOOST_TEST(std::abs(rate - (numer / denom) < 1e-20));
 
+    // Compute the probability of upper exit again with the Chebotarev-Agaev
+    // recurrence
+    LabeledDigraph<double>* copy = graph->copy();
+    copy->addNode("lower");
+    copy->addNode("upper");
+    copy->addEdge("0", "lower", 1.0);
+    copy->addEdge("5", "upper", 1.0);
+    MatrixXd copy_laplacian = copy->getLaplacian();
+    MatrixXd forest_matrix_1 = copy->getSpanningForestMatrix(6 + 2 - 3);
+    MatrixXd forest_matrix_2 = copy->getSpanningForestMatrix(6 + 2 - 2);
+    double copy_prob = forest_matrix_2(0, 6 + 2 - 1) / forest_matrix_2.row(0).sum();
+    BOOST_TEST(std::abs(prob - copy_prob) < 1e-20);
+
+    // Compute the rate of lower exit again with the Chebotarev-Agaev recurrence
+    double copy_time = 0.0;
+    for (unsigned k = 0; k <= 5; ++k)
+        copy_time += (forest_matrix_1(0, k) * forest_matrix_2(k, 6 + 2 - 2));
+    double copy_rate = (forest_matrix_2(0, 6 + 2 - 2) * forest_matrix_2.row(0).sum()) / copy_time;
+    BOOST_TEST(std::abs(rate - copy_rate) < 1e-20);
+
     delete graph;
+    delete copy; 
 }
 
 
