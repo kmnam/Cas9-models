@@ -13,7 +13,7 @@
 #include "../include/graphs/gridMatchMismatch.hpp"
 
 /*
- * Estimates the boundary of the cleavage specificity vs. unbinding specificity
+ * Estimates the boundary of the cleavage probability vs. cleavage specificity
  * region in the grid Cas9 model. 
  *
  * Authors:
@@ -60,25 +60,20 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
     model->setMismatchReverseLabel(exp_params[3]);
     for (unsigned i = 0; i < length; ++i)    // Start with perfectly matched substrate
         model->setRungLabels(i, true);
-    
-    // Compute cleavage probability and mean first passage time 
-    std::tuple<T, T, T> data = model->computeExitStats(1, 1, 1, 0);
+
+    // Compute cleavage probability without any mismatches present 
+    std::tuple<T, T, T> data = model->computeExitStats(1, 1, 1, 1);
     double prob_perfect = static_cast<double>(log10(std::get<0>(data)));
-    double rate_perfect = static_cast<double>(log10(std::get<1>(data)));
     
     // Introduce distal mismatches and re-compute cleavage probability
-    // and mean first passage time
     for (unsigned i = 1; i <= n_mismatches; ++i)
         model->setRungLabels(length - i, false);
-    data = model->computeExitStats(1, 1, 1, 0);
+    data = model->computeExitStats(1, 1, 1, 1);
     double prob = static_cast<double>(log10(std::get<0>(data)));
-    double rate = static_cast<double>(log10(std::get<1>(data)));
 
-    // Compute the cleavage specificity and unbinding specificity
-    double cleave_spec = prob_perfect - prob;
-    double unbind_spec = rate_perfect - rate;
+    // Compute the cleavage activity and cleavage specificity 
     VectorXd output(2);
-    output << cleave_spec, unbind_spec;
+    output << prob_perfect, prob_perfect - prob;
 
     delete model;
     return output;
@@ -186,7 +181,7 @@ int main(int argc, char** argv)
     std::function<bool(const Ref<const VectorXd>& x)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return x(0) < 0.01;
+            return false;
         };
 
     // Boundary-finding algorithm settings
@@ -207,10 +202,8 @@ int main(int argc, char** argv)
 
     // Run the boundary-finding algorithm
     BoundaryFinder finder(tol, rng, argv[1], argv[2]);
-    std::function<VectorXd(const Ref<const VectorXd>&)> func
-        = cleavageFunc<number<mpfr_float_backend<50> > >(m);
-    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate
-        = mutateByDelta<double>;
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = cleavageFunc<number<mpfr_float_backend<50> > >(m);
+    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
     finder.run(
         func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,
         min_pull_iter, max_pull_iter, max_edges, verbose, sqp_max_iter,
