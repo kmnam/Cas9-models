@@ -7,6 +7,7 @@
 #include <vector>
 #include <utility>
 #include <stdexcept>
+#include <boost/multiprecision/mpfr.hpp>
 #include <digraph.hpp>
 #include "grid.hpp"
 
@@ -71,7 +72,24 @@ class GridMatchMismatchGraph : public GridGraph<T>
             /*
              * Update the match forward transition label.
              */
-            this->match_labels[0] = label; 
+            this->match_labels[0] = label;
+
+            // Update the edge labels in the graph at each match position
+            for (unsigned i = 0; i < this->N; ++i)
+            {
+                if (this->pattern[i])
+                {
+                    std::stringstream sai, sbi, saj, sbj;
+                    sai << "A" << i;
+                    sbi << "B" << i;
+                    saj << "A" << i + 1;
+                    sbj << "B" << i + 1;
+                    this->setEdgeLabel(sai.str(), saj.str(), label);
+                    this->setEdgeLabel(sbi.str(), sbj.str(), label);
+                    this->rung_labels[i][0] = label;
+                    this->rung_labels[i][2] = label;
+                }
+            }
         }
 
         void setMatchReverseLabel(T label)
@@ -79,7 +97,24 @@ class GridMatchMismatchGraph : public GridGraph<T>
             /*
              * Update the match reverse transition label.
              */
-            this->match_labels[1] = label; 
+            this->match_labels[1] = label;
+
+            // Update the edge labels in the graph at each match position
+            for (unsigned i = 0; i < this->N; ++i)
+            {
+                if (this->pattern[i])
+                {
+                    std::stringstream sai, sbi, saj, sbj;
+                    sai << "A" << i;
+                    sbi << "B" << i;
+                    saj << "A" << i + 1;
+                    sbj << "B" << i + 1;
+                    this->setEdgeLabel(saj.str(), sai.str(), label);
+                    this->setEdgeLabel(sbj.str(), sbi.str(), label);
+                    this->rung_labels[i][1] = label;
+                    this->rung_labels[i][3] = label;
+                }
+            }
         }
 
         void setMismatchForwardLabel(T label)
@@ -87,7 +122,24 @@ class GridMatchMismatchGraph : public GridGraph<T>
             /*
              * Update the mismatch forward transition label.
              */
-            this->mismatch_labels[0] = label; 
+            this->mismatch_labels[0] = label;
+
+            // Update the edge labels in the graph at each mismatch position
+            for (unsigned i = 0; i < this->N; ++i)
+            {
+                if (!this->pattern[i])
+                {
+                    std::stringstream sai, sbi, saj, sbj;
+                    sai << "A" << i;
+                    sbi << "B" << i;
+                    saj << "A" << i + 1;
+                    sbj << "B" << i + 1;
+                    this->setEdgeLabel(sai.str(), saj.str(), label);
+                    this->setEdgeLabel(sbi.str(), sbj.str(), label);
+                    this->rung_labels[i][0] = label;
+                    this->rung_labels[i][2] = label;
+                }
+            }
         }
 
         void setMismatchReverseLabel(T label)
@@ -95,7 +147,24 @@ class GridMatchMismatchGraph : public GridGraph<T>
             /*
              * Update the mismatch reverse transition label.
              */
-            this->mismatch_labels[1] = label; 
+            this->mismatch_labels[1] = label;
+
+            // Update the edge labels in the graph at each mismatch position
+            for (unsigned i = 0; i < this->N; ++i)
+            {
+                if (!this->pattern[i])
+                {
+                    std::stringstream sai, sbi, saj, sbj;
+                    sai << "A" << i;
+                    sbi << "B" << i;
+                    saj << "A" << i + 1;
+                    sbj << "B" << i + 1;
+                    this->setEdgeLabel(saj.str(), sai.str(), label);
+                    this->setEdgeLabel(sbj.str(), sbi.str(), label);
+                    this->rung_labels[i][1] = label;
+                    this->rung_labels[i][3] = label;
+                }
+            }
         }
 
         void addRung(bool match)
@@ -236,7 +305,7 @@ class GridMatchMismatchGraph : public GridGraph<T>
             T weight_A0_A1_B1_with_path_B0_to_A0 = this->start[1];
 
             // Initialize vectors of spanning forest weights 
-            std::vector<std::array<T, 3> > vA;
+            std::vector<std::array<T, 3> > vA; 
             vA.push_back({
                 weight_A0,
                 weight_A0_A1_with_path_B1_to_A0,
@@ -290,28 +359,39 @@ class GridMatchMismatchGraph : public GridGraph<T>
                 weight_A0_B1_with_path_A1_to_A0
             };
 
-            // Define match and mismatch constants
+            // Define match and mismatch constants ...
+            // e = reverse * (off + on + reverse)
             T match_e = this->match_labels[1] * (this->start[1] + this->start[0] + this->match_labels[1]);
             T mismatch_e = this->mismatch_labels[1] * (this->start[1] + this->start[0] + this->mismatch_labels[1]);
+            // g = forward * reverse [fA * rB]
             T match_g = this->match_labels[0] * this->match_labels[1];
             T mismatch_g = this->mismatch_labels[0] * this->mismatch_labels[1];
+            // h = forward * reverse [fB * rA]
             T match_h = match_g; 
             T mismatch_h = mismatch_g;
+            // k = on + reverse [rA + c]
             T match_k = this->start[0] + this->match_labels[1];
-            T mismatch_k = this->start[0] + this->mismatch_labels[1]; 
+            T mismatch_k = this->start[0] + this->mismatch_labels[1];
+            // l = off + reverse [rB + d]
             T match_l = this->start[1] + this->match_labels[1];
             T mismatch_l = this->start[1] + this->mismatch_labels[1];
             T e, g, h, k, l, f, r;
 
             for (unsigned i = 1; i < this->N; ++i)  
             {
-                bool match_i = this->pattern[i];
+                // i here refers to the i-th position of the sequence (zero-indexed)
+                // and so the fully hybridized states are (A,i+1), (B,i+1)
+                bool match_i = this->pattern[i]; 
 
-                // Apply operator A
+                // Apply operator A (Eqn. B.19)
+                // Each array in vA stores: 
+                // 1) Weight of all trees rooted at j-th vertex
+                // 2) Weight of all 2-forests rooted at j-th vertex, (A,n) with path (B,n) -> j-th vertex
+                // 3) Weight of all 2-forests rooted at j-th vertex, (B,n) with path (A,n) -> j-th vertex
                 for (unsigned j = 0; j < vA.size(); ++j)
                 {
-                    // Choose whether to use the match or mismatch constants
-                    bool match_j = this->pattern[j];
+                    // The j-th vertex here is (A,0), (B,0), (A,1), (B,1), ...
+                    bool match_j = this->pattern[(j % 2 == 0) ? static_cast<int>(j / 2) : static_cast<int>((j - 1) / 2)];
                     e = (match_j) ? match_e : mismatch_e; 
                     g = (match_j) ? match_g : mismatch_g;
                     h = (match_j) ? match_h : mismatch_h;
@@ -333,7 +413,10 @@ class GridMatchMismatchGraph : public GridGraph<T>
                     vA[j][2] = yA[2];
                 }
 
-                // Apply operator B
+                // Add the next two entries to vA ...
+                // These arrays contain the forest weights pertaining to the
+                // i-th (**not** fully hybridized) nodes in the graph
+                // (i.e., (A,i), (B,i))
                 e = (match_i) ? match_e : mismatch_e; 
                 g = (match_i) ? match_g : mismatch_g;
                 h = (match_i) ? match_h : mismatch_h;
@@ -341,66 +424,99 @@ class GridMatchMismatchGraph : public GridGraph<T>
                 l = (match_i) ? match_l : mismatch_l;
                 f = (match_i) ? this->match_labels[0] : this->mismatch_labels[0]; 
                 r = (match_i) ? this->match_labels[1] : this->mismatch_labels[1];
-                std::array<T, 3> vA_first, vA_second, vB_next;
-                vA_first[0] = e * vB[0] + h * this->start[1] * vB[2];
-                vA_first[1] = r * vB[0];
-                vA_first[2] = r * vB[0] + h * vB[2];
-                vA_second[0] = e * vB[1] + g * this->start[0] * vB[2];
-                vA_second[1] = r * vB[1] + g * vB[2];
-                vA_second[2] = r * vB[1]; 
+                std::array<T, 3> vA_first, vA_second;
+                // vA_first stores the initial weights pertaining to (A,i)
+                vA_first[0] = e * vB[0] + h * this->start[1] * vB[2];    // Trees rooted at (A,i) : Eqn. B.28, first row
+                vA_first[1] = r * vB[0];                                 // (A,i), (A,i+1) with path (B,i+1) -> (A,i)
+                vA_first[2] = r * vB[0] + h * vB[2];                     // (A,i), (B,i+1) with path (A,i+1) -> (A,i)
+                // vA_second stores the initial weights pertaining to (B,i)
+                vA_second[0] = e * vB[1] + g * this->start[0] * vB[2];   // Trees rooted at (B,i) : Eqn. B.28, second row 
+                vA_second[1] = r * vB[1] + g * vB[2];                    // (B,i), (A,i+1) with path (B,i+1) -> (B,i)
+                vA_second[2] = r * vB[1];                                // (B,i), (B,i+1) with path (A,i+1) -> (B,i)
+                vA.push_back(vA_first);
+                vA.push_back(vA_second);
+
+                // Apply operator B (Eqn. B.27)
+                // Each version of vB stores: 
+                // 1) Weight of all trees rooted at (A,i+1) -- the fully hybridized node 
+                // 2) Weight of all trees rooted at (B,i+1) -- the fully hybridized node
+                // 3) Weight of all 2-forests rooted at (A,i+1), (B,i+1) -- both fully hybridized nodes 
+                std::array<T, 3> vB_next; 
                 vB_next[0] = f * (l * vB[0] + this->start[1] * (vB[1] + f * vB[2]));
                 vB_next[1] = f * (this->start[0] * (vB[0] + f * vB[2]) + k * vB[1]);
                 vB_next[2] = f * (vB[0] + vB[1] + f * vB[2]); 
-                vA.push_back(vA_first);
-                vA.push_back(vA_second);
                 vB[0] = vB_next[0];
                 vB[1] = vB_next[1];
                 vB[2] = vB_next[2];
 
-                // Apply operator D (before C!)
-                std::array<T, 4> vC_first, vC_second;
+                // Apply operator D (before C!) (Eqn. B.33)
+                // Each version of vD stores: 
+                // 1) Weight of all trees rooted at (A,i+1)
+                // 2) Weight of all trees rooted at (B,i+1)
+                // 3) Weight of all 2-forests rooted at (A,i+1),(B,i+1) with path (A,0) -> (B,i+1)
+                // 4) Weight of all 2-forests rooted at (A,i+1),(B,i+1) with path (A,0) -> (A,i+1)
                 std::array<T, 2> vD_next;
                 T u0 = vD[0] + f * vD[3];
                 T u1 = vD[1] + f * vD[2]; 
-                vC_first[0] = vA_first[0];
-                vC_first[1] = l * vD[0] + f * this->start[1] * vD[3];
-                vC_first[2] = k * u0;
-                vC_first[3] = u0;
-                vC_second[0] = vA_second[0];
-                vC_second[1] = l * u1;
-                vC_second[2] = k * vD[1] + f * this->start[0] * vD[2];
-                vC_second[3] = u1;
-                vD_next[0] = f * (vD[0] + f * vD[2]); 
-                vD_next[1] = f * (vD[1] + f * vD[3]);
-                vD[0] = vB[0];
-                vD[1] = vB[1];
-                vD[2] = vD_next[0];
-                vD[3] = vD_next[1];
+                vD_next[0] = f * (vD[0] + f * vD[2]);  // Eqn. B.33, row 4
+                vD_next[1] = f * (vD[1] + f * vD[3]);  // Eqn. B.33, row 5
 
                 // Apply operator E (before C!)
-                std::array<T, 4> vC1_first, vC1_second;
+                // Each version of vE stores: 
+                // 1) Weight of all trees rooted at (A,0)
+                // 2) Weight of all 2-forests rooted at (A,0),(A,i+1) with path (B,i+1) -> (A,0)
+                // 3) Weight of all 2-forests rooted at (A,0),(B,i+1) with path (A,i+1) -> (A,0)
                 std::array<T, 2> vE_next;
                 T x1 = vE[0] + f * vE[1]; 
                 T x2 = vE[0] + f * vE[2];
-                vC1_first[0] = vA_first[0];
-                vC1_first[1] = l * vE[0] + f * this->start[1] * vE[2];
-                vC1_first[2] = k * x2;
-                vC1_first[3] = x2;
-                vC1_second[0] = vA_second[0];
-                vC1_second[1] = l * x1;
-                vC1_second[2] = k * vE[0] + f * this->start[0] * vE[1];
-                vC1_second[3] = x1;
-                vE_next[0] = r * x1;
-                vE_next[1] = r * x2;
-                vE[0] = vA[0][0];
-                vE[1] = vE_next[0];
-                vE[2] = vE_next[1];
+                vE_next[0] = r * x1;   // Eqn. B.30, row 4
+                vE_next[1] = r * x2;   // Eqn. B.30, row 5
+
+                // Here we define new arrays to be added to vC and vC1 (Eqn. B.33)
+                // vC_first stores: 
+                // 1) Weight of all trees rooted at (A,i)
+                // 2) Weight of all 2-forests rooted at (A,i),(A,i+1) with path (A,0) -> (A,i)
+                // 3) Weight of all 2-forests rooted at (A,i),(B,i+1) with path (A,0) -> (A,i)
+                // 4) Weight of all 3-forests rooted at (A,i),(A,i+1),(B,i+1) with path (A,0) -> (A,i)
+                std::array<T, 4> vC_first, vC_second;
+                vC_first[0] = vA_first[0];    // Just take from vA_first
+                vC_first[1] = l * vD[0] + f * this->start[1] * vD[3];    // Eqn. B.33, row 0
+                vC_first[2] = k * u0;                                    // Eqn. B.33, row 2
+                vC_first[3] = u0;                                        // Eqn. B.33, row 6
+                // vC_second stores:
+                // 1) Weight of all trees rooted at (B,i)
+                // 2) Weight of all 2-forests rooted at (B,i),(A,i+1) with path (A,0) -> (B,i)
+                // 3) Weight of all 2-forests rooted at (B,i),(B,i+1) with path (A,0) -> (B,i)
+                // 4) Weight of all 3-forests rooted at (B,i),(A,i+1),(B,i+1) with path (A,0) -> (B,i)
+                vC_second[0] = vA_second[0];   // Just take from vA_second
+                vC_second[1] = l * u1;                                   // Eqn. B.33, row 1
+                vC_second[2] = k * vD[1] + f * this->start[0] * vD[2];   // Eqn. B.33, row 3
+                vC_second[3] = u1;                                       // Eqn. B.33, row 7
+                // vC1_first stores:
+                // 1) Weight of all trees rooted at (A,0)
+                // 2) Weight of all 2-forests rooted at (A,0),(A,i+1) with path (A,i) -> (A,0)
+                // 3) Weight of all 2-forests rooted at (A,0),(B,i+1) with path (A,i) -> (A,0)
+                // 4) Weight of all 3-forests rooted at (A,0),(A,i+1),(B,i+1) with path (A,i) -> (A,0)
+                std::array<T, 4> vC1_first, vC1_second;
+                vC1_first[0] = vA[0][0];       // Just take from vA[0]
+                vC1_first[1] = l * vE[0] + f * this->start[1] * vE[2];   // Eqn. B.30, row 0
+                vC1_first[2] = k * x2;                                   // Eqn. B.30, row 1
+                vC1_first[3] = x2;                                       // Eqn. B.30, row 6
+                // vC1_second stores:
+                // 1) Weight of all trees rooted at (A,0)
+                // 2) Weight of all 2-forests rooted at (A,0),(A,i+1) with path (B,i) -> (A,0)
+                // 3) Weight of all 2-forests rooted at (A,0),(B,i+1) with path (B,i) -> (A,0)
+                // 4) Weight of all 3-forests rooted at (A,0),(A,i+1),(B,i+1) with path (B,i) -> (A,0)
+                vC1_second[0] = vA[0][0];      // Just take from vA[0]
+                vC1_second[1] = l * x1;                                  // Eqn. B.30, row 2
+                vC1_second[2] = k * vE[0] + f * this->start[0] * vE[1];  // Eqn. B.30, row 3
+                vC1_second[3] = x1;                                      // Eqn. B.30, row 7
 
                 // Apply operator C 
                 for (unsigned j = 0; j < vC.size(); ++j)
                 {
-                    // Choose whether to use the match or mismatch constants
-                    bool match_j = this->pattern[j];
+                    // The j-th vertex here is (A,0), (B,0), (A,1), (B,1), ...
+                    bool match_j = this->pattern[(j % 2 == 0) ? static_cast<int>(j / 2) : static_cast<int>((j - 1) / 2)];
                     e = (match_j) ? match_e : mismatch_e; 
                     g = (match_j) ? match_g : mismatch_g;
                     h = (match_j) ? match_h : mismatch_h;
@@ -409,22 +525,27 @@ class GridMatchMismatchGraph : public GridGraph<T>
                     f = (match_j) ? this->match_labels[0] : this->mismatch_labels[0]; 
                     r = (match_j) ? this->match_labels[1] : this->mismatch_labels[1];
 
-                    // Apply operator C 
+                    // Apply operator C (Eqn. B.32)
+                    // Each array in vC stores: 
+                    // 1) Weight of all trees rooted at j-th vertex
+                    // 2) Weight of all 2-forests rooted at j-th vertex, (A,i+1) with path (A,0) -> j-th vertex
+                    // 3) Weight of all 2-forests rooted at j-th vertex, (B,i+1) with path (A,0) -> j-th vertex
+                    // 4) Weight of all 3-forests rooted at j-th vertex, (A,i+1), (B,i+1) with path (A,0) -> j-th vertex
                     std::array<T, 3> wC; 
                     wC[0] = l * vC[j][0] + f * (l * vC[j][1] + this->start[1] * (vC[j][2] + f * vC[j][3]));
                     wC[1] = k * vC[j][0] + f * (this->start[0] * (vC[j][1] + f * vC[j][3]) + k * vC[j][2]);
                     wC[2] = vC[j][0] + f * (vC[j][1] + vC[j][2] + f * vC[j][3]);
-                    vC[j][0] = vA[j][0];
-                    vC[j][1] = wC[0];
-                    vC[j][2] = wC[1];
-                    vC[j][3] = wC[2]; 
+                    vC[j][0] = vA[j][0];    // Just take from vA[j]
+                    vC[j][1] = wC[0];       // Eqn. B.32, row 0
+                    vC[j][2] = wC[1];       // Eqn. B.32, row 1
+                    vC[j][3] = wC[2];       // Eqn. B.32, row 2
                 }
 
-                // Apply operator C again
+                // Apply operator C again (Eqn. B.29)
                 for (unsigned j = 0; j < vC1.size(); ++j)
                 {
-                    // Choose whether to use the match or mismatch constants
-                    bool match_j = this->pattern[j];
+                    // The j-th vertex here is (A,0), (B,0), (A,1), (B,1), ...
+                    bool match_j = this->pattern[(j % 2 == 0) ? static_cast<int>(j / 2) : static_cast<int>((j - 1) / 2)];
                     e = (match_j) ? match_e : mismatch_e; 
                     g = (match_j) ? match_g : mismatch_g;
                     h = (match_j) ? match_h : mismatch_h;
@@ -433,15 +554,20 @@ class GridMatchMismatchGraph : public GridGraph<T>
                     f = (match_j) ? this->match_labels[0] : this->mismatch_labels[0]; 
                     r = (match_j) ? this->match_labels[1] : this->mismatch_labels[1];
 
-                    // Apply operator C 
+                    // Apply operator C (Eqn. B.29)
+                    // Each array in vC1 stores: 
+                    // 1) Weight of all trees rooted at (A,0)
+                    // 2) Weight of all 2-forests rooted at (A,0), (A,i+1) with path j-th vertex -> (A,0)
+                    // 3) Weight of all 2-forests rooted at (A,0), (B,i+1) with path j-th vertex -> (A,0)
+                    // 4) Weight of all 3-forests rooted at (A,0), (A,i+1), (B,i+1) with path j-th vertex -> (A,0)
                     std::array<T, 3> wC1; 
                     wC1[0] = l * vC1[j][0] + f * (l * vC1[j][1] + this->start[1] * (vC1[j][2] + f * vC1[j][3]));
                     wC1[1] = k * vC1[j][0] + f * (this->start[0] * (vC1[j][1] + f * vC1[j][3]) + k * vC1[j][2]);
                     wC1[2] = vC1[j][0] + f * (vC1[j][1] + vC1[j][2] + f * vC1[j][3]);
-                    vC1[j][0] = vA[j][0];
-                    vC1[j][1] = wC1[0];
-                    vC1[j][2] = wC1[1];
-                    vC1[j][3] = wC1[2]; 
+                    vC1[j][0] = vA[0][0];    // Just take from vA[0]
+                    vC1[j][1] = wC1[0];      // Eqn. B.29, row 0
+                    vC1[j][2] = wC1[1];      // Eqn. B.29, row 1
+                    vC1[j][3] = wC1[2];      // Eqn. B.29, row 2
                 }
 
                 // Append the new vectors to be added to vC and vC1
@@ -449,9 +575,18 @@ class GridMatchMismatchGraph : public GridGraph<T>
                 vC.push_back(vC_second);
                 vC1.push_back(vC1_first);
                 vC1.push_back(vC1_second);
+
+                // Update vD and vE
+                vD[0] = vB[0];         // Just take from first two rows of vB
+                vD[1] = vB[1];
+                vD[2] = vD_next[0];    // Eqn. B.33, row 4
+                vD[3] = vD_next[1];    // Eqn. B.33, row 5
+                vE[0] = vA[0][0];      // Just take from first row of vA[0]
+                vE[1] = vE_next[0];    // Eqn. B.30, row 4
+                vE[2] = vE_next[1];    // Eqn. B.30, row 5
             }
 
-            // 0) Write all spanning tree weights 
+            // 0) Write all spanning tree weights [stored in vA and vB]
             std::vector<T> tree_weights;
             for (auto&& arr : vA)
                 tree_weights.push_back(arr[0]);
@@ -459,23 +594,23 @@ class GridMatchMismatchGraph : public GridGraph<T>
             tree_weights.push_back(vB[1]);
 
             // 1) Write all weights of spanning forests rooted at (Y,i), (B,N)
-            // with path (A,0) -> (Y,i)
+            // with path (A,0) -> (Y,i) [stored in vC] 
             std::vector<T> forest_weights_Yi_BN_with_path_A0_to_Yi;
             for (auto&& arr : vC)
                 forest_weights_Yi_BN_with_path_A0_to_Yi.push_back(arr[2]);
 
             // 2) Weight of spanning forests rooted at (A,N), (B,N) with path 
-            // (A,0) -> (A,N)
+            // (A,0) -> (A,N) [stored in vD]
             T forest_weight_AN_BN_with_path_A0_to_AN = vD[3];
 
             // 3) Write all weights of spanning forests rooted at (A,0), (B,N)
-            // with path (Y,i) -> (A,0)
+            // with path (Y,i) -> (A,0) [stored in vC1]
             std::vector<T> forest_weights_A0_BN_with_path_Yi_to_A0;
             for (auto&& arr : vC1)
                 forest_weights_A0_BN_with_path_Yi_to_A0.push_back(arr[2]);
 
             // 4) Weight of spanning forests rooted at (A,0), (B,N) with path
-            // (A,N) -> (A,0)
+            // (A,N) -> (A,0) [stored in vE]
             T forest_weight_A0_BN_with_path_AN_to_A0 = vE[2];
 
             // Return all accumulated data
@@ -516,11 +651,11 @@ class GridMatchMismatchGraph : public GridGraph<T>
                 weight_A0_BN * exit_rate_lower_prob * exit_rate_upper_prob
             );
 
-            // Get weight of all forests rooted at exit vertices with path (A,0) -> upper
-            T two_forest_weight_A0_to_upper = two_forest_weight - two_forest_weight_A0_to_lower;
+            // Get weight of all forests rooted at exit vertices with path (A,0) -> upper exit 
+            T two_forest_weight_A0_to_upper = weight_BN * exit_rate_upper_prob; 
 
             // Probability of upper exit is given by ...
-            T prob_upper_exit = (weight_BN * exit_rate_upper_prob) / two_forest_weight;
+            T prob_upper_exit = two_forest_weight_A0_to_upper / two_forest_weight; 
 
             // Re-compute weight of all forests rooted at exit vertices
             two_forest_weight = (
@@ -535,13 +670,14 @@ class GridMatchMismatchGraph : public GridGraph<T>
                 weight_A0_BN * exit_rate_lower_time * exit_rate_upper_time
             );
 
-            // Re-compute weight of all forests rooted at exit vertices with path (A,0) -> upper
-            two_forest_weight_A0_to_upper = two_forest_weight - two_forest_weight_A0_to_lower;
+            // Re-compute weight of all forests rooted at exit vertices with path (A,0) -> upper exit 
+            two_forest_weight_A0_to_upper = weight_BN * exit_rate_upper_time; 
             
             // Mean first passage times to lower/upper exit are given by ...
-            T numer_lower_exit = 0;
-            T numer_upper_exit = 0;
-            for (unsigned i = 0; i < 2*this->N; ++i)
+            Array<T, Dynamic, 1> numer_lower_exit = Array<T, Dynamic, 1>::Zero(2 * this->N + 2);
+            Array<T, Dynamic, 1> numer_upper_exit = Array<T, Dynamic, 1>::Zero(2 * this->N + 2);
+            T log_two_forest_weight = boost::multiprecision::log(two_forest_weight);
+            for (unsigned i = 0; i < 2 * this->N; ++i)
             {
                 T weight_Yi = std::get<0>(weights)[i];
                 T weight_Yi_BN_with_path_A0_to_Yi = std::get<1>(weights)[i];
@@ -553,47 +689,84 @@ class GridMatchMismatchGraph : public GridGraph<T>
                     weight_A0 * exit_rate_lower_time +
                     weight_A0_BN_with_path_Yi_to_A0 * exit_rate_lower_time * exit_rate_upper_time
                 );
+                std::cout << two_forest_weight_Yi_to_lower << " "
+                          << two_forest_weight << " "
+                          << (two_forest_weight_Yi_to_lower > two_forest_weight) << std::endl; 
 
                 // Get weight of all 2-forests rooted at exit vertices with 
                 // path (Y,i) -> upper exit
-                T two_forest_weight_Yi_to_upper = two_forest_weight - two_forest_weight_Yi_to_lower;
+                // ----> Compute in log-scale using the log-diff-exp function
+                T log_two_forest_weight_Yi_to_lower = boost::multiprecision::log(two_forest_weight_Yi_to_lower);
+                T log_two_forest_weight_Yi_to_upper = (
+                    log_two_forest_weight + boost::multiprecision::log(
+                        1.0 - boost::multiprecision::exp(log_two_forest_weight_Yi_to_lower - log_two_forest_weight)
+                    )
+                );
 
                 // Get weight of all 3-forests rooted at exit vertices and (Y,i)
                 // with path (A,0) -> (Y,i)
-                T three_forest_weight_A0_to_Yi = (
+                T log_three_forest_weight_A0_to_Yi = boost::multiprecision::log(
                     weight_Yi + weight_Yi_BN_with_path_A0_to_Yi * exit_rate_upper_time
                 );
 
                 // Get contribution to numerators of mean first passage time
-                numer_lower_exit += (three_forest_weight_A0_to_Yi * two_forest_weight_Yi_to_lower);
-                numer_upper_exit += (three_forest_weight_A0_to_Yi * two_forest_weight_Yi_to_upper);
+                numer_lower_exit(i) = log_three_forest_weight_A0_to_Yi + log_two_forest_weight_Yi_to_lower;
+                numer_upper_exit(i) = log_three_forest_weight_A0_to_Yi + log_two_forest_weight_Yi_to_upper;
             }
 
             // Get contribution to numerators for (Y,i) = (A,N)
             T weight_AN_BN_with_path_A0_to_AN = std::get<2>(weights);
             T weight_A0_BN_with_path_AN_to_A0 = std::get<4>(weights);
-            T two_forest_weight_AN_to_lower = (
+            T log_two_forest_weight_AN_to_lower = boost::multiprecision::log(
                 weight_A0 * exit_rate_lower_time +
                 weight_A0_BN_with_path_AN_to_A0 * exit_rate_lower_time * exit_rate_upper_time
             );
-            T two_forest_weight_AN_to_upper = two_forest_weight - two_forest_weight_AN_to_lower;
-            T three_forest_weight_A0_to_AN = (
+            T log_two_forest_weight_AN_to_upper = (
+                log_two_forest_weight + boost::multiprecision::log(
+                    1.0 - boost::multiprecision::exp(log_two_forest_weight_AN_to_lower - log_two_forest_weight)
+                )
+            ); 
+            T log_three_forest_weight_A0_to_AN = boost::multiprecision::log(
                 weight_AN + weight_AN_BN_with_path_A0_to_AN * exit_rate_upper_time
             );
-            numer_lower_exit += (three_forest_weight_A0_to_AN * two_forest_weight_AN_to_lower);
-            numer_upper_exit += (three_forest_weight_A0_to_AN * two_forest_weight_AN_to_upper);
+            numer_lower_exit(2 * this->N) = log_three_forest_weight_A0_to_AN + log_two_forest_weight_AN_to_lower;
+            numer_upper_exit(2 * this->N) = log_three_forest_weight_A0_to_AN + log_two_forest_weight_AN_to_upper;
 
             // Get contribution to numerators for (Y,i) = (B,N)
-            T two_forest_weight_BN_to_lower = weight_A0 * exit_rate_lower_time;
-            T two_forest_weight_BN_to_upper = two_forest_weight - two_forest_weight_BN_to_lower;
-            T three_forest_weight_A0_to_BN = weight_BN;
-            numer_lower_exit += (three_forest_weight_A0_to_BN * two_forest_weight_BN_to_lower);
-            numer_upper_exit += (three_forest_weight_A0_to_BN * two_forest_weight_BN_to_upper);
+            T log_two_forest_weight_BN_to_lower = boost::multiprecision::log(weight_A0 * exit_rate_lower_time);
+            T log_two_forest_weight_BN_to_upper = (
+                log_two_forest_weight + boost::multiprecision::log(
+                    1.0 - boost::multiprecision::exp(log_two_forest_weight_BN_to_lower - log_two_forest_weight)
+                )
+            );
+            T log_three_forest_weight_A0_to_BN = boost::multiprecision::log(weight_BN);
+            numer_lower_exit(2 * this->N + 1) = log_three_forest_weight_A0_to_BN + log_two_forest_weight_BN_to_lower;
+            numer_upper_exit(2 * this->N + 1) = log_three_forest_weight_A0_to_BN + log_two_forest_weight_BN_to_upper;
+            std::cout << "lower " << numer_lower_exit.transpose() << std::endl; 
+            std::cout << "upper " << numer_upper_exit.transpose() << std::endl; 
 
+            // To get the sum of these contributions in log-scale, first get the maxima ...
+            T max_numer_lower_exit = numer_lower_exit.maxCoeff();
+            T max_numer_upper_exit = numer_upper_exit.maxCoeff();
+
+            // ... subtract the maxima from their respective arrays ...
+            numer_lower_exit -= max_numer_lower_exit; 
+            numer_upper_exit -= max_numer_upper_exit; 
+
+            // ... exponentiate, sum, take logarithms, and add back the maxima
+            T numer_lower_exit_total = boost::multiprecision::log(numer_lower_exit.exp().sum()) + max_numer_lower_exit;
+            T numer_upper_exit_total = boost::multiprecision::log(numer_upper_exit.exp().sum()) + max_numer_upper_exit; 
+            
             // Take the reciprocal of the mean first passage time to get 
             // the rate of lower exit
-            T rate_lower_exit = two_forest_weight_A0_to_lower * two_forest_weight / numer_lower_exit;
-            T rate_upper_exit = two_forest_weight_A0_to_upper * two_forest_weight / numer_upper_exit;
+            T rate_lower_exit = boost::multiprecision::exp(
+                boost::multiprecision::log(two_forest_weight_A0_to_lower)
+                + log_two_forest_weight - numer_lower_exit_total
+            );
+            T rate_upper_exit = boost::multiprecision::exp(
+                boost::multiprecision::log(two_forest_weight_A0_to_upper) 
+                + log_two_forest_weight - numer_upper_exit_total
+            );
 
             return std::make_tuple(prob_upper_exit, rate_lower_exit, rate_upper_exit);
         } 
