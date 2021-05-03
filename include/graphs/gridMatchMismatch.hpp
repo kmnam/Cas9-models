@@ -7,6 +7,7 @@
 #include <vector>
 #include <utility>
 #include <stdexcept>
+#include <boost/math/tools/promotion.hpp>
 #include <boost/multiprecision/mpfr.hpp>
 #include <digraph.hpp>
 #include "grid.hpp"
@@ -17,6 +18,40 @@
  * Last updated:
  *     5/1/2021
  */
+namespace boost {
+
+namespace multiprecision {
+
+template <typename T>
+typename boost::math::tools::promote_arg<T>::type log1mexp(const T& x)
+{
+    /*
+     * Compute log(-expm1(-x)) or log1p(-exp(-x)), depending on the value of x.
+     * Note that x must be positive for this function to be defined: 
+     *     log1mexp(x) is defined
+     *  => log(1 - exp(-x)) is defined
+     *  => 1 - exp(-x) > 0
+     *  => -exp(-x) > -1
+     *  => exp(-x) < 1
+     *  => -x < log(1) = 0
+     *  => x > 0
+     *
+     * This function definition is taken from Martin Machler's note (2012).
+     */
+    using std::log; 
+    using std::exp; 
+    using std::expm1; 
+    using std::log1p;    // Boost versions of these functions will be called if T is a boost::multiprecision type 
+
+    if (x <= 0)          throw std::invalid_argument("log1mexp(x) is undefined for x <= 0");
+    else if (x <= 0.693) return log(-expm1(-x));
+    else                 return log1p(-exp(-x)); 
+}
+
+}    // namespace multiprecision
+
+}    // namespace boost 
+
 template <typename T>
 class GridMatchMismatchGraph : public GridGraph<T>
 {
@@ -698,8 +733,8 @@ class GridMatchMismatchGraph : public GridGraph<T>
                 // ----> Compute in log-scale using the log-diff-exp function
                 T log_two_forest_weight_Yi_to_lower = boost::multiprecision::log(two_forest_weight_Yi_to_lower);
                 T log_two_forest_weight_Yi_to_upper = (
-                    log_two_forest_weight + boost::multiprecision::log(
-                        1.0 - boost::multiprecision::exp(log_two_forest_weight_Yi_to_lower - log_two_forest_weight)
+                    log_two_forest_weight + boost::multiprecision::log1mexp(
+                        log_two_forest_weight - log_two_forest_weight_Yi_to_lower
                     )
                 );
 
@@ -722,10 +757,10 @@ class GridMatchMismatchGraph : public GridGraph<T>
                 weight_A0_BN_with_path_AN_to_A0 * exit_rate_lower_time * exit_rate_upper_time
             );
             T log_two_forest_weight_AN_to_upper = (
-                log_two_forest_weight + boost::multiprecision::log(
-                    1.0 - boost::multiprecision::exp(log_two_forest_weight_AN_to_lower - log_two_forest_weight)
+                log_two_forest_weight + boost::multiprecision::log1mexp(
+                    log_two_forest_weight - log_two_forest_weight_AN_to_lower
                 )
-            ); 
+            );
             T log_three_forest_weight_A0_to_AN = boost::multiprecision::log(
                 weight_AN + weight_AN_BN_with_path_A0_to_AN * exit_rate_upper_time
             );
@@ -735,8 +770,8 @@ class GridMatchMismatchGraph : public GridGraph<T>
             // Get contribution to numerators for (Y,i) = (B,N)
             T log_two_forest_weight_BN_to_lower = boost::multiprecision::log(weight_A0 * exit_rate_lower_time);
             T log_two_forest_weight_BN_to_upper = (
-                log_two_forest_weight + boost::multiprecision::log(
-                    1.0 - boost::multiprecision::exp(log_two_forest_weight_BN_to_lower - log_two_forest_weight)
+                log_two_forest_weight + boost::multiprecision::log1mexp(
+                    log_two_forest_weight - log_two_forest_weight_AN_to_lower
                 )
             );
             T log_three_forest_weight_A0_to_BN = boost::multiprecision::log(weight_BN);
@@ -751,7 +786,7 @@ class GridMatchMismatchGraph : public GridGraph<T>
 
             // ... subtract the maxima from their respective arrays ...
             numer_lower_exit -= max_numer_lower_exit; 
-            numer_upper_exit -= max_numer_upper_exit; 
+            numer_upper_exit -= max_numer_upper_exit;
 
             // ... exponentiate, sum, take logarithms, and add back the maxima
             T numer_lower_exit_total = boost::multiprecision::log(numer_lower_exit.exp().sum()) + max_numer_lower_exit;
