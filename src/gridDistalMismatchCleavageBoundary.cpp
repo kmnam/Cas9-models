@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <tuple>
 #include <Eigen/Dense>
+#include <boost/math/constants/constants.hpp>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/multiprecision/eigen.hpp>
 #include <boost/random.hpp>
@@ -22,9 +23,9 @@
  *     5/1/2021
  */
 using namespace Eigen;
+using boost::math::constants::ln_ten; 
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
-using boost::multiprecision::log10;
 
 const unsigned length = 20;
 
@@ -64,22 +65,21 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
     // Compute cleavage probability and mean first passage time to upper exit
     // without any mismatches present 
     std::tuple<T, T, T> data = model->computeExitStats(1, 1, 1, 1);
-    double prob_perfect = static_cast<double>(log10(std::get<0>(data)));
-    double rate_perfect = static_cast<double>(log10(std::get<2>(data)));
+    T prob_perfect = std::get<0>(data);
+    T rate_perfect = std::get<2>(data);
     
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
     for (unsigned i = 1; i <= n_mismatches; ++i)
         model->setRungLabels(length - i, false);
     data = model->computeExitStats(1, 1, 1, 1);
-    double prob = static_cast<double>(log10(std::get<0>(data)));
-    double rate = static_cast<double>(log10(std::get<2>(data)));
+    T prob = std::get<0>(data);
+    T rate = std::get<2>(data);
 
     // Compute the specificity and conditional cleavage ratio 
-    double cleave_spec = prob_perfect - prob;
-    double cleave_ratio = rate_perfect - rate;
     VectorXd output(2);
-    output << cleave_spec, cleave_ratio;
+    output << static_cast<double>((prob_perfect - prob) / ln_ten<T>()),
+              static_cast<double>((rate_perfect - rate) / ln_ten<T>());
 
     delete model;
     return output;
@@ -208,7 +208,7 @@ int main(int argc, char** argv)
 
     // Run the boundary-finding algorithm
     BoundaryFinder finder(tol, rng, argv[1], argv[2]);
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = cleavageFunc<number<mpfr_float_backend<50> > >(m);
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = cleavageFunc<number<mpfr_float_backend<100> > >(m);
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
     finder.run(
         func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,

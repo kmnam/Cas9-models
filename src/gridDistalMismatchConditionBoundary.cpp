@@ -14,13 +14,13 @@
 #include "../include/graphs/gridMatchMismatch.hpp"
 
 /*
- * Estimates the boundary of the cleavage probability vs. cleavage specificity
- * region in the grid Cas9 model. 
+ * Estimates the boundary of the cleavage specificity vs. conditional unbinding 
+ * specificity region in the grid Cas9 model. 
  *
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     5/1/2021
+ *     5/3/2021
  */
 using namespace Eigen;
 using boost::math::constants::ln_ten; 
@@ -61,21 +61,25 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
     model->setMismatchReverseLabel(exp_params[3]);
     for (unsigned i = 0; i < length; ++i)    // Start with perfectly matched substrate
         model->setRungLabels(i, true);
-
-    // Compute cleavage probability without any mismatches present 
-    std::tuple<T, T, T> data = model->computeExitStats(1, 1, 1, 1);
-    T prob_perfect = std::get<0>(data);
     
+    // Compute conditional mean first passage times to either exit without
+    // any mismatches present
+    std::tuple<T, T, T> data = model->computeExitStats(1, 1, 1, 1);
+    T condrate_lower_perfect = std::get<1>(data);
+    T condrate_upper_perfect = std::get<2>(data);
+
     // Introduce distal mismatches and re-compute cleavage probability
+    // and mean first passage time
     for (unsigned i = 1; i <= n_mismatches; ++i)
         model->setRungLabels(length - i, false);
     data = model->computeExitStats(1, 1, 1, 1);
-    T prob = std::get<0>(data);
-
-    // Compute the cleavage activity and cleavage specificity 
+    T condrate_lower = std::get<1>(data);
+    T condrate_upper = std::get<2>(data);
+    
+    // Compile results and return 
     VectorXd output(2);
-    output << static_cast<double>(prob_perfect / ln_ten<T>()),
-              static_cast<double>((prob_perfect - prob) / ln_ten<T>());
+    output << static_cast<double>((condrate_upper_perfect - condrate_upper) / ln_ten<T>()), 
+              static_cast<double>((condrate_lower_perfect - condrate_lower) / ln_ten<T>());
 
     delete model;
     return output;
