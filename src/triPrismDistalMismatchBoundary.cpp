@@ -4,6 +4,7 @@
 #include <array>
 #include <utility>
 #include <iomanip>
+#include <stdexcept>
 #include <Eigen/Dense>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/multiprecision/eigen.hpp>
@@ -12,18 +13,17 @@
 #include "../include/graphs/triangularPrism.hpp"
 
 /*
- * Estimates the boundary of the cleavage/unbinding specificity region 
- * in the triangular-prism Cas9 model.
+ * Estimates the boundary of the cleavage specificity vs. unbinding
+ * specificity region in the triangular-prism Cas9 model.
  *
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     4/13/2021
+ *     5/8/2021
  */
 using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
-using boost::multiprecision::log10;
 
 const unsigned length = 20;
 
@@ -38,7 +38,7 @@ int coin_toss(boost::random::mt19937& rng)
 }
 
 template <typename T, unsigned n_mismatches>
-Matrix<double, Dynamic, 1> computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
+VectorXd computeStats(const Ref<const VectorXd>& params)
 {
     /*
      * Compute the specificity and speed ratio with respect to the 
@@ -85,22 +85,22 @@ Matrix<double, Dynamic, 1> computeStats(const Ref<const Matrix<double, Dynamic, 
         model->setRungLabels(j, match_params);
     
     // Compute cleavage probability and mean first passage time 
-    std::pair<T, T> data = model->computeExitStats(1, 1, 1, 0);
-    double prob_perfect = static_cast<double>(log10(data.first));
-    double rate_perfect = static_cast<double>(log10(data.second));
-    
+    std::tuple<T, T, T> data = model->computeExitStats(1, 1, 1, 0);
+    T prob_perfect = std::get<0>(data);
+    T rate_perfect = std::get<1>(data);
+   
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
     for (unsigned j = 1; j <= n_mismatches; ++j)
         model->setRungLabels(length - j, mismatch_params);
     data = model->computeExitStats(1, 1, 1, 0);
-    double prob = static_cast<double>(log10(data.first));
-    double rate = static_cast<double>(log10(data.second));
+    T prob = std::get<0>(data);
+    T rate = std::get<1>(data);
 
     // Compute the specificity and speed ratio
-    double cleave_spec = prob_perfect - prob;
-    double unbind_spec = rate - rate_perfect;
-    Matrix<double, Dynamic, 1> output(2);
+    double cleave_spec = static_cast<double>(prob_perfect - prob);
+    double unbind_spec = static_cast<double>(rate_perfect - rate);
+    VectorXd output(2);
     output << cleave_spec, unbind_spec;
 
     delete model;
@@ -108,12 +108,12 @@ Matrix<double, Dynamic, 1> computeStats(const Ref<const Matrix<double, Dynamic, 
 }
 
 template <typename T>
-std::function<Matrix<double, Dynamic, 1>(const Ref<const Matrix<double, Dynamic, 1> >&)> cleavageFunc(unsigned n_mismatches)
+std::function<VectorXd(const Ref<const VectorXd>&)> cleavageFunc(unsigned n_mismatches)
 {
     /*
      * Return the function instance with the given number of mismatches.
      */
-    std::function<Matrix<double, Dynamic, 1>(const Ref<const Matrix<double, Dynamic, 1> >&)> func;
+    std::function<VectorXd(const Ref<const VectorXd>&)> func;
     switch (n_mismatches)
     {
         case 1:
@@ -206,8 +206,8 @@ int main(int argc, char** argv)
     sscanf(argv[4], "%u", &m);
 
     // Define filtering function
-    std::function<bool(const Ref<const Matrix<double, Dynamic, 1> >& x)> filter
-        = [](const Ref<const Matrix<double, Dynamic, 1> >& x)
+    std::function<bool(const Ref<const VectorXd>& x)> filter
+        = [](const Ref<const VectorXd>& x)
         {
             return x(0) < 0.01;
         };
@@ -232,14 +232,13 @@ int main(int argc, char** argv)
 
     // Run the boundary-finding algorithm
     BoundaryFinder finder(tol, rng, argv[1]);
-    std::function<Matrix<double, Dynamic, 1>(const Ref<const Matrix<double, Dynamic, 1> >&)> func
-        = cleavageFunc<number<mpfr_float_backend<50> > >(m);
-    std::function<Matrix<double, Dynamic, 1>(const Ref<const Matrix<double, Dynamic, 1> >&, boost::random::mt19937&)> mutate
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = cleavageFunc<number<mpfr_float_backend<200> > >(m);
+    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate
         = mutateByDelta<double>;
     finder.runFromRandomWalk(
         func, mutate, filter, n_sample, min_step_iter, max_step_iter,
         min_pull_iter, max_pull_iter, max_edges, verbose, sqp_max_iter,
-        sqp_tol, sqp_verbose, ss.str(), nchains, tol, warmup, ntrials 
+        sqp_tol, sqp_verbose, ss.str(), nchains, tol, warmup, ntrials
     );
     MatrixXd params = finder.getParams();
 
