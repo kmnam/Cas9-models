@@ -14,7 +14,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     5/7/2021
+ *     5/8/2021
  */
 using namespace Eigen;
 
@@ -225,10 +225,10 @@ class TriangularPrismGraph : public LabeledDigraph<T>
             }
 
             // Edge (A,0) -> lower 
-            laplacian(1, 0) = -exit_rate_lower_prob; 
+            laplacian(1, 0) = -exit_rate_lower_prob;
 
             // Edge (C,N) -> upper 
-            laplacian(this->numnodes, this->numnodes+1) = -exit_rate_upper_prob; 
+            laplacian(this->numnodes, this->numnodes+1) = -exit_rate_upper_prob;
 
             // Populate diagonal entries as negative sums of the off-diagonal
             // entries in each row
@@ -236,8 +236,9 @@ class TriangularPrismGraph : public LabeledDigraph<T>
                 laplacian(i, i) = -(laplacian.row(i).sum());
 
             // Function for left-multiplying by the Laplacian matrix 
-            std::function<Matrix<T, Dynamic, Dynamic>(const Ref<const Matrix<T, Dynamic, Dynamic> >)> multiply
-                = [this, laplacian](const Ref<const Matrix<T, Dynamic, Dynamic> > B)
+            std::function<Matrix<T, Dynamic, Dynamic>(
+                const Ref<const Matrix<T, Dynamic, Dynamic> >, const Ref<const Matrix<T, Dynamic, Dynamic> >
+            )> multiply = [this](const Ref<const Matrix<T, Dynamic, Dynamic> > laplacian, const Ref<const Matrix<T, Dynamic, Dynamic> > B)
             {
                 Matrix<T, Dynamic, Dynamic> product = Matrix<T, Dynamic, Dynamic>::Zero(this->numnodes+2, this->numnodes+2); 
 
@@ -292,28 +293,32 @@ class TriangularPrismGraph : public LabeledDigraph<T>
                 // - first and last rows in Laplacian are zero, so they are also
                 //   zero in the product matrix 
                 // - first and last columns are not necessarily zero 
-                product.row(1) += laplacian(1, 0) * B.row(0);
-                product.row(this->numnodes)
-                    += laplacian(this->numnodes, this->numnodes+1) * B.row(this->numnodes+1);
+                for (unsigned i = 1; i < this->numnodes + 1; ++i)
+                {
+                    product(i, 0) = laplacian.row(i).dot(B.col(0));
+                    product(i, this->numnodes+1) = laplacian.row(i).dot(B.col(this->numnodes+1)); 
+                }
 
                 return product;
             };
 
-            // Solve the Chebotarev-Agaev recurrence for 3-forests 
+            // Solve the Chebotarev-Agaev recurrence for 3-forests
+            unsigned k = 0; 
             Matrix<T, Dynamic, Dynamic> forest_matrix_3
                 = Matrix<T, Dynamic, Dynamic>::Identity(this->numnodes + 2, this->numnodes + 2);
             Matrix<T, Dynamic, Dynamic> forest_matrix_curr, sigma_identity;
-            for (int k = 0; k < this->numnodes - 1; ++k)
+            while (k < this->numnodes - 1)
             {
-                forest_matrix_curr = multiply(forest_matrix_3);
+                forest_matrix_curr = multiply(laplacian, forest_matrix_3);
                 T sigma = forest_matrix_curr.trace() / (k + 1);
                 sigma_identity = sigma * Matrix<T, Dynamic, Dynamic>::Identity(this->numnodes + 2, this->numnodes + 2);
-                forest_matrix_3 = -forest_matrix_curr + sigma_identity; 
+                forest_matrix_3 = -forest_matrix_curr + sigma_identity;
+                k++; 
             }
 
             // Then solve the recurrence for 2-forests
-            forest_matrix_curr = multiply(forest_matrix_3);
-            sigma_identity = (forest_matrix_curr.trace() / (this->numnodes + 1))
+            forest_matrix_curr = multiply(laplacian, forest_matrix_3);
+            sigma_identity = (forest_matrix_curr.trace() / this->numnodes)
                 * Matrix<T, Dynamic, Dynamic>::Identity(this->numnodes + 2, this->numnodes + 2);
             Matrix<T, Dynamic, Dynamic> forest_matrix_2 = -forest_matrix_curr + sigma_identity;
 
@@ -345,22 +350,29 @@ class TriangularPrismGraph : public LabeledDigraph<T>
             {
                 // Re-label terminal edges
                 laplacian(1, 0) = -exit_rate_lower_time; 
-                laplacian(this->numnodes, this->numnodes+1) = -exit_rate_upper_time; 
+                laplacian(this->numnodes, this->numnodes+1) = -exit_rate_upper_time;
+
+                // Populate diagonal entries as negative sums of the off-diagonal
+                // entries in each row
+                for (unsigned i = 0; i < this->numnodes + 2; ++i)
+                    laplacian(i, i) = 0.0;
+                for (unsigned i = 0; i < this->numnodes + 2; ++i)
+                    laplacian(i, i) = -(laplacian.row(i).sum());
 
                 // If both lower and upper exits are possible, then the mean FPT 
                 // to lower exit can be written in terms of 3- and 2-forest weights
                 forest_matrix_3 = Matrix<T, Dynamic, Dynamic>::Identity(this->numnodes + 2, this->numnodes + 2);
                 for (int k = 0; k < this->numnodes - 1; ++k)
                 {
-                    forest_matrix_curr = multiply(forest_matrix_3);
+                    forest_matrix_curr = multiply(laplacian, forest_matrix_3);
                     T sigma = forest_matrix_curr.trace() / (k + 1);
                     sigma_identity = sigma * Matrix<T, Dynamic, Dynamic>::Identity(this->numnodes + 2, this->numnodes + 2);
                     forest_matrix_3 = -forest_matrix_curr + sigma_identity; 
                 }
 
                 // Then solve the recurrence for 2-forests
-                forest_matrix_curr = multiply(forest_matrix_3);
-                sigma_identity = (forest_matrix_curr.trace() / (this->numnodes + 1))
+                forest_matrix_curr = multiply(laplacian, forest_matrix_3);
+                sigma_identity = (forest_matrix_curr.trace() / this->numnodes)
                     * Matrix<T, Dynamic, Dynamic>::Identity(this->numnodes + 2, this->numnodes + 2);
                 forest_matrix_2 = -forest_matrix_curr + sigma_identity;
 
