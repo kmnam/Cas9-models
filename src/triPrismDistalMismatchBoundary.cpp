@@ -209,7 +209,7 @@ int main(int argc, char** argv)
     std::function<bool(const Ref<const VectorXd>& x)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return x(0) < 0.01;
+            return false;
         };
 
     // Boundary-finding algorithm settings
