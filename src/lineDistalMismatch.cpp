@@ -21,7 +21,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     2/17/2021
+ *     7/26/2021
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -56,10 +56,14 @@ Matrix<double, Dynamic, Dynamic> computeStats(const Ref<const Matrix<double, Dyn
     
     // Compute cleavage probability and mean first passage time to unbound state
     T prob = model->computeUpperExitProb(1, 1);
-    T rate = model->computeLowerExitRate(1, 0);
-    Matrix<double, Dynamic, Dynamic> stats(length + 1, 2);
+    T uncond_rate = model->computeLowerExitRate(1, 0);
+    T cond_lower_exit = model->computeLowerExitRate(1, 1); 
+    T cond_upper_exit = model->computeUpperExitRate(1, 1); 
+    Matrix<double, Dynamic, Dynamic> stats(length + 1, 4);
     stats(0, 0) = static_cast<double>(prob);
-    stats(0, 1) = static_cast<double>(rate);
+    stats(0, 1) = static_cast<double>(uncond_rate);
+    stats(0, 2) = static_cast<double>(cond_lower_exit);
+    stats(0, 3) = static_cast<double>(cond_upper_exit);  
 
     // Introduce single mismatches and re-compute cleavage probability
     // and mean first passage time
@@ -67,9 +71,13 @@ Matrix<double, Dynamic, Dynamic> computeStats(const Ref<const Matrix<double, Dyn
     {
         model->setLabels(j, mismatch_params);
         prob = model->computeUpperExitProb(1, 1);
-        rate = model->computeLowerExitRate(1, 0);
-        stats(length-j, 0) = static_cast<double>(prob);
-        stats(length-j, 1) = static_cast<double>(rate);
+        uncond_rate = model->computeLowerExitRate(1, 0);
+        cond_lower_exit = model->computeLowerExitRate(1, 1); 
+        cond_upper_exit = model->computeUpperExitRate(1, 1); 
+        stats(j, 0) = static_cast<double>(prob);
+        stats(j, 1) = static_cast<double>(uncond_rate);
+        stats(j, 2) = static_cast<double>(cond_lower_exit);
+        stats(j, 3) = static_cast<double>(cond_upper_exit);  
     }
 
     delete model;
@@ -93,12 +101,16 @@ int main(int argc, char** argv)
 
     // Compute cleavage probabilities and unbinding rates
     Matrix<double, Dynamic, Dynamic> probs(n, length + 1);
-    Matrix<double, Dynamic, Dynamic> rates(n, length + 1);
+    Matrix<double, Dynamic, Dynamic> uncond_rates(n, length + 1);
+    Matrix<double, Dynamic, Dynamic> cond_lower_rates(n, length + 1);
+    Matrix<double, Dynamic, Dynamic> cond_upper_rates(n, length + 1); 
     for (unsigned i = 0; i < n; ++i)
     {
-        Matrix<double, Dynamic, Dynamic> stats = computeStats<number<mpfr_float_backend<50> > >(params.row(i));
+        Matrix<double, Dynamic, Dynamic> stats = computeStats<number<mpfr_float_backend<100> > >(params.row(i));
         probs.row(i) = stats.col(0).transpose();
-        rates.row(i) = stats.col(1).transpose();
+        uncond_rates.row(i) = stats.col(1).transpose();
+        cond_lower_rates.row(i) = stats.col(2).transpose();
+        cond_upper_rates.row(i) = stats.col(3).transpose();
     }
 
     // Write sampled parameter combinations to file
@@ -140,22 +152,62 @@ int main(int argc, char** argv)
     oss.clear();
     oss.str(std::string());
 
-    // Write matrix of unbinding rates
-    oss << argv[2] << "-rates.tsv";
+    // Write matrix of unconditional unbinding rates
+    oss << argv[2] << "-uncondRates.tsv";
     std::ofstream ratesfile(oss.str());
     ratesfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (ratesfile.is_open())
     {
-        for (unsigned i = 0; i < rates.rows(); i++)
+        for (unsigned i = 0; i < uncond_rates.rows(); i++)
         {
-            for (unsigned j = 0; j < rates.cols() - 1; j++)
+            for (unsigned j = 0; j < uncond_rates.cols() - 1; j++)
             {
-                ratesfile << rates(i,j) << "\t";
+                ratesfile << uncond_rates(i,j) << "\t";
             }
-            ratesfile << rates(i,rates.cols()-1) << std::endl;
+            ratesfile << uncond_rates(i, uncond_rates.cols()-1) << std::endl;
         }
     }
     ratesfile.close();
+    oss.clear();
+    oss.str(std::string());
+
+    // Write matrix of conditional unbinding rates
+    oss << argv[2] << "-condLowerRates.tsv";
+    std::ofstream lowerfile(oss.str());
+    lowerfile << std::setprecision(std::numeric_limits<double>::max_digits10);
+    if (lowerfile.is_open())
+    {
+        for (unsigned i = 0; i < cond_lower_rates.rows(); i++)
+        {
+            for (unsigned j = 0; j < cond_lower_rates.cols() - 1; j++)
+            {
+                lowerfile << cond_lower_rates(i,j) << "\t";
+            }
+            lowerfile << cond_lower_rates(i, cond_lower_rates.cols()-1) << std::endl;
+        }
+    }
+    lowerfile.close();
+    oss.clear(); 
+    oss.str(std::string());
+
+    // Write matrix of conditional cleavage rates
+    oss << argv[2] << "-condUpperRates.tsv";
+    std::ofstream upperfile(oss.str());
+    upperfile << std::setprecision(std::numeric_limits<double>::max_digits10);
+    if (upperfile.is_open())
+    {
+        for (unsigned i = 0; i < cond_upper_rates.rows(); i++)
+        {
+            for (unsigned j = 0; j < cond_upper_rates.cols() - 1; j++)
+            {
+                upperfile << cond_upper_rates(i,j) << "\t";
+            }
+            upperfile << cond_upper_rates(i, cond_upper_rates.cols()-1) << std::endl;
+        }
+    }
+    upperfile.close();
+    oss.clear(); 
+    oss.str(std::string()); 
    
     return 0;
 }
