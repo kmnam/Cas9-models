@@ -6,25 +6,26 @@
 #include <iomanip>
 #include <tuple>
 #include <Eigen/Dense>
+#include <boost/math/constants/constants.hpp>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/multiprecision/eigen.hpp>
 #include <boost/random.hpp>
 #include <boundaryFinder.hpp>
-#include "../include/graphs/grid.hpp"
+#include "../include/graphs/gridMatchMismatch.hpp"
 
 /*
- * Estimates the boundary of the cleavage/unbinding specificity region in 
- * the grid Cas9 model. 
+ * Estimates the boundary of the cleavage specificity vs. unbinding specificity
+ * region in the grid Cas9 model. 
  *
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     4/13/2021
+ *     5/1/2021
  */
 using namespace Eigen;
+using boost::math::constants::ln_ten; 
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
-using boost::multiprecision::log10;
 
 const unsigned length = 20;
 
@@ -39,67 +40,57 @@ int coin_toss(boost::random::mt19937& rng)
 }
 
 template <typename T, unsigned n_mismatches>
-Matrix<double, Dynamic, 1> computeCleavageStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
+VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
 {
     /*
      * Compute the specificity and speed ratio with respect to the 
      * given number of mismatches, with the given set of parameter
      * values. 
      */
-    // Array of DNA/RNA match parameters
-    std::array<T, 6> match_params;
-    match_params[0] = static_cast<T>(std::pow(10.0, params(0)));
-    match_params[1] = static_cast<T>(std::pow(10.0, params(1)));
-    match_params[2] = static_cast<T>(std::pow(10.0, params(0)));
-    match_params[3] = static_cast<T>(std::pow(10.0, params(1)));
-    match_params[4] = static_cast<T>(std::pow(10.0, params(4)));
-    match_params[5] = static_cast<T>(std::pow(10.0, params(5)));
-
-    // Array of DNA/RNA mismatch parameters
-    std::array<T, 6> mismatch_params;
-    mismatch_params[0] = static_cast<T>(std::pow(10.0, params(2)));
-    mismatch_params[1] = static_cast<T>(std::pow(10.0, params(3)));
-    mismatch_params[2] = static_cast<T>(std::pow(10.0, params(2)));
-    mismatch_params[3] = static_cast<T>(std::pow(10.0, params(3)));
-    mismatch_params[4] = static_cast<T>(std::pow(10.0, params(4)));
-    mismatch_params[5] = static_cast<T>(std::pow(10.0, params(5)));
+    // Array of DNA/RNA match/mismatch parameters
+    std::array<T, 6> exp_params;
+    for (unsigned i = 0; i < 6; ++i)
+        exp_params[i] = static_cast<T>(std::pow(10.0, params(i)));
 
     // Populate each rung with DNA/RNA match parameters
-    GridGraph<T>* model = new GridGraph<T>(length);
-    model->setStartLabels(match_params[4], match_params[5]);
-    for (unsigned j = 0; j < length; ++j)
-        model->setRungLabels(j, match_params);
+    GridMatchMismatchGraph<T>* model = new GridMatchMismatchGraph<T>(length);
+    model->setStartLabels(exp_params[4], exp_params[5]);
+    model->setMatchForwardLabel(exp_params[0]);
+    model->setMatchReverseLabel(exp_params[1]);
+    model->setMismatchForwardLabel(exp_params[2]);
+    model->setMismatchReverseLabel(exp_params[3]);
+    for (unsigned i = 0; i < length; ++i)    // Start with perfectly matched substrate
+        model->setRungLabels(i, true);
     
     // Compute cleavage probability and mean first passage time 
-    std::pair<T, T> data = model->computeExitStats(1, 1, 1, 0);
-    double prob_perfect = static_cast<double>(log10(data.first));
-    double rate_perfect = static_cast<double>(log10(data.second));
+    std::tuple<T, T, T> data = model->computeExitStats(1, 1, 1, 0);
+    T prob_perfect = std::get<0>(data);
+    T rate_perfect = std::get<1>(data);
     
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
-    for (unsigned j = 1; j <= n_mismatches; ++j)
-        model->setRungLabels(length - j, mismatch_params);
+    for (unsigned i = 1; i <= n_mismatches; ++i)
+        model->setRungLabels(length - i, false);
     data = model->computeExitStats(1, 1, 1, 0);
-    double prob = static_cast<double>(log10(data.first));
-    double rate = static_cast<double>(log10(data.second));
+    T prob = std::get<0>(data);
+    T rate = std::get<1>(data); 
 
-    // Compute the specificity and speed ratio
-    double cleave_spec = prob_perfect - prob;
-    double unbind_spec = rate - rate_perfect;
-    Matrix<double, Dynamic, 1> output(2);
-    output << cleave_spec, unbind_spec;
+    // Compute the cleavage specificity and unbinding specificity
+    VectorXd output(2);
+    output << static_cast<double>((prob_perfect - prob) / ln_ten<T>()),
+              static_cast<double>((rate_perfect - rate) / ln_ten<T>());
 
     delete model;
     return output;
 }
 
 template <typename T>
-std::function<Matrix<double, Dynamic, 1>(const Ref<const Matrix<double, Dynamic, 1> >&)> cleavageFunc(unsigned n_mismatches)
+std::function<VectorXd(const Ref<const VectorXd>&)> cleavageFunc(unsigned n_mismatches)
 {
     /*
      * Return the function instance with the given number of mismatches.
      */
-    std::function<Matrix<double, Dynamic, 1>(const Ref<const Matrix<double, Dynamic, 1> >&)> func;
+    std::function<VectorXd(const Ref<const VectorXd>&)> func;
     switch (n_mismatches)
     {
         case 1:
@@ -192,23 +183,23 @@ int main(int argc, char** argv)
     sscanf(argv[4], "%u", &m);
 
     // Define filtering function
-    std::function<bool(const Ref<const Matrix<double, Dynamic, 1> >& x)> filter
-        = [](const Ref<const Matrix<double, Dynamic, 1> >& x)
+    std::function<bool(const Ref<const VectorXd>& x)> filter
+        = [](const Ref<const VectorXd>& x)
         {
             return x(0) < 0.01;
         };
 
     // Boundary-finding algorithm settings
     double tol = 1e-8;
-    unsigned n_within = 1000;
+    unsigned n_within = 5000;
     unsigned n_bound = 0;
     unsigned min_step_iter = 100;
-    unsigned max_step_iter = 200;
+    unsigned max_step_iter = 500;
     unsigned min_pull_iter = 10;
-    unsigned max_pull_iter = 50;
-    unsigned max_edges = 100;
+    unsigned max_pull_iter = 100;
+    unsigned max_edges = 200;
     bool verbose = true;
-    unsigned sqp_max_iter = 50;
+    unsigned sqp_max_iter = 100;
     double sqp_tol = 1e-3;
     bool sqp_verbose = false;
     std::stringstream ss;
@@ -216,9 +207,9 @@ int main(int argc, char** argv)
 
     // Run the boundary-finding algorithm
     BoundaryFinder finder(tol, rng, argv[1], argv[2]);
-    std::function<Matrix<double, Dynamic, 1>(const Ref<const Matrix<double, Dynamic, 1> >&)> func
-        = cleavageFunc<number<mpfr_float_backend<50> > >(m);
-    std::function<Matrix<double, Dynamic, 1>(const Ref<const Matrix<double, Dynamic, 1> >&, boost::random::mt19937&)> mutate
+    std::function<VectorXd(const Ref<const VectorXd>&)> func
+        = cleavageFunc<number<mpfr_float_backend<100> > >(m);
+    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate
         = mutateByDelta<double>;
     finder.run(
         func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,

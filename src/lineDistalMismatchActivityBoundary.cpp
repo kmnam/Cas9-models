@@ -4,24 +4,26 @@
 #include <array>
 #include <utility>
 #include <iomanip>
-#include <stdexcept>
+#include <tuple>
 #include <Eigen/Dense>
+#include <boost/math/constants/constants.hpp>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/multiprecision/eigen.hpp>
 #include <boost/random.hpp>
 #include <boundaryFinder.hpp>
-#include "../include/graphs/triangularPrism.hpp"
+#include "../include/graphs/line.hpp"
 
 /*
- * Estimates the boundary of the cleavage specificity vs. unbinding
- * specificity region in the triangular-prism Cas9 model.
+ * Estimates the boundary of the cleavage activity vs. cleavage specificity
+ * region in the line Cas9 model.
  *
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     5/8/2021
+ *     5/3/2021
  */
 using namespace Eigen;
+using boost::math::constants::ln_ten; 
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 
@@ -38,70 +40,40 @@ int coin_toss(boost::random::mt19937& rng)
 }
 
 template <typename T, unsigned n_mismatches>
-VectorXd computeStats(const Ref<const VectorXd>& params)
+VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
 {
     /*
      * Compute the specificity and speed ratio with respect to the 
      * given number of mismatches, with the given set of parameter
-     * values. 
+     * values.
      */
     // Array of DNA/RNA match parameters
-    std::array<T, 12> match_params;
+    std::array<T, 2> match_params;
     match_params[0] = static_cast<T>(std::pow(10.0, params(0)));
     match_params[1] = static_cast<T>(std::pow(10.0, params(1)));
-    match_params[2] = static_cast<T>(std::pow(10.0, params(0)));
-    match_params[3] = static_cast<T>(std::pow(10.0, params(1)));
-    match_params[4] = static_cast<T>(std::pow(10.0, params(0)));
-    match_params[5] = static_cast<T>(std::pow(10.0, params(1)));
-    match_params[6] = static_cast<T>(std::pow(10.0, params(4)));
-    match_params[7] = static_cast<T>(std::pow(10.0, params(5)));
-    match_params[8] = static_cast<T>(std::pow(10.0, params(6)));
-    match_params[9] = static_cast<T>(std::pow(10.0, params(7)));
-    match_params[10] = static_cast<T>(std::pow(10.0, params(8)));
-    match_params[11] = static_cast<T>(std::pow(10.0, params(9)));
 
     // Array of DNA/RNA mismatch parameters
-    std::array<T, 12> mismatch_params;
+    std::array<T, 2> mismatch_params;
     mismatch_params[0] = static_cast<T>(std::pow(10.0, params(2)));
     mismatch_params[1] = static_cast<T>(std::pow(10.0, params(3)));
-    mismatch_params[2] = static_cast<T>(std::pow(10.0, params(2)));
-    mismatch_params[3] = static_cast<T>(std::pow(10.0, params(3)));
-    mismatch_params[4] = static_cast<T>(std::pow(10.0, params(2)));
-    mismatch_params[5] = static_cast<T>(std::pow(10.0, params(3)));
-    mismatch_params[6] = static_cast<T>(std::pow(10.0, params(4)));
-    mismatch_params[7] = static_cast<T>(std::pow(10.0, params(5)));
-    mismatch_params[8] = static_cast<T>(std::pow(10.0, params(6)));
-    mismatch_params[9] = static_cast<T>(std::pow(10.0, params(7)));
-    mismatch_params[10] = static_cast<T>(std::pow(10.0, params(8)));
-    mismatch_params[11] = static_cast<T>(std::pow(10.0, params(9)));
 
     // Populate each rung with DNA/RNA match parameters
-    TriangularPrismGraph<T>* model = new TriangularPrismGraph<T>(length);
-    model->setStartLabels(
-        match_params[6], match_params[7], match_params[8], match_params[9],
-        match_params[10], match_params[11]
-    );
+    LineGraph<T>* model = new LineGraph<T>(length);
     for (unsigned j = 0; j < length; ++j)
-        model->setRungLabels(j, match_params);
+        model->setLabels(j, match_params);
     
-    // Compute cleavage probability and mean first passage time 
-    std::tuple<T, T, T> data = model->computeExitStats(1, 1, 1, 0);
-    T prob_perfect = std::get<0>(data);
-    T rate_perfect = std::get<1>(data);
-   
-    // Introduce distal mismatches and re-compute cleavage probability
-    // and mean first passage time
-    for (unsigned j = 1; j <= n_mismatches; ++j)
-        model->setRungLabels(length - j, mismatch_params);
-    data = model->computeExitStats(1, 1, 1, 0);
-    T prob = std::get<0>(data);
-    T rate = std::get<1>(data);
+    // Compute cleavage probability without any mismatches present
+    T prob_perfect = model->computeUpperExitProb(1, 1);
 
-    // Compute the specificity and speed ratio
-    double cleave_spec = static_cast<double>(prob_perfect - prob);
-    double unbind_spec = static_cast<double>(rate_perfect - rate);
+    // Introduce distal mismatches and re-compute cleavage probability
+    for (unsigned j = 1; j <= n_mismatches; ++j)
+        model->setLabels(length - j, mismatch_params);
+    T prob = model->computeUpperExitProb(1, 1); 
+
+    // Compile results and return 
     VectorXd output(2);
-    output << cleave_spec, unbind_spec;
+    output << static_cast<double>(prob_perfect / ln_ten<T>()),
+              static_cast<double>((prob_perfect - prob) / ln_ten<T>());
 
     delete model;
     return output;
@@ -117,64 +89,64 @@ std::function<VectorXd(const Ref<const VectorXd>&)> cleavageFunc(unsigned n_mism
     switch (n_mismatches)
     {
         case 1:
-            func = computeStats<T, 1>;
+            func = computeCleavageStats<T, 1>;
             break;
         case 2:
-            func = computeStats<T, 2>;
+            func = computeCleavageStats<T, 2>;
             break;
         case 3:
-            func = computeStats<T, 3>;
+            func = computeCleavageStats<T, 3>;
             break;
         case 4:
-            func = computeStats<T, 4>;
+            func = computeCleavageStats<T, 4>;
             break;
         case 5:
-            func = computeStats<T, 5>;
+            func = computeCleavageStats<T, 5>;
             break;
         case 6:
-            func = computeStats<T, 6>;
+            func = computeCleavageStats<T, 6>;
             break;
         case 7:
-            func = computeStats<T, 7>;
+            func = computeCleavageStats<T, 7>;
             break;
         case 8:
-            func = computeStats<T, 8>;
+            func = computeCleavageStats<T, 8>;
             break;
         case 9:
-            func = computeStats<T, 9>;
+            func = computeCleavageStats<T, 9>;
             break;
         case 10:
-            func = computeStats<T, 10>;
+            func = computeCleavageStats<T, 10>;
             break;
         case 11:
-            func = computeStats<T, 11>;
+            func = computeCleavageStats<T, 11>;
             break;
         case 12:
-            func = computeStats<T, 12>;
+            func = computeCleavageStats<T, 12>;
             break;
         case 13:
-            func = computeStats<T, 13>;
+            func = computeCleavageStats<T, 13>;
             break;
         case 14:
-            func = computeStats<T, 14>;
+            func = computeCleavageStats<T, 14>;
             break;
         case 15:
-            func = computeStats<T, 15>;
+            func = computeCleavageStats<T, 15>;
             break;
         case 16:
-            func = computeStats<T, 16>;
+            func = computeCleavageStats<T, 16>;
             break;
         case 17:
-            func = computeStats<T, 17>;
+            func = computeCleavageStats<T, 17>;
             break;
         case 18:
-            func = computeStats<T, 18>;
+            func = computeCleavageStats<T, 18>;
             break;
         case 19:
-            func = computeStats<T, 19>;
+            func = computeCleavageStats<T, 19>;
             break;
         case 20:
-            func = computeStats<T, 20>;
+            func = computeCleavageStats<T, 20>;
             break;
         default:
             break;
@@ -205,7 +177,7 @@ int main(int argc, char** argv)
     unsigned m;
     sscanf(argv[4], "%u", &m);
 
-    // Define filtering function
+    // Define filtering function (no filtering performed at all!)
     std::function<bool(const Ref<const VectorXd>& x)> filter
         = [](const Ref<const VectorXd>& x)
         {
@@ -214,31 +186,30 @@ int main(int argc, char** argv)
 
     // Boundary-finding algorithm settings
     double tol = 1e-8;
-    unsigned n_sample = 1000;
+    unsigned n_within = 5000;
+    unsigned n_bound = 0;
     unsigned min_step_iter = 100;
-    unsigned max_step_iter = 200;
+    unsigned max_step_iter = 500;
     unsigned min_pull_iter = 10;
-    unsigned max_pull_iter = 50;
-    unsigned max_edges = 100;
+    unsigned max_pull_iter = 100;
+    unsigned max_edges = 200;
     bool verbose = true;
-    unsigned sqp_max_iter = 50;
+    unsigned sqp_max_iter = 100;
     double sqp_tol = 1e-3;
     bool sqp_verbose = false;
-    unsigned nchains = 5;
-    double warmup = 0.5;
-    unsigned ntrials = 50;
     std::stringstream ss;
     ss << argv[3] << "-boundary";
 
     // Run the boundary-finding algorithm
-    BoundaryFinder finder(tol, rng, argv[1]);
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = cleavageFunc<number<mpfr_float_backend<200> > >(m);
+    BoundaryFinder finder(tol, rng, argv[1], argv[2]);
+    std::function<VectorXd(const Ref<const VectorXd>&)> func
+        = cleavageFunc<number<mpfr_float_backend<100> > >(m);
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate
         = mutateByDelta<double>;
-    finder.runFromRandomWalk(
-        func, mutate, filter, n_sample, min_step_iter, max_step_iter,
+    finder.run(
+        func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,
         min_pull_iter, max_pull_iter, max_edges, verbose, sqp_max_iter,
-        sqp_tol, sqp_verbose, ss.str(), nchains, tol, warmup, ntrials
+        sqp_tol, sqp_verbose, ss.str()
     );
     MatrixXd params = finder.getParams();
 

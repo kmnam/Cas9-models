@@ -11,16 +11,16 @@
 #include <boost/multiprecision/eigen.hpp>
 #include <boost/random.hpp>
 #include <boundaryFinder.hpp>
-#include "../include/graphs/line.hpp"
+#include "../include/graphs/gridMatchMismatch.hpp"
 
 /*
- * Estimates the boundary of the cleavage specificity vs. unbinding specificity
- * region in the line Cas9 model. 
+ * Estimates the boundary of the cleavage specificity vs. conditional cleavage
+ * ratio in the grid Cas9 model.
  *
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     5/3/2021
+ *     5/1/2021
  */
 using namespace Eigen;
 using boost::math::constants::ln_ten; 
@@ -45,35 +45,38 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
     /*
      * Compute the specificity and speed ratio with respect to the 
      * given number of mismatches, with the given set of parameter
-     * values.
+     * values. 
      */
-    // Array of DNA/RNA match parameters
-    std::array<T, 2> match_params;
-    match_params[0] = static_cast<T>(std::pow(10.0, params(0)));
-    match_params[1] = static_cast<T>(std::pow(10.0, params(1)));
-
-    // Array of DNA/RNA mismatch parameters
-    std::array<T, 2> mismatch_params;
-    mismatch_params[0] = static_cast<T>(std::pow(10.0, params(2)));
-    mismatch_params[1] = static_cast<T>(std::pow(10.0, params(3)));
+    // Array of DNA/RNA match/mismatch parameters
+    std::array<T, 6> exp_params;
+    for (unsigned i = 0; i < 6; ++i)
+        exp_params[i] = static_cast<T>(std::pow(10.0, params(i)));
 
     // Populate each rung with DNA/RNA match parameters
-    LineGraph<T>* model = new LineGraph<T>(length);
-    for (unsigned j = 0; j < length; ++j)
-        model->setLabels(j, match_params);
+    GridMatchMismatchGraph<T>* model = new GridMatchMismatchGraph<T>(length);
+    model->setStartLabels(exp_params[4], exp_params[5]);
+    model->setMatchForwardLabel(exp_params[0]);
+    model->setMatchReverseLabel(exp_params[1]);
+    model->setMismatchForwardLabel(exp_params[2]);
+    model->setMismatchReverseLabel(exp_params[3]);
+    for (unsigned i = 0; i < length; ++i)    // Start with perfectly matched substrate
+        model->setRungLabels(i, true);
     
-    // Compute cleavage probability and mean first passage time 
-    T prob_perfect = model->computeUpperExitProb(1, 1);
-    T rate_perfect = model->computeLowerExitRate(1, 0);
-
+    // Compute cleavage probability and mean first passage time to upper exit
+    // without any mismatches present 
+    std::tuple<T, T, T> data = model->computeExitStats(1, 1, 1, 1);
+    T prob_perfect = std::get<0>(data);
+    T rate_perfect = std::get<2>(data);
+    
     // Introduce distal mismatches and re-compute cleavage probability
     // and mean first passage time
-    for (unsigned j = 1; j <= n_mismatches; ++j)
-        model->setLabels(length - j, mismatch_params);
-    T prob = model->computeUpperExitProb(1, 1);
-    T rate = model->computeLowerExitRate(1, 0);
+    for (unsigned i = 1; i <= n_mismatches; ++i)
+        model->setRungLabels(length - i, false);
+    data = model->computeExitStats(1, 1, 1, 1);
+    T prob = std::get<0>(data);
+    T rate = std::get<2>(data);
 
-    // Compile results and return 
+    // Compute the specificity and conditional cleavage ratio 
     VectorXd output(2);
     output << static_cast<double>((prob_perfect - prob) / ln_ten<T>()),
               static_cast<double>((rate_perfect - rate) / ln_ten<T>());
@@ -88,7 +91,7 @@ std::function<VectorXd(const Ref<const VectorXd>&)> cleavageFunc(unsigned n_mism
     /*
      * Return the function instance with the given number of mismatches.
      */
-    std::function<VectorXd(const Ref<const VectorXd>&)> func;
+    std::function<VectorXd(const Ref<const VectorXd>&)> func; 
     switch (n_mismatches)
     {
         case 1:
@@ -184,7 +187,7 @@ int main(int argc, char** argv)
     std::function<bool(const Ref<const VectorXd>& x)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return x(0) < 0.01;
+            return false;
         };
 
     // Boundary-finding algorithm settings
@@ -205,10 +208,8 @@ int main(int argc, char** argv)
 
     // Run the boundary-finding algorithm
     BoundaryFinder finder(tol, rng, argv[1], argv[2]);
-    std::function<VectorXd(const Ref<const VectorXd>&)> func
-        = cleavageFunc<number<mpfr_float_backend<100> > >(m);
-    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate
-        = mutateByDelta<double>;
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = cleavageFunc<number<mpfr_float_backend<100> > >(m);
+    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
     finder.run(
         func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,
         min_pull_iter, max_pull_iter, max_edges, verbose, sqp_max_iter,
