@@ -11,6 +11,8 @@
 #include <digraph.hpp>
 #include <boost/math/tools/promotion.hpp>
 #include <boost/multiprecision/mpfr.hpp>
+#include <boost/random/bernoulli_distribution.hpp>
+#include <boost/random/exponential_distribution.hpp>
 
 /* 
  * Implementation of the line graph.
@@ -18,7 +20,7 @@
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * Last updated:
- *     7/26/2021
+ *     7/30/2021
  */
 namespace boost {
 
@@ -95,6 +97,9 @@ class LineGraph : public LabeledDigraph<T>
         // Each array stores the labels for the edges i -> i+1 and i+1 -> i
         std::vector<std::array<T, 2> > line_labels;
 
+        // Vector of log edge labels, stored for log-scale calculations 
+        std::vector<std::array<T, 2> > log_line_labels; 
+
     public:
         LineGraph() : LabeledDigraph<T>()
         {
@@ -130,6 +135,8 @@ class LineGraph : public LabeledDigraph<T>
                 this->addEdge(ssj.str(), ssi.str());
                 std::array<T, 2> labels = {1, 1};
                 this->line_labels.push_back(labels);
+                std::array<T, 2> log_labels = {0, 0}; 
+                this->log_line_labels.push_back(log_labels); 
             }
         }
 
@@ -154,6 +161,8 @@ class LineGraph : public LabeledDigraph<T>
              * Add new node onto the end of the graph, with the two 
              * additional edges. 
              */
+            using std::log; 
+
             // Add new node to end of graph 
             this->N++;
             std::stringstream ssi, ssj;
@@ -166,6 +175,10 @@ class LineGraph : public LabeledDigraph<T>
             this->addEdge(ssi.str(), ssj.str(), labels[0]);
             this->addEdge(ssj.str(), ssi.str(), labels[1]);
             this->line_labels.push_back(labels);
+            std::array<T, 2> log_labels;
+            log_labels[0] = log(labels[0]); 
+            log_labels[1] = log(labels[1]); 
+            this->log_line_labels.push_back(log_labels);  
         }
 
         void setLabels(unsigned i, std::array<T, 2> labels)
@@ -174,15 +187,18 @@ class LineGraph : public LabeledDigraph<T>
              * Set the edge labels between the i-th and (i+1)-th nodes 
              * (i -> i+1, then i+1 -> i) to the given values.
              */
-            this->line_labels[i] = labels;
+            using std::log; 
             std::stringstream ssi, ssj;
             ssi << i;
             ssj << i + 1;
             this->setEdgeLabel(ssi.str(), ssj.str(), labels[0]);
             this->setEdgeLabel(ssj.str(), ssi.str(), labels[1]);
+            this->line_labels[i] = labels;
+            this->log_line_labels[i][0] = log(labels[0]); 
+            this->log_line_labels[i][1] = log(labels[1]); 
         }
 
-        T computeUpperExitProb(T exit_rate_0 = 1, T exit_rate_N = 1)
+        T computeUpperExitProb(T exit_rate_0, T exit_rate_N)
         {
             /*
              * Compute the *log* probability of exiting the line graph through
@@ -192,224 +208,181 @@ class LineGraph : public LabeledDigraph<T>
              * addition, addition for multiplication), as this is more 
              * accurate for small edge labels and probabilities.  
              */
-            using std::log; 
+            using std::log;
+            T log_exit_rate_0 = log(exit_rate_0); 
+            T log_exit_rate_N = log(exit_rate_N); 
 
-            // Start with log(1) = 0 ...
-            std::vector<T> terms;
-            for (unsigned i = 0; i < this->N + 2; ++i)
-                terms.push_back(0);  
+            // Start with the last log-ratio ...
+            T log_prob_inverse = this->log_line_labels[this->N-1][1] - log_exit_rate_N; 
+            log_prob_inverse = boost::multiprecision::logsumexp<T>(0, log_prob_inverse); 
 
             // ... then, for each vertex, get the log ratio of the reverse 
             // edge label divided by the forward edge label 
-            T curr = log(exit_rate_0) - log(this->line_labels[0][0]);
-            terms[1] += curr;
-            for (unsigned i = 1; i < this->N; ++i)
+            for (int i = this->N - 2; i >= 0; --i)
             {
-                curr += log(this->line_labels[i-1][1]) - log(this->line_labels[i][0]);
-                terms[i + 1] = curr;
+                log_prob_inverse += (this->log_line_labels[i][1] - this->log_line_labels[i+1][0]);
+                log_prob_inverse = boost::multiprecision::logsumexp<T>(0, log_prob_inverse); 
             }
-            curr += log(this->line_labels[this->N - 1][1]) - log(exit_rate_N);
-            terms[this->N + 1] = curr;
+            log_prob_inverse += (log_exit_rate_0 - this->log_line_labels[0][0]); 
+            log_prob_inverse = boost::multiprecision::logsumexp<T>(0, log_prob_inverse); 
 
-            // ... then take the logsumexp of the terms, then take the reciprocal
-            return -boost::multiprecision::logsumexp<T>(terms);
+            return -log_prob_inverse; 
         }
 
-        T computeLowerExitRate(T exit_rate_0 = 1, T exit_rate_N = 1)
+        T computeLowerExitRate(T exit_rate_0)
         {
             /*
              * Compute the *log* reciprocal of the mean first passage time
-             * to exit through the lower vertex 0, in the case that lower
-             * exit does occur.
+             * to exit through the lower vertex 0 when exit through the upper
+             * vertex N is impossible. 
              *
              * This is done using log-semiring arithmetic (log-sum-exp for
              * addition, addition for multiplication), as this is more 
              * accurate for small edge labels and probabilities.  
              */
             using std::log; 
+            T log_exit_rate_0 = log(exit_rate_0); 
 
-            // Get the weights of 2-forests rooted at the two exit vertices
-            // with path from i to lower exit, for i = N, ..., 0
-            std::vector<T> log_two_forest_weights;
-            for (unsigned i = 0; i <= this->N; ++i)
-                log_two_forest_weights.push_back(0);
-            
-            // Start with i = N, i.e., the sole 2-forest with path from N to 0
-            T log_weight = log(exit_rate_0);
-            for (unsigned i = 0; i < this->N; ++i)
-            {
-                // Label of edge i <- i+1 for i = 0, ..., N-1
-                log_weight += log(this->line_labels[i][1]);
-            }
-            log_two_forest_weights[this->N] = log_weight;
+            // Start with the last log-ratio ...
+            T log_rate_inverse = this->log_line_labels[this->N-1][0] - this->log_line_labels[this->N-1][1];
+            log_rate_inverse = boost::multiprecision::logsumexp<T>(0, log_rate_inverse); 
 
-            // Then run from N-1 to 0 ...
-            for (int i = this->N - 1; i >= 0; --i)
+            // ... then, for each vertex, get the log ratio of the reverse 
+            // edge label divided by the forward edge label 
+            for (int i = this->N - 2; i >= 0; --i)
             {
-                log_weight = log(exit_rate_0);           // Exit <- 0
-                for (int j = 0; j < i; ++j)              // Path: 0 <- 1 <- ... <- i
-                    log_weight += log(this->line_labels[j][1]);
-                for (int j = i; j < this->N - 1; ++j)    // Path: i+1 -> ... -> N
-                    log_weight += log(this->line_labels[j+1][0]);
-                log_weight += log(exit_rate_N);          // N -> exit 
-                log_two_forest_weights[i] = boost::multiprecision::logsumexp<T>(
-                    log_two_forest_weights[i+1], log_weight
-                );
+                log_rate_inverse += (this->log_line_labels[i][0] - this->log_line_labels[i][1]);
+                log_rate_inverse = boost::multiprecision::logsumexp<T>(0, log_rate_inverse); 
             }
 
-            // Now get the weight of the last 2-forest, with a path from 
-            // 0 to upper exit (this weight is not stored in the vector) 
-            T log_upper_exit_weight = 0;
-            for (unsigned i = 0; i < this->N; ++i)
-                log_upper_exit_weight += log(this->line_labels[i][0]);
-            log_upper_exit_weight += log(exit_rate_N);
-
-            // Now get the weights of 3-forests rooted at the two exit
-            // vertices and i, for i = 0, ..., N, with a path 0 -> i
-            std::vector<T> log_three_forest_weights;
-            for (unsigned i = 0; i <= this->N; ++i)
-                log_three_forest_weights.push_back(0);
-
-            // For each i = 0, ... N, start with the weight of the path 0 -> i
-            for (unsigned i = 0; i <= this->N; ++i)
-            {
-                log_weight = 0;
-                for (unsigned j = 0; j < i; ++j)
-                    log_weight += log(this->line_labels[j][0]);
-
-                // Then run through all the 3-forests with that path ...
-                std::vector<T> log_factor_terms; 
-                for (unsigned j = 0; j < 1 + this->N - i; ++j)
-                    log_factor_terms.push_back(0); 
-                
-                // Start with the last forest (with the path N -> i)
-                T term = 0;
-                for (int j = this->N; j > i; --j)
-                    term += log(this->line_labels[j-1][1]);
-                log_factor_terms[0] = term; 
-
-                for (unsigned j = i + 1; j <= this->N; ++j)
-                {
-                    // Then run through all forests with path N -> upper exit
-                    term = log(exit_rate_N);
-                    for (unsigned k = i + 1; k < j; ++k)
-                        term += log(this->line_labels[k-1][1]);
-                    for (unsigned k = j; k < this->N; ++k)
-                        term += log(this->line_labels[k][0]);
-                    log_factor_terms[j-i] = term; 
-                }
-
-                log_three_forest_weights[i] = log_weight + boost::multiprecision::logsumexp<T>(log_factor_terms); 
-            }
-
-            // Finally, compute the reciprocal of the mean first passage time
-            std::vector<T> log_denom_terms;
-            for (unsigned i = 0; i < this->N + 1; ++i)
-                log_denom_terms.push_back(0);  
-            for (unsigned i = 0; i <= this->N; ++i)
-                log_denom_terms[i] = log_three_forest_weights[i] + log_two_forest_weights[i];
-            T log_denom = boost::multiprecision::logsumexp<T>(log_denom_terms); 
-
-            return (
-                log_two_forest_weights[0] +
-                boost::multiprecision::logsumexp<T>(log_two_forest_weights[0], log_upper_exit_weight) - log_denom
-            );
+            return -(log_rate_inverse - log_exit_rate_0); 
         }
 
-        T computeUpperExitRate(T exit_rate_0 = 1, T exit_rate_N = 1)
+        T computeUpperExitRate(T exit_rate_0, T exit_rate_N)
         {
             /*
              * Compute the *log* reciprocal of the mean first passage time
-             * to exit through the upper vertex N, in the case that upper
-             * exit does occur.
+             * to exit through the upper vertex N, given that exit through
+             * the upper vertex does occur. 
              *
              * This is done using log-semiring arithmetic (log-sum-exp for
              * addition, addition for multiplication), as this is more 
              * accurate for small edge labels and probabilities.  
              */
             using std::log; 
+            T log_exit_rate_0 = log(exit_rate_0);
+            T log_exit_rate_N = log(exit_rate_N);
 
-            // Get the weights of 2-forests rooted at the two exit vertices
-            // with path from i to upper exit, for i = 0, ..., N
-            std::vector<T> log_two_forest_weights;
+            // Initialize the two recurrences ...
+            std::vector<T> recur1, recur2;
             for (unsigned i = 0; i <= this->N; ++i)
-                log_two_forest_weights.push_back(0);
-            
-            // Start with i = 0
-            T log_weight = 0;
-            for (unsigned i = 0; i < this->N; ++i)
-                log_weight += log(this->line_labels[i][0]);    // Edges i -> i+1 for i = 0, ..., N-1
-            log_two_forest_weights[0] = log_weight;
-
-            // Then run from 1 to N
-            for (unsigned i = 1; i <= this->N; ++i)
             {
-                log_weight = log(exit_rate_0);
-                for (int j = 1; j < i; ++j)
-                    log_weight += log(this->line_labels[j-1][1]);    // Edges j -> j-1 for j = 1, ..., i-1
-                for (int j = i; j < this->N; ++j)
-                    log_weight += log(this->line_labels[j][0]);      // Edges j -> j+1 for j = i, ..., N-1
-                log_weight += log(exit_rate_N);
-                log_two_forest_weights[i] = boost::multiprecision::logsumexp<T>(log_two_forest_weights[i-1], log_weight);
+                recur1.push_back(0); 
+                recur2.push_back(0); 
             }
 
-            // Now get the weight of the last 2-forest, with a path from 
-            // N to lower exit (upper exit is singleton)
-            T log_lower_exit_weight = 0;
-            for (unsigned i = 0; i < this->N; ++i)
-                log_lower_exit_weight += log(this->line_labels[i][1]);
-            log_lower_exit_weight += log(exit_rate_0);
-
-            // Now get the weights of 3-forests rooted at the two exit
-            // vertices and i, for i = 0, ..., N, with a path 0 -> i
-            std::vector<T> log_three_forest_weights;
-            for (unsigned i = 0; i <= this->N; ++i)
-                log_three_forest_weights.push_back(0);
-
-            // For each i = 0, ... N, start with the weight of the path 0 -> i
-            for (unsigned i = 0; i <= this->N; ++i)
+            // Apply the second recurrence for i = 1, ..., N and the first 
+            // recurrence for i = N-1, ..., 0
+            for (int i2 = 1; i2 <= this->N; ++i2)
             {
-                log_weight = 0;
-                for (unsigned j = 0; j < i; ++j)
-                    log_weight += log(this->line_labels[j][0]);
+                int i1 = this->N - i2;  
 
-                // Then run through all the 3-forests with that path ...
-                std::vector<T> log_factor_terms;
-                for (unsigned j = 0; j < 1 + this->N - i; ++j)
-                    log_factor_terms.push_back(0);
+                // Compute the new terms to be added for each recurrence 
+                T new1 = log_exit_rate_N; 
+                for (int k = i1 + 1; k < this->N; ++k)
+                    new1 += this->log_line_labels[k][0];
+                T new2 = log_exit_rate_0;
+                for (int k = 1; k <= i2 - 1; ++k)
+                    new2 += this->log_line_labels[k-1][1];
                 
-                // Start with the last forest (with the path N -> i)
-                T term = 0;
-                for (int j = this->N; j > i; --j)
-                    term += log(this->line_labels[j-1][1]);
-                log_factor_terms[0] = term; 
+                // Apply the recurrences
+                T res1 = recur1[i1+1] + this->log_line_labels[i1][1];
+                recur1[i1] = boost::multiprecision::logsumexp(res1, new1);
+                T res2 = recur2[i2-1] + this->log_line_labels[i2-1][0];
+                recur2[i2] = boost::multiprecision::logsumexp(res2, new2);  
+            }
 
-                for (unsigned j = i + 1; j <= this->N; ++j)
+            // Apply the second recurrence once more to obtain the denominator 
+            T denom = recur2[this->N];
+            T new2 = log_exit_rate_0; 
+            for (int k = 1; k <= this->N; ++k)
+                new2 += this->log_line_labels[k-1][1];
+            denom += log_exit_rate_N; 
+            denom = boost::multiprecision::logsumexp(denom, new2);
+
+            // Compute the numerator
+            T numer = recur1[0] + recur2[0]; 
+            for (int i = 1; i <= this->N; ++i)
+            {
+                T term = recur1[i] + recur2[i]; 
+                numer = boost::multiprecision::logsumexp(numer, term); 
+            } 
+
+            return denom - numer; 
+        }
+
+        std::vector<std::vector<std::pair<int, double> > > simulate(unsigned nsims,
+                                                                    T exit_rate_0, 
+                                                                    T exit_rate_N,
+                                                                    boost::random::mt19937& rng)
+        {
+            /*
+             * Simulate the Markov process on the line graph, starting at 0.
+             */
+            std::vector<std::vector<std::pair<int, double> > > simulations; 
+
+            for (unsigned i = 0; i < nsims; ++i)
+            {
+                std::vector<std::pair<int, double> > sim; 
+
+                // Start at 0 ...
+                int curr = 0;
+                double time = 0;
+                sim.push_back(std::make_pair(curr, time));
+
+                // ... and run the simulation until exit occurs at either end
+                while (curr >= 0 && curr <= this->N)
                 {
-                    // Then run through all forests with path N -> upper exit
-                    term = log(exit_rate_N);
-                    for (unsigned k = i + 1; k < j; ++k)
-                        term += log(this->line_labels[k-1][1]);
-                    for (unsigned k = j; k < this->N; ++k)
-                        term += log(this->line_labels[k][0]);
-                    log_factor_terms[j-i] = term;
+                    // Sample an edge leaving the current state
+                    T down, up; 
+                    if (curr == 0)
+                    {
+                        down = exit_rate_0; 
+                        up = this->line_labels[0][0]; 
+                    }
+                    else if (curr == this->N)
+                    {
+                        down = this->line_labels[this->N - 1][1];
+                        up = exit_rate_N; 
+                    } 
+                    else 
+                    {
+                        down = this->line_labels[curr - 1][1]; 
+                        up = this->line_labels[curr][0]; 
+                    }
+                    double prob_up = static_cast<double>(up / (down + up));
+                    boost::random::bernoulli_distribution<double> dist(prob_up);
+                    bool choice = dist(rng);
+                    if (choice)     // Increase the current state
+                        curr++;
+                    else            // Decrease the current state
+                        curr--;
+
+                    // Sample a waiting time from the exponential distribution 
+                    // determined by the label on the traversed edge 
+                    boost::random::exponential_distribution<double> wait(static_cast<double>(up + down));
+                    double waiting_time = wait(rng);
+                    time += waiting_time; 
+                    
+                    // Record the new state with the waiting time 
+                    sim.push_back(std::make_pair(curr, time));
                 }
 
-                log_three_forest_weights[i] = log_weight + boost::multiprecision::logsumexp<T>(log_factor_terms);
+                // Append the completed simulation
+                simulations.push_back(sim); 
             }
 
-            // Finally, compute the reciprocal of the mean first passage time
-            std::vector<T> log_denom_terms;
-            for (unsigned i = 0; i < this->N + 1; ++i)
-                log_denom_terms.push_back(0);
-            for (unsigned i = 0; i <= this->N; ++i)
-                log_denom_terms[i] = log_three_forest_weights[i] + log_two_forest_weights[i];
-            T log_denom = boost::multiprecision::logsumexp<T>(log_denom_terms); 
-
-            return (
-                log_two_forest_weights[0] +
-                boost::multiprecision::logsumexp<T>(log_two_forest_weights[this->N], log_lower_exit_weight) - log_denom
-            );
+            return simulations; 
         }
 };
 

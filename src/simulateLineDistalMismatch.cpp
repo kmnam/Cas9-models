@@ -12,11 +12,12 @@
 #include "../include/sample.hpp"
 
 /*
- * Computes cleavage probabilities and unbinding rates with respect to 
- * distal-mismatch substrates for the line-graph Cas9 model.
+ * Estimates cleavage probabilities and unbinding rates with respect to 
+ * distal-mismatch substrates for the line-graph Cas9 model by running 
+ * Markov process simulations.
  *
  * Call as: 
- *     ./bin/lineDistalMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
+ *     ./bin/lineDistalMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE] [NUMBER OF SIMULATIONS]
  *
  * Authors:
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
@@ -27,13 +28,49 @@ using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 
-const unsigned length = 20;
+const int length = 20;
 
 // Instantiate random number generator 
 boost::random::mt19937 rng(1234567890);
 
+std::tuple<double, double, double> estimateStatsFromSimulations(
+    std::vector<std::vector<std::pair<int, double> > > simulations,
+    const int upper_exit_vertex, const int lower_exit_vertex)
+{
+    /*
+     * Estimate the cleavage probability, conditional cleavage rate, and 
+     * conditional unbinding rate from a set of Markov process simulations. 
+     */ 
+    // Compute the fraction of simulations that result in upper exit, the
+    // average time spent until lower exit (among the simulations for which 
+    // lower exit occurs), and the average time spent until upper exit
+    // (among the simulations for which upper exit occurs)
+    double nsims_upper_exit = 0;
+    double total_time_to_lower_exit = 0.0;
+    double total_time_to_upper_exit = 0.0; 
+    for (auto&& sim : simulations)
+    {
+        std::pair<int, double> last_visited = sim[sim.size() - 1];
+        if (last_visited.first == lower_exit_vertex)
+        {
+            total_time_to_lower_exit += last_visited.second;
+        }
+        else if (last_visited.first == upper_exit_vertex)
+        {
+            nsims_upper_exit += 1;
+            total_time_to_upper_exit += last_visited.second; 
+        } 
+    }
+    double prob = nsims_upper_exit / simulations.size();
+    double avg_time_to_lower_exit = total_time_to_lower_exit / (simulations.size() - nsims_upper_exit); 
+    double avg_time_to_upper_exit = total_time_to_upper_exit / nsims_upper_exit; 
+
+    return std::make_tuple(prob, avg_time_to_lower_exit, avg_time_to_upper_exit); 
+}
+
 template <typename T>
-Matrix<double, Dynamic, Dynamic> computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
+Matrix<double, Dynamic, Dynamic> estimateStats(const Ref<const Matrix<double, Dynamic, 1> >& params,
+                                               const unsigned nsims)
 {
     /*
      * Compute the cleavage probabilities and unbinding rates with respect to 
@@ -54,30 +91,31 @@ Matrix<double, Dynamic, Dynamic> computeStats(const Ref<const Matrix<double, Dyn
     for (unsigned j = 0; j < length; ++j)
         model->setLabels(j, match_params);
     
-    // Compute cleavage probability and mean first passage time to unbound state
-    T prob = model->computeUpperExitProb(1, 1);
-    T uncond_rate = model->computeLowerExitRate(1);
-    T cond_upper_exit = model->computeUpperExitRate(1, 1);
-    //T cond_lower_exit = model->computeLowerExitRate(1, 1); 
+    // Estimate cleavage probability and conditional mean first passage time
+    // to cleaved state
+    std::vector<std::vector<std::pair<int, double> > > simulations = model->simulate(nsims, 1, 1, rng);
+    std::tuple<double, double, double> sim_stats = estimateStatsFromSimulations(simulations, length + 1, -1);
     Matrix<double, Dynamic, Dynamic> stats(length + 1, 3);
-    stats(0, 0) = static_cast<double>(prob);
-    stats(0, 1) = static_cast<double>(uncond_rate);
-    stats(0, 2) = static_cast<double>(cond_upper_exit);
-    //stats(length, 3) = static_cast<double>(cond_lower_exit);
+    stats(0, 0) = std::get<0>(sim_stats);
+    stats(0, 2) = 1 / std::get<2>(sim_stats);
+
+    // Estimate unconditional mean first passage time to unbound state
+    simulations = model->simulate(nsims, 1, 0, rng); 
+    sim_stats = estimateStatsFromSimulations(simulations, length + 1, -1); 
+    stats(0, 1) = 1 / std::get<1>(sim_stats);  
 
     // Introduce single mismatches and re-compute cleavage probability
-    // and mean first passage time
-    for (int j = 1; j <= length; ++j)
+    // and mean first passage times
+    for (int j = 1; j <= length; ++j) 
     {
         model->setLabels(length - j, mismatch_params);
-        prob = model->computeUpperExitProb(1, 1);
-        uncond_rate = model->computeLowerExitRate(1);
-        cond_upper_exit = model->computeUpperExitRate(1, 1);
-        //cond_lower_exit = model->computeLowerExitRate(1, 1); 
-        stats(j, 0) = static_cast<double>(prob);
-        stats(j, 1) = static_cast<double>(uncond_rate);
-        stats(j, 2) = static_cast<double>(cond_upper_exit);  
-        //stats(j, 3) = static_cast<double>(cond_lower_exit);
+        simulations = model->simulate(nsims, 1, 1, rng);
+        sim_stats = estimateStatsFromSimulations(simulations, length + 1, -1);
+        stats(j, 0) = std::get<0>(sim_stats);
+        stats(j, 2) = 1 / std::get<2>(sim_stats);
+        simulations = model->simulate(nsims, 1, 0, rng); 
+        sim_stats = estimateStatsFromSimulations(simulations, length + 1, -1);  
+        stats(j, 1) = 1 / std::get<1>(sim_stats); 
     }
 
     delete model;
@@ -87,8 +125,9 @@ Matrix<double, Dynamic, Dynamic> computeStats(const Ref<const Matrix<double, Dyn
 int main(int argc, char** argv)
 {
     // Sample model parameter combinations
-    unsigned n;
+    unsigned n, nsims;
     sscanf(argv[3], "%u", &n);
+    sscanf(argv[4], "%u", &nsims); 
     Matrix<double, Dynamic, Dynamic> vertices, params;
     try
     {
@@ -106,7 +145,7 @@ int main(int argc, char** argv)
     //Matrix<double, Dynamic, Dynamic> cond_lower_rates(n, length + 1);
     for (unsigned i = 0; i < n; ++i)
     {
-        Matrix<double, Dynamic, Dynamic> stats = computeStats<number<mpfr_float_backend<100> > >(params.row(i)).transpose() / std::log(10.0);
+        Matrix<double, Dynamic, Dynamic> stats = estimateStats<number<mpfr_float_backend<100> > >(params.row(i), nsims).transpose();
         probs.row(i) = stats.row(0);
         uncond_rates.row(i) = stats.row(1);
         cond_upper_rates.row(i) = stats.row(2);
