@@ -1,7 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <array>
 #include <utility>
 #include <iomanip>
 #include <tuple>
@@ -18,10 +17,11 @@
  * Call as: 
  *     ./bin/lineSingleMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
  *
- * Authors:
+ * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
- * Last updated:
- *     12/10/2021
+ *
+ * **Last updated:**
+ *     1/7/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -40,14 +40,16 @@ MatrixXd computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
      * single-mismatch substrates. 
      */
     // Array of DNA/RNA match parameters
-    std::array<T, 2> match_params;
-    match_params[0] = static_cast<T>(std::pow(10.0, params(0)));
-    match_params[1] = static_cast<T>(std::pow(10.0, params(1)));
+    std::pair<T, T> match_params = std::make_pair(
+        static_cast<T>(std::pow(10.0, params(0))),
+        static_cast<T>(std::pow(10.0, params(1)))
+    );
 
     // Array of DNA/RNA mismatch parameters
-    std::array<T, 2> mismatch_params;
-    mismatch_params[0] = static_cast<T>(std::pow(10.0, params(2)));
-    mismatch_params[1] = static_cast<T>(std::pow(10.0, params(3)));
+    std::pair<T, T> mismatch_params = std::make_pair(
+        static_cast<T>(std::pow(10.0, params(2))),
+        static_cast<T>(std::pow(10.0, params(3)))
+    );
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<T, T>* model = new LineGraph<T, T>(length);
