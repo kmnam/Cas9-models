@@ -1,3 +1,13 @@
+/**
+ * Functions for random sampling.
+ *
+ * **Authors:**
+ *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
+ *
+ * **Last updated:**
+ *     1/7/2022
+ */
+
 #ifndef SAMPLE_HPP
 #define SAMPLE_HPP
 
@@ -13,32 +23,23 @@
 #include <Eigen/Dense>
 #include <boost/random.hpp>
 
-/*
- * Functions for random sampling.
- *
- * Authors:
- *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
- * Last updated:
- *     12/8/2019
- */
 using namespace Eigen;
 
+/**
+ * Given an array of vertices for a simplex and a desired number of 
+ * points, randomly sample the given number of points from the 
+ * uniform density (i.e., flat Dirichlet) on the simplex.
+ *
+ * @param vertices (D+1) x D matrix of vertex coordinates, with each row
+ *                 a vertex. 
+ * @param npoints  Number of points to sample from the simplex.
+ * @param rng      Reference to existing random number generator instance.
+ * @returns        (npoints) x D matrix of coordinates of the sampled points. 
+ */
 template <typename T>
 Matrix<T, Dynamic, Dynamic> sampleFromSimplex(const Ref<const MatrixXd>& vertices,
                                               unsigned npoints, boost::random::mt19937& rng)
 {
-    /*
-     * Given an array of vertices for a simplex and a desired number of 
-     * points, randomly sample the given number of points from the 
-     * uniform density (i.e., flat Dirichlet) on the simplex.
-     *
-     * @param MatrixXd vertices
-     *     (D+1) x D matrix of vertex coordinates, with each row a vertex. 
-     * @param unsigned points
-     *     Number of points to sample from the simplex.
-     * @param boost::random::mt19937& rng
-     *     Reference to random number generator instance.   
-     */
     unsigned dim = vertices.cols();     // Dimension of the ambient space
     unsigned nvert = vertices.rows();   // Number of vertices
     assert(nvert == dim + 1);
@@ -64,17 +65,23 @@ Matrix<T, Dynamic, Dynamic> sampleFromSimplex(const Ref<const MatrixXd>& vertice
     return points;
 }
 
+/**
+ * Given a .delv file specifying a convex polytope in terms of its vertices
+ * and its Delaunay triangulation, parse the simplices of the triangulation
+ * and sample uniformly from the polytope, returning the vertices of the
+ * polytope and the sampled points.
+ *
+ * @param triangulation_file Path to input .delv polytope triangulation file.
+ * @param npoints            Number of points to sample from the polytope.
+ * @param rng                Reference to existing random number generator instance.
+ * @returns                  Matrix of polytope vertex coordinates and matrix of 
+ *                           sampled point coordinates.  
+ */
 template <typename T>
 std::pair<Matrix<T, Dynamic, Dynamic>, Matrix<T, Dynamic, Dynamic> >
     sampleFromConvexPolytopeTriangulation(std::string triangulation_file,
                                           unsigned npoints, boost::random::mt19937& rng)
 {
-    /*
-     * Given a .delv file specifying a convex polytope in terms of its 
-     * vertices and its Delaunay triangulation, parse the simplices of
-     * the triangulation and sample uniformly from the polytope,
-     * returning the vertices of the polytope and the sampled points.  
-     */
     // Vector of vertex coordinates
     std::vector<std::vector<double> > vertices;
 
