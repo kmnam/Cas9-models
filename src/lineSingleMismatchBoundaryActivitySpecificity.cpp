@@ -45,7 +45,7 @@ int coin_toss(boost::random::mt19937& rng)
  * for the line graph with the given set of parameter values. 
  */
 template <typename T>
-VectorXd computeCleavageStats(const VectorXd& params)
+VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
 {
     // Array of DNA/RNA match parameters
     std::pair<T, T> match_params;
@@ -124,7 +124,7 @@ int main(int argc, char** argv)
 
     // Run the boundary-finding algorithm
     BoundaryFinder finder(tol, rng, argv[1], argv[2]);
-    std::function<VectorXd(const VectorXd&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
+    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
     finder.run(
         computeCleavageStats<number<mpfr_float_backend<100> > >,
         mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,
