@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     1/7/2022
+ *     1/8/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -45,7 +45,7 @@ int coin_toss(boost::random::mt19937& rng)
  * for the line graph with the given set of parameter values. 
  */
 template <typename T>
-VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
+VectorXd computeCleavageStats(const VectorXd& params)
 {
     // Array of DNA/RNA match parameters
     std::pair<T, T> match_params;
@@ -104,18 +104,17 @@ int main(int argc, char** argv)
         = [](const Ref<const VectorXd>& x)
         {
             return false;
-            //return x(0) < 0.01;
         };
 
     // Boundary-finding algorithm settings
-    double tol = 1e-8;
+    double tol = 1e-6;
     unsigned n_within = 10000;
     unsigned n_bound = 0;
     unsigned min_step_iter = 100;
     unsigned max_step_iter = 500;
     unsigned min_pull_iter = 10;
     unsigned max_pull_iter = 100;
-    unsigned max_edges = 200;
+    unsigned max_edges = 500;
     bool verbose = true;
     unsigned sqp_max_iter = 100;
     double sqp_tol = 1e-3;
@@ -125,7 +124,7 @@ int main(int argc, char** argv)
 
     // Run the boundary-finding algorithm
     BoundaryFinder finder(tol, rng, argv[1], argv[2]);
-    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
+    std::function<VectorXd(const VectorXd&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
     finder.run(
         computeCleavageStats<number<mpfr_float_backend<100> > >,
         mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,
