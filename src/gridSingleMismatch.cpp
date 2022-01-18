@@ -198,6 +198,8 @@ int main(int argc, char** argv)
         }
     }
     unbindfile.close();
+    oss.clear();
+    oss.str(std::string());
 
     // Write matrix of unconditional unbinding rates
     oss << argv[2] << "-cleave-rates.tsv";
