@@ -7,15 +7,15 @@
 #include <Eigen/Dense>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
-#include <graphs/line.hpp>
+#include <graphs/grid.hpp>
 #include "../include/sample.hpp"
 
 /*
  * Computes cleavage probabilities and unbinding rates with respect to 
- * single-mismatch substrates for the line-graph Cas9 model.
+ * single-mismatch substrates for the grid-graph Cas9 model.
  *
  * Call as: 
- *     ./bin/lineSingleMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
+ *     ./bin/gridSingleMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
@@ -52,15 +52,32 @@ MatrixXd computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
         static_cast<T>(std::pow(10.0, params(3)))
     );
 
+    // Array of conformational change parameters
+    std::pair<T, T> switch_params = std::make_pair(
+        static_cast<T>(std::pow(10.0, params(4))), 
+        static_cast<T>(std::pow(10.0, params(5)))
+    ); 
+
     // Populate each rung with DNA/RNA match parameters
-    LineGraph<T, T>* model = new LineGraph<T, T>(length);
+    GridGraph<T, T>* model = new GridGraph<T, T>(length);
+    model->setZerothLabels(switch_params.first, switch_params.second);
     for (unsigned j = 0; j < length; ++j)
-        model->setEdgeLabels(j, match_params);
+    {
+        std::array<T, 6> labels; 
+        labels[0] = match_params.first; 
+        labels[1] = match_params.second; 
+        labels[2] = match_params.first; 
+        labels[3] = match_params.second; 
+        labels[4] = switch_params.first; 
+        labels[5] = switch_params.second; 
+        model->setRungLabels(j, labels); 
+    } 
     
     // Compute cleavage probability, unbinding rate, and cleavage rate 
-    T prob = model->getUpperExitProb(1, 1);
-    T unbind_rate = model->getLowerExitRate(1);
-    T cleave_rate = model->getUpperExitRate(1, 1); 
+    std::tuple<T, T, T> exit_stats = model->getExitStats(1, 1); 
+    T prob = std::get<0>(exit_stats); 
+    T unbind_rate = std::get<1>(exit_stats); 
+    T cleave_rate = std::get<2>(exit_stats); 
     MatrixXd stats(length + 1, 3);
     stats(0, 0) = static_cast<double>(prob);
     stats(0, 1) = static_cast<double>(unbind_rate);
@@ -70,12 +87,26 @@ MatrixXd computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
     // and mean first-passage time
     for (unsigned j = 0; j < length; ++j)
     {
+        std::array<T, 6> labels; 
         for (unsigned k = 0; k < length; ++k)
-            model->setEdgeLabels(k, match_params);
-        model->setEdgeLabels(j, mismatch_params);
-        prob = model->getUpperExitProb(1, 1);
-        unbind_rate = model->getLowerExitRate(1);
-        cleave_rate = model->getUpperExitRate(1, 1); 
+        {
+            labels[0] = match_params.first; 
+            labels[1] = match_params.second; 
+            labels[2] = match_params.first; 
+            labels[3] = match_params.second; 
+            labels[4] = switch_params.first; 
+            labels[5] = switch_params.second; 
+            model->setRungLabels(k, labels); 
+        }
+        labels[0] = mismatch_params.first; 
+        labels[1] = mismatch_params.second; 
+        labels[2] = mismatch_params.first; 
+        labels[3] = mismatch_params.second; 
+        model->setRungLabels(j, labels); 
+        exit_stats = model->getExitStats(1, 1); 
+        prob = std::get<0>(exit_stats); 
+        unbind_rate = std::get<1>(exit_stats); 
+        cleave_rate = std::get<2>(exit_stats); 
         stats(j + 1, 0) = static_cast<double>(prob);
         stats(j + 1, 1) = static_cast<double>(unbind_rate);
         stats(j + 1, 2) = static_cast<double>(cleave_rate); 
