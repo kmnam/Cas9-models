@@ -94,7 +94,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
     // Compile results and return 
     VectorXd output(2);
     output << static_cast<double>(prob_perfect),
-              std::log10(static_cast<double>(prob_perfect)) - std::log10(static_cast<double>(prob_mismatched)); 
+              static_cast<double>(log10(prob_perfect) - log10(prob_mismatched)); 
 
     delete model;
     return output;

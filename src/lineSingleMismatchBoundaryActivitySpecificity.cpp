@@ -20,11 +20,12 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     1/8/2022
+ *     1/18/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
+using boost::multiprecision::log10; 
 
 const unsigned length = 20;
 
@@ -74,7 +75,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
     // Compile results and return 
     VectorXd output(2);
     output << static_cast<double>(prob_perfect),
-              std::log10(static_cast<double>(prob_perfect)) - std::log10(static_cast<double>(prob_mismatched)); 
+              static_cast<double>(log10(prob_perfect) - log10(prob_mismatched)); 
 
     delete model;
     return output;
