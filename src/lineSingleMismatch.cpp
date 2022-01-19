@@ -21,12 +21,13 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/18/2022
+ *     1/19/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
-typedef number<mpfr_float_backend<100> > PreciseType;
+using boost::multiprecision::log10; 
+typedef number<mpfr_float_backend<1000> > PreciseType;
 
 const unsigned length = 20;
 
@@ -34,7 +35,7 @@ const unsigned length = 20;
 boost::random::mt19937 rng(1234567890);
 
 template <typename T>
-MatrixXd computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
+Matrix<T, Dynamic, 4> computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
 {
     /*
      * Compute the cleavage probabilities and unbinding rates with respect to 
@@ -58,13 +59,11 @@ MatrixXd computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
         model->setEdgeLabels(j, match_params);
     
     // Compute cleavage probability, unbinding rate, and cleavage rate 
-    T prob = model->getUpperExitProb(1, 1);
-    T unbind_rate = model->getLowerExitRate(1);
-    T cleave_rate = model->getUpperExitRate(1, 1); 
-    MatrixXd stats(length + 1, 3);
-    stats(0, 0) = static_cast<double>(prob);
-    stats(0, 1) = static_cast<double>(unbind_rate);
-    stats(0, 2) = static_cast<double>(cleave_rate); 
+    Matrix<T, Dynamic, 4> stats(length + 1, 4); 
+    stats(0, 0) = model->getUpperExitProb(1, 1); 
+    stats(0, 1) = model->getLowerExitRate(1); 
+    stats(0, 2) = model->getUpperExitRate(1, 1); 
+    stats(0, 3) = 0;  
 
     // Introduce single mismatches and re-compute cleavage probability
     // and mean first-passage time
@@ -73,12 +72,10 @@ MatrixXd computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
         for (unsigned k = 0; k < length; ++k)
             model->setEdgeLabels(k, match_params);
         model->setEdgeLabels(j, mismatch_params);
-        prob = model->getUpperExitProb(1, 1);
-        unbind_rate = model->getLowerExitRate(1);
-        cleave_rate = model->getUpperExitRate(1, 1); 
-        stats(j + 1, 0) = static_cast<double>(prob);
-        stats(j + 1, 1) = static_cast<double>(unbind_rate);
-        stats(j + 1, 2) = static_cast<double>(cleave_rate); 
+        stats(j+1, 0) = model->getUpperExitProb(1, 1);
+        stats(j+1, 1) = model->getLowerExitRate(1);
+        stats(j+1, 2) = model->getUpperExitRate(1, 1);
+        stats(j+1, 3) = log10(stats(0, 0)) - log10(stats(j+1, 0));
     }
 
     delete model;
@@ -101,15 +98,17 @@ int main(int argc, char** argv)
     }
 
     // Compute cleavage probabilities and unbinding rates
-    MatrixXd probs(n, length + 1);
-    MatrixXd unbind_rates(n, length + 1);
-    MatrixXd cleave_rates(n, length + 1); 
+    Matrix<PreciseType, Dynamic, Dynamic> probs(n, length + 1);
+    Matrix<PreciseType, Dynamic, Dynamic> unbind_rates(n, length + 1);
+    Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, length + 1);
+    Matrix<PreciseType, Dynamic, Dynamic> specs(n, length);  
     for (unsigned i = 0; i < n; ++i)
     {
-        MatrixXd stats = computeStats<PreciseType>(params.row(i)).transpose(); 
+        Matrix<PreciseType, 4, Dynamic> stats = computeStats<PreciseType>(params.row(i)).transpose();
         probs.row(i) = stats.row(0);
         unbind_rates.row(i) = stats.row(1);
-        cleave_rates.row(i) = stats.row(2); 
+        cleave_rates.row(i) = stats.row(2);
+        specs.row(i) = stats.block(3, 1, 1, length); 
     }
 
     // Write sampled parameter combinations to file
@@ -125,7 +124,7 @@ int main(int argc, char** argv)
             {
                 samplefile << params(i,j) << "\t";
             }
-            samplefile << params(i,params.cols()-1) << std::endl;
+            samplefile << params(i, params.cols()-1) << std::endl;
         }
     }
     samplefile.close();
@@ -148,6 +147,25 @@ int main(int argc, char** argv)
         }
     }
     probsfile.close();
+    oss.clear();
+    oss.str(std::string());
+
+    // Write matrix of cleavage specificities 
+    oss << argv[2] << "-specs.tsv";
+    std::ofstream specsfile(oss.str());
+    specsfile << std::setprecision(std::numeric_limits<double>::max_digits10);
+    if (specsfile.is_open())
+    {
+        for (unsigned i = 0; i < n; ++i)
+        {
+            for (unsigned j = 0; j < length - 1; ++j)
+            {
+                specsfile << specs(i,j) << "\t";
+            }
+            specsfile << specs(i, length - 1) << std::endl; 
+        }
+    }
+    specsfile.close();
     oss.clear();
     oss.str(std::string());
 
