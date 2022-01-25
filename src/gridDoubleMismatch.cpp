@@ -7,15 +7,15 @@
 #include <Eigen/Dense>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
-#include <graphs/line.hpp>
+#include <graphs/grid.hpp>
 #include "../include/sample.hpp"
 
 /*
  * Computes cleavage probabilities, unbinding rates, and cleavage rates with
- * respect to single-mismatch substrates for the line-graph Cas9 model.
+ * respect to double-mismatch substrates for the grid-graph Cas9 model.
  *
  * Call as: 
- *     ./bin/lineSingleMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
+ *     ./bin/gridDoubleMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
@@ -27,7 +27,7 @@ using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::log10; 
-typedef number<mpfr_float_backend<1000> > PreciseType;
+typedef number<mpfr_float_backend<100> > PreciseType;
 
 const unsigned length = 20;
 
@@ -39,7 +39,7 @@ Matrix<T, Dynamic, 6> computeStats(const Ref<const Matrix<double, Dynamic, 1> >&
 {
     /*
      * Compute the cleavage probabilities, unbinding rates, and cleavage rates
-     * of randomly parametrized Cas9 enzymes with respect to single-mismatch
+     * of randomly parametrized Cas9 enzymes with respect to double-mismatch
      * substrates. 
      */
     // Array of DNA/RNA match parameters
@@ -54,30 +54,53 @@ Matrix<T, Dynamic, 6> computeStats(const Ref<const Matrix<double, Dynamic, 1> >&
         static_cast<T>(std::pow(10.0, params(3)))
     );
 
+    // Array of conformational change parameters
+    std::pair<T, T> switch_params = std::make_pair(
+        static_cast<T>(std::pow(10.0, params(4))), 
+        static_cast<T>(std::pow(10.0, params(5)))
+    ); 
+
     // Populate each rung with DNA/RNA match parameters
-    LineGraph<T, T>* model = new LineGraph<T, T>(length);
+    GridGraph<T, T>* model = new GridGraph<T, T>(length);
+    model->setZerothLabels(switch_params.first, switch_params.second);
+    std::array<T, 6> match_labels, mismatch_labels; 
+    match_labels[0] = match_params.first; 
+    match_labels[1] = match_params.second; 
+    match_labels[2] = match_params.first; 
+    match_labels[3] = match_params.second; 
+    match_labels[4] = switch_params.first; 
+    match_labels[5] = switch_params.second;
+    mismatch_labels[0] = mismatch_params.first; 
+    mismatch_labels[1] = mismatch_params.second; 
+    mismatch_labels[2] = mismatch_params.first; 
+    mismatch_labels[3] = mismatch_params.second; 
+    mismatch_labels[4] = switch_params.first; 
+    mismatch_labels[5] = switch_params.second; 
     for (unsigned j = 0; j < length; ++j)
-        model->setEdgeLabels(j, match_params);
+        model->setRungLabels(j, match_labels);
     
     // Compute cleavage probability, unbinding rate, and cleavage rate 
-    Matrix<T, Dynamic, 6> stats = Matrix<T, Dynamic, 6>::Zero(length + 1, 6); 
-    stats(0, 0) = model->getUpperExitProb(1, 1); 
-    stats(0, 1) = model->getLowerExitRate(1); 
-    stats(0, 2) = model->getUpperExitRate(1, 1); 
+    std::tuple<T, T, T> exit_stats = model->getExitStats(1, 1); 
+    Matrix<T, Dynamic, 6> stats = Matrix<T, Dynamic, 6>::Zero(length, 6);
+    stats(0, 0) = std::get<0>(exit_stats); 
+    stats(0, 1) = std::get<1>(exit_stats); 
+    stats(0, 2) = std::get<2>(exit_stats); 
 
-    // Introduce single mismatches and re-compute cleavage probability
-    // and mean first-passage time
-    for (unsigned j = 0; j < length; ++j)
+    // Introduce pairs of consecutive mismatches and re-compute cleavage
+    // probability and mean first-passage time
+    for (unsigned j = 0; j < length - 1; ++j)
     {
         for (unsigned k = 0; k < length; ++k)
-            model->setEdgeLabels(k, match_params);
-        model->setEdgeLabels(j, mismatch_params);
-        stats(j+1, 0) = model->getUpperExitProb(1, 1);
-        stats(j+1, 1) = model->getLowerExitRate(1);
-        stats(j+1, 2) = model->getUpperExitRate(1, 1);
+             model->setRungLabels(k, match_labels); 
+        model->setRungLabels(j, mismatch_labels);
+        model->setRungLabels(j + 1, mismatch_labels);  
+        exit_stats = model->getExitStats(1, 1);
+        stats(j+1, 0) = std::get<0>(exit_stats); 
+        stats(j+1, 1) = std::get<1>(exit_stats); 
+        stats(j+1, 2) = std::get<2>(exit_stats);
         stats(j+1, 3) = log10(stats(0, 0)) - log10(stats(j+1, 0));
         stats(j+1, 4) = log10(stats(0, 1)) - log10(stats(j+1, 1)); 
-        stats(j+1, 5) = log10(stats(0, 2)) - log10(stats(j+1, 2));
+        stats(j+1, 5) = log10(stats(0, 2)) - log10(stats(j+1, 2)); 
     }
 
     delete model;

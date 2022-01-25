@@ -12,10 +12,10 @@
 
 /*
  * Computes cleavage probabilities, unbinding rates, and cleavage rates with
- * respect to single-mismatch substrates for the line-graph Cas9 model.
+ * respect to double-mismatch substrates for the line-graph Cas9 model.
  *
  * Call as: 
- *     ./bin/lineSingleMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
+ *     ./bin/lineDoubleMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
@@ -39,7 +39,7 @@ Matrix<T, Dynamic, 6> computeStats(const Ref<const Matrix<double, Dynamic, 1> >&
 {
     /*
      * Compute the cleavage probabilities, unbinding rates, and cleavage rates
-     * of randomly parametrized Cas9 enzymes with respect to single-mismatch
+     * of randomly parametrized Cas9 enzymes with respect to double-mismatch
      * substrates. 
      */
     // Array of DNA/RNA match parameters
@@ -60,18 +60,19 @@ Matrix<T, Dynamic, 6> computeStats(const Ref<const Matrix<double, Dynamic, 1> >&
         model->setEdgeLabels(j, match_params);
     
     // Compute cleavage probability, unbinding rate, and cleavage rate 
-    Matrix<T, Dynamic, 6> stats = Matrix<T, Dynamic, 6>::Zero(length + 1, 6); 
+    Matrix<T, Dynamic, 6> stats = Matrix<T, Dynamic, 6>::Zero(length, 6); 
     stats(0, 0) = model->getUpperExitProb(1, 1); 
     stats(0, 1) = model->getLowerExitRate(1); 
     stats(0, 2) = model->getUpperExitRate(1, 1); 
 
-    // Introduce single mismatches and re-compute cleavage probability
-    // and mean first-passage time
-    for (unsigned j = 0; j < length; ++j)
+    // Introduce pairs of consecutive mismatches and re-compute cleavage
+    // probability and mean first-passage times
+    for (unsigned j = 0; j < length - 1; ++j)
     {
         for (unsigned k = 0; k < length; ++k)
             model->setEdgeLabels(k, match_params);
         model->setEdgeLabels(j, mismatch_params);
+        model->setEdgeLabels(j + 1, mismatch_params); 
         stats(j+1, 0) = model->getUpperExitProb(1, 1);
         stats(j+1, 1) = model->getLowerExitRate(1);
         stats(j+1, 2) = model->getUpperExitRate(1, 1);
@@ -99,22 +100,22 @@ int main(int argc, char** argv)
         throw;
     }
 
-    // Compute cleavage probabilities, unbinding rates, and cleavage rates
-    Matrix<PreciseType, Dynamic, Dynamic> probs(n, length + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> unbind_rates(n, length + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, length + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> specs(n, length);
-    Matrix<PreciseType, Dynamic, Dynamic> norm_unbind(n, length); 
-    Matrix<PreciseType, Dynamic, Dynamic> norm_cleave(n, length);  
+    // Compute cleavage probabilities and unbinding rates
+    Matrix<PreciseType, Dynamic, Dynamic> probs(n, length);
+    Matrix<PreciseType, Dynamic, Dynamic> unbind_rates(n, length);
+    Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, length);
+    Matrix<PreciseType, Dynamic, Dynamic> specs(n, length - 1);
+    Matrix<PreciseType, Dynamic, Dynamic> norm_unbind(n, length - 1); 
+    Matrix<PreciseType, Dynamic, Dynamic> norm_cleave(n, length - 1);  
     for (unsigned i = 0; i < n; ++i)
     {
         Matrix<PreciseType, 6, Dynamic> stats = computeStats<PreciseType>(params.row(i)).transpose();
         probs.row(i) = stats.row(0);
         unbind_rates.row(i) = stats.row(1);
         cleave_rates.row(i) = stats.row(2);
-        specs.row(i) = stats.block(3, 1, 1, length);
-        norm_unbind.row(i) = stats.block(4, 1, 1, length); 
-        norm_cleave.row(i) = stats.block(5, 1, 1, length); 
+        specs.row(i) = stats.block(3, 1, 1, length - 1);
+        norm_unbind.row(i) = stats.block(4, 1, 1, length - 1); 
+        norm_cleave.row(i) = stats.block(5, 1, 1, length - 1); 
     }
 
     // Write sampled parameter combinations to file
@@ -145,11 +146,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length; ++j)
+            for (unsigned j = 0; j < length - 1; ++j)
             {
                 probsfile << probs(i,j) << "\t";
             }
-            probsfile << probs(i, length) << std::endl; 
+            probsfile << probs(i, length-1) << std::endl; 
         }
     }
     probsfile.close();
@@ -164,11 +165,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (unsigned j = 0; j < length - 2; ++j)
             {
                 specsfile << specs(i,j) << "\t";
             }
-            specsfile << specs(i, length - 1) << std::endl; 
+            specsfile << specs(i, length-2) << std::endl; 
         }
     }
     specsfile.close();
@@ -183,11 +184,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length; ++j)
+            for (unsigned j = 0; j < length - 1; ++j)
             {
                 unbindfile << unbind_rates(i,j) << "\t";
             }
-            unbindfile << unbind_rates(i, length) << std::endl; 
+            unbindfile << unbind_rates(i, length-1) << std::endl; 
         }
     }
     unbindfile.close();
@@ -202,11 +203,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length; ++j)
+            for (unsigned j = 0; j < length - 1; ++j)
             {
                 cleavefile << cleave_rates(i,j) << "\t";
             }
-            cleavefile << cleave_rates(i, length) << std::endl; 
+            cleavefile << cleave_rates(i, length-1) << std::endl; 
         }
     }
     cleavefile.close();
@@ -221,11 +222,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (unsigned j = 0; j < length - 2; ++j)
             {
                 unbindfile2 << norm_unbind(i,j) << "\t";  
             }
-            unbindfile2 << norm_unbind(i, length-1) << std::endl; 
+            unbindfile2 << norm_unbind(i, length-2) << std::endl; 
         }
     }
     unbindfile2.close();
@@ -240,11 +241,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (unsigned j = 0; j < length - 2; ++j)
             {
                 cleavefile2 << norm_cleave(i,j) << "\t"; 
             }
-            cleavefile2 << norm_cleave(i, length-1) << std::endl; 
+            cleavefile2 << norm_cleave(i, length-2) << std::endl; 
         }
     }
     cleavefile2.close();

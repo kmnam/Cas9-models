@@ -11,8 +11,8 @@
 #include "../include/sample.hpp"
 
 /*
- * Computes cleavage probabilities and unbinding rates with respect to 
- * single-mismatch substrates for the grid-graph Cas9 model.
+ * Computes cleavage probabilities, unbinding rates, and cleavage rates with
+ * respect to single-mismatch substrates for the grid-graph Cas9 model.
  *
  * Call as: 
  *     ./bin/gridSingleMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
@@ -21,7 +21,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/19/2022
+ *     1/25/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -35,11 +35,12 @@ const unsigned length = 20;
 boost::random::mt19937 rng(1234567890);
 
 template <typename T>
-Matrix<T, Dynamic, 4> computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
+Matrix<T, Dynamic, 6> computeStats(const Ref<const Matrix<double, Dynamic, 1> >& params)
 {
     /*
-     * Compute the cleavage probabilities and unbinding rates with respect to 
-     * single-mismatch substrates. 
+     * Compute the cleavage probabilities, unbinding rates, and cleavage rates 
+     * of randomly parametrized Cas9 enzymes with respect to single-mismatch
+     * substrates. 
      */
     // Array of DNA/RNA match parameters
     std::pair<T, T> match_params = std::make_pair(
@@ -80,11 +81,10 @@ Matrix<T, Dynamic, 4> computeStats(const Ref<const Matrix<double, Dynamic, 1> >&
     
     // Compute cleavage probability, unbinding rate, and cleavage rate 
     std::tuple<T, T, T> exit_stats = model->getExitStats(1, 1); 
-    Matrix<T, Dynamic, 4> stats(length + 1, 4);
+    Matrix<T, Dynamic, 6> stats = Matrix<T, Dynamic, 6>::Zero(length + 1, 6);
     stats(0, 0) = std::get<0>(exit_stats); 
     stats(0, 1) = std::get<1>(exit_stats); 
     stats(0, 2) = std::get<2>(exit_stats); 
-    stats(0, 3) = 0;
 
     // Introduce single mismatches and re-compute cleavage probability
     // and mean first-passage time
@@ -97,7 +97,9 @@ Matrix<T, Dynamic, 4> computeStats(const Ref<const Matrix<double, Dynamic, 1> >&
         stats(j+1, 0) = std::get<0>(exit_stats); 
         stats(j+1, 1) = std::get<1>(exit_stats); 
         stats(j+1, 2) = std::get<2>(exit_stats);
-        stats(j+1, 3) = log10(stats(0, 0)) - log10(stats(j+1, 0)); 
+        stats(j+1, 3) = log10(stats(0, 0)) - log10(stats(j+1, 0));
+        stats(j+1, 4) = log10(stats(0, 1)) - log10(stats(j+1, 1)); 
+        stats(j+1, 5) = log10(stats(0, 2)) - log10(stats(j+1, 2)); 
     }
 
     delete model;
@@ -119,18 +121,22 @@ int main(int argc, char** argv)
         throw;
     }
 
-    // Compute cleavage probabilities and unbinding rates
+    // Compute cleavage probabilities, unbinding rates, and cleavage rates
     Matrix<PreciseType, Dynamic, Dynamic> probs(n, length + 1);
     Matrix<PreciseType, Dynamic, Dynamic> unbind_rates(n, length + 1);
     Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, length + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> specs(n, length); 
+    Matrix<PreciseType, Dynamic, Dynamic> specs(n, length);
+    Matrix<PreciseType, Dynamic, Dynamic> norm_unbind(n, length); 
+    Matrix<PreciseType, Dynamic, Dynamic> norm_cleave(n, length);  
     for (unsigned i = 0; i < n; ++i)
     {
-        Matrix<PreciseType, 4, Dynamic> stats = computeStats<PreciseType>(params.row(i)).transpose(); 
+        Matrix<PreciseType, 6, Dynamic> stats = computeStats<PreciseType>(params.row(i)).transpose();
         probs.row(i) = stats.row(0);
         unbind_rates.row(i) = stats.row(1);
         cleave_rates.row(i) = stats.row(2);
-        specs.row(i) = stats.block(3, 1, 1, length);  
+        specs.row(i) = stats.block(3, 1, 1, length);
+        norm_unbind.row(i) = stats.block(4, 1, 1, length); 
+        norm_cleave.row(i) = stats.block(5, 1, 1, length); 
     }
 
     // Write sampled parameter combinations to file
@@ -146,7 +152,7 @@ int main(int argc, char** argv)
             {
                 samplefile << params(i,j) << "\t";
             }
-            samplefile << params(i,params.cols()-1) << std::endl;
+            samplefile << params(i, params.cols()-1) << std::endl;
         }
     }
     samplefile.close();
@@ -191,7 +197,7 @@ int main(int argc, char** argv)
     oss.clear();
     oss.str(std::string());
 
-    // Write matrix of unconditional unbinding rates
+    // Write matrix of (unnormalized) unconditional unbinding rates
     oss << argv[2] << "-unbind-rates.tsv";
     std::ofstream unbindfile(oss.str());
     unbindfile << std::setprecision(std::numeric_limits<double>::max_digits10);
@@ -210,7 +216,7 @@ int main(int argc, char** argv)
     oss.clear();
     oss.str(std::string());
 
-    // Write matrix of unconditional unbinding rates
+    // Write matrix of (unnormalized) conditional cleavage rates 
     oss << argv[2] << "-cleave-rates.tsv";
     std::ofstream cleavefile(oss.str());
     cleavefile << std::setprecision(std::numeric_limits<double>::max_digits10);
@@ -226,6 +232,44 @@ int main(int argc, char** argv)
         }
     }
     cleavefile.close();
-   
+    oss.clear();
+    oss.str(std::string());
+  
+    // Write matrix of normalized unconditional unbinding rates
+    oss << argv[2] << "-norm-unbind.tsv";
+    std::ofstream unbindfile2(oss.str());
+    unbindfile2 << std::setprecision(std::numeric_limits<double>::max_digits10);
+    if (unbindfile2.is_open())
+    {
+        for (unsigned i = 0; i < n; ++i)
+        {
+            for (unsigned j = 0; j < length - 1; ++j)
+            {
+                unbindfile2 << norm_unbind(i,j) << "\t";  
+            }
+            unbindfile2 << norm_unbind(i, length-1) << std::endl; 
+        }
+    }
+    unbindfile2.close();
+    oss.clear();
+    oss.str(std::string());
+
+    // Write matrix of normalized conditional cleavage rates 
+    oss << argv[2] << "-norm-cleave.tsv";
+    std::ofstream cleavefile2(oss.str());
+    cleavefile2 << std::setprecision(std::numeric_limits<double>::max_digits10);
+    if (cleavefile2.is_open())
+    {
+        for (unsigned i = 0; i < n; ++i)
+        {
+            for (unsigned j = 0; j < length - 1; ++j)
+            {
+                cleavefile2 << norm_cleave(i,j) << "\t"; 
+            }
+            cleavefile2 << norm_cleave(i, length-1) << std::endl; 
+        }
+    }
+    cleavefile2.close();
+
     return 0;
 }
