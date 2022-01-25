@@ -123,21 +123,21 @@ int main(int argc, char** argv)
     }
 
     // Compute cleavage probabilities, unbinding rates, and cleavage rates
-    Matrix<PreciseType, Dynamic, Dynamic> probs(n, length + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> unbind_rates(n, length + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, length + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> specs(n, length);
-    Matrix<PreciseType, Dynamic, Dynamic> norm_unbind(n, length); 
-    Matrix<PreciseType, Dynamic, Dynamic> norm_cleave(n, length);  
+    Matrix<PreciseType, Dynamic, Dynamic> probs(n, length);
+    Matrix<PreciseType, Dynamic, Dynamic> unbind_rates(n, length);
+    Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, length);
+    Matrix<PreciseType, Dynamic, Dynamic> specs(n, length - 1);
+    Matrix<PreciseType, Dynamic, Dynamic> norm_unbind(n, length - 1); 
+    Matrix<PreciseType, Dynamic, Dynamic> norm_cleave(n, length - 1);  
     for (unsigned i = 0; i < n; ++i)
     {
         Matrix<PreciseType, 6, Dynamic> stats = computeStats<PreciseType>(params.row(i)).transpose();
         probs.row(i) = stats.row(0);
         unbind_rates.row(i) = stats.row(1);
         cleave_rates.row(i) = stats.row(2);
-        specs.row(i) = stats.block(3, 1, 1, length);
-        norm_unbind.row(i) = stats.block(4, 1, 1, length); 
-        norm_cleave.row(i) = stats.block(5, 1, 1, length); 
+        specs.row(i) = stats.block(3, 1, 1, length - 1);
+        norm_unbind.row(i) = stats.block(4, 1, 1, length - 1); 
+        norm_cleave.row(i) = stats.block(5, 1, 1, length - 1); 
     }
 
     // Write sampled parameter combinations to file
@@ -168,11 +168,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length; ++j)
+            for (unsigned j = 0; j < length - 1; ++j)
             {
                 probsfile << probs(i,j) << "\t";
             }
-            probsfile << probs(i, length) << std::endl; 
+            probsfile << probs(i, length-1) << std::endl; 
         }
     }
     probsfile.close();
@@ -187,11 +187,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (unsigned j = 0; j < length - 2; ++j)
             {
                 specsfile << specs(i,j) << "\t";
             }
-            specsfile << specs(i, length - 1) << std::endl; 
+            specsfile << specs(i, length-2) << std::endl; 
         }
     }
     specsfile.close();
@@ -206,11 +206,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length; ++j)
+            for (unsigned j = 0; j < length - 1; ++j)
             {
                 unbindfile << unbind_rates(i,j) << "\t";
             }
-            unbindfile << unbind_rates(i, length) << std::endl; 
+            unbindfile << unbind_rates(i, length-1) << std::endl; 
         }
     }
     unbindfile.close();
@@ -225,11 +225,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length; ++j)
+            for (unsigned j = 0; j < length - 1; ++j)
             {
                 cleavefile << cleave_rates(i,j) << "\t";
             }
-            cleavefile << cleave_rates(i, length) << std::endl; 
+            cleavefile << cleave_rates(i, length-1) << std::endl; 
         }
     }
     cleavefile.close();
@@ -244,11 +244,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (unsigned j = 0; j < length - 2; ++j)
             {
                 unbindfile2 << norm_unbind(i,j) << "\t";  
             }
-            unbindfile2 << norm_unbind(i, length-1) << std::endl; 
+            unbindfile2 << norm_unbind(i, length-2) << std::endl; 
         }
     }
     unbindfile2.close();
@@ -263,11 +263,11 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (unsigned j = 0; j < length - 2; ++j)
             {
                 cleavefile2 << norm_cleave(i,j) << "\t"; 
             }
-            cleavefile2 << norm_cleave(i, length-1) << std::endl; 
+            cleavefile2 << norm_cleave(i, length-2) << std::endl; 
         }
     }
     cleavefile2.close();
