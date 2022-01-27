@@ -91,74 +91,51 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
 template <typename T>
 std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position)
 {
-    std::function<VectorXd(const Ref<const VectorXd>&)> func; 
     switch (position)
     {
         case 0:
-            func = computeCleavageStats<PreciseType, 0>;
-            break;
+            return computeCleavageStats<PreciseType, 0>;
         case 1: 
-            func = computeCleavageStats<PreciseType, 1>;
-            break; 
+            return computeCleavageStats<PreciseType, 1>;
         case 2:
-            func = computeCleavageStats<PreciseType, 2>; 
-            break; 
+            return computeCleavageStats<PreciseType, 2>; 
         case 3: 
-            func = computeCleavageStats<PreciseType, 3>; 
-            break; 
+            return computeCleavageStats<PreciseType, 3>; 
         case 4: 
-            func = computeCleavageStats<PreciseType, 4>; 
-            break; 
+            return computeCleavageStats<PreciseType, 4>; 
         case 5: 
-            func = computeCleavageStats<PreciseType, 5>; 
-            break; 
+            return computeCleavageStats<PreciseType, 5>; 
         case 6: 
-            func = computeCleavageStats<PreciseType, 6>; 
-            break; 
+            return computeCleavageStats<PreciseType, 6>; 
         case 7: 
-            func = computeCleavageStats<PreciseType, 7>; 
-            break; 
+            return computeCleavageStats<PreciseType, 7>; 
         case 8: 
-            func = computeCleavageStats<PreciseType, 8>; 
-            break; 
+            return computeCleavageStats<PreciseType, 8>; 
         case 9: 
-            func = computeCleavageStats<PreciseType, 9>; 
-            break; 
+            return computeCleavageStats<PreciseType, 9>; 
         case 10: 
-            func = computeCleavageStats<PreciseType, 10>; 
-            break; 
+            return computeCleavageStats<PreciseType, 10>; 
         case 11:
-            func = computeCleavageStats<PreciseType, 11>; 
-            break; 
+            return computeCleavageStats<PreciseType, 11>; 
         case 12: 
-            func = computeCleavageStats<PreciseType, 12>; 
-            break; 
+            return computeCleavageStats<PreciseType, 12>; 
         case 13: 
-            func = computeCleavageStats<PreciseType, 13>; 
-            break; 
+            return computeCleavageStats<PreciseType, 13>; 
         case 14: 
-            func = computeCleavageStats<PreciseType, 14>; 
-            break; 
+            return computeCleavageStats<PreciseType, 14>; 
         case 15:
-            func = computeCleavageStats<PreciseType, 15>; 
-            break; 
+            return computeCleavageStats<PreciseType, 15>; 
         case 16: 
-            func = computeCleavageStats<PreciseType, 16>; 
-            break;
+            return computeCleavageStats<PreciseType, 16>; 
         case 17: 
-            func = computeCleavageStats<PreciseType, 17>; 
-            break; 
+            return computeCleavageStats<PreciseType, 17>; 
         case 18:
-            func = computeCleavageStats<PreciseType, 18>; 
-            break; 
+            return computeCleavageStats<PreciseType, 18>; 
         case 19:
-            func = computeCleavageStats<PreciseType, 19>; 
-            break; 
+            return computeCleavageStats<PreciseType, 19>; 
         default:
-            break; 
+            return std::function<VectorXd(const Ref<const VectorXd>&)>();  
     }
-
-    return func; 
 }
 
 /**
