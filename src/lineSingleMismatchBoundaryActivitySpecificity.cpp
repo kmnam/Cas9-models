@@ -85,51 +85,12 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
 }
 
 /**
- * Mutate the given parameter values by delta = 0.1. 
- */
+ * Return the template specialization of `computeCleavageStats()` corresponding
+ * to the given mismatch position. 
+ */ 
 template <typename T>
-Matrix<T, Dynamic, 1> mutateByDelta(const Ref<const Matrix<T, Dynamic, 1> >& params, boost::random::mt19937& rng)
+std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position)
 {
-    Matrix<T, Dynamic, 1> mutated(params);
-    const T delta = 0.1;
-    for (unsigned i = 0; i < mutated.size(); ++i)
-    {
-        int toss = coin_toss(rng);
-        if (!toss) mutated(i) += delta;
-        else       mutated(i) -= delta;
-    }
-    return mutated;
-}
-
-int main(int argc, char** argv)
-{
-    // Define filtering function
-    std::function<bool(const Ref<const VectorXd>& x)> filter
-        = [](const Ref<const VectorXd>& x)
-        {
-            return false;
-        };
-
-    // Boundary-finding algorithm settings
-    double tol = 1e-6;
-    unsigned n_within = 100;
-    unsigned n_bound = 0;
-    unsigned min_step_iter = 100;
-    unsigned max_step_iter = 200;
-    unsigned min_pull_iter = 10;
-    unsigned max_pull_iter = 50;
-    unsigned max_edges = 500;
-    bool verbose = true;
-    unsigned sqp_max_iter = 50;
-    double sqp_tol = 1e-3;
-    bool sqp_verbose = false;
-    std::stringstream ss;
-    ss << argv[3] << "-activity-spec" << argv[4] << "-boundary";
-
-    // Run the boundary-finding algorithm
-    BoundaryFinder finder(tol, rng, argv[1], argv[2]);
-    int position = std::stoi(argv[4]); 
-    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
     std::function<VectorXd(const Ref<const VectorXd>&)> func; 
     switch (position)
     {
@@ -196,6 +157,57 @@ int main(int argc, char** argv)
         default:
             break; 
     }
+
+    return func; 
+}
+
+/**
+ * Mutate the given parameter values by delta = 0.1. 
+ */
+template <typename T>
+Matrix<T, Dynamic, 1> mutateByDelta(const Ref<const Matrix<T, Dynamic, 1> >& params, boost::random::mt19937& rng)
+{
+    Matrix<T, Dynamic, 1> mutated(params);
+    const T delta = 0.1;
+    for (unsigned i = 0; i < mutated.size(); ++i)
+    {
+        int toss = coin_toss(rng);
+        if (!toss) mutated(i) += delta;
+        else       mutated(i) -= delta;
+    }
+    return mutated;
+}
+
+int main(int argc, char** argv)
+{
+    // Define filtering function
+    std::function<bool(const Ref<const VectorXd>&)> filter
+        = [](const Ref<const VectorXd>& x)
+        {
+            return false;
+        };
+
+    // Boundary-finding algorithm settings
+    double tol = 1e-6;
+    unsigned n_within = 100;
+    unsigned n_bound = 0;
+    unsigned min_step_iter = 100;
+    unsigned max_step_iter = 200;
+    unsigned min_pull_iter = 10;
+    unsigned max_pull_iter = 50;
+    unsigned max_edges = 500;
+    bool verbose = true;
+    unsigned sqp_max_iter = 50;
+    double sqp_tol = 1e-3;
+    bool sqp_verbose = false;
+    std::stringstream ss;
+    ss << argv[3] << "-activity-spec" << argv[4] << "-boundary";
+
+    // Run the boundary-finding algorithm
+    BoundaryFinder finder(tol, rng, argv[1], argv[2]);
+    int position = std::stoi(argv[4]); 
+    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
     finder.run(
         func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,
         min_pull_iter, max_pull_iter, max_edges, verbose, sqp_max_iter,
