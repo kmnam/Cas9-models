@@ -103,6 +103,60 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
 }
 
 /**
+ * Return the template specialization of `computeCleavageStats()` corresponding
+ * to the given mismatch position. 
+ */ 
+template <typename T>
+std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position)
+{
+    switch (position)
+    {
+        case 0:
+            return computeCleavageStats<PreciseType, 0>;
+        case 1: 
+            return computeCleavageStats<PreciseType, 1>;
+        case 2:
+            return computeCleavageStats<PreciseType, 2>; 
+        case 3: 
+            return computeCleavageStats<PreciseType, 3>; 
+        case 4: 
+            return computeCleavageStats<PreciseType, 4>; 
+        case 5: 
+            return computeCleavageStats<PreciseType, 5>; 
+        case 6: 
+            return computeCleavageStats<PreciseType, 6>; 
+        case 7: 
+            return computeCleavageStats<PreciseType, 7>; 
+        case 8: 
+            return computeCleavageStats<PreciseType, 8>; 
+        case 9: 
+            return computeCleavageStats<PreciseType, 9>; 
+        case 10: 
+            return computeCleavageStats<PreciseType, 10>; 
+        case 11:
+            return computeCleavageStats<PreciseType, 11>; 
+        case 12: 
+            return computeCleavageStats<PreciseType, 12>; 
+        case 13: 
+            return computeCleavageStats<PreciseType, 13>; 
+        case 14: 
+            return computeCleavageStats<PreciseType, 14>; 
+        case 15:
+            return computeCleavageStats<PreciseType, 15>; 
+        case 16: 
+            return computeCleavageStats<PreciseType, 16>; 
+        case 17: 
+            return computeCleavageStats<PreciseType, 17>; 
+        case 18:
+            return computeCleavageStats<PreciseType, 18>; 
+        case 19:
+            return computeCleavageStats<PreciseType, 19>; 
+        default:
+            throw std::invalid_argument("Invalid mismatch position"); 
+    }
+}
+
+/**
  * Mutate the given parameter values by delta = 0.1. 
  */
 template <typename T>
@@ -148,72 +202,7 @@ int main(int argc, char** argv)
     BoundaryFinder finder(tol, rng, argv[1], argv[2]);
     int position = std::stoi(argv[4]); 
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
-    std::function<VectorXd(const Ref<const VectorXd>&)> func; 
-    switch (position)
-    {
-        case 0:
-            func = computeCleavageStats<PreciseType, 0>;
-            break;
-        case 1: 
-            func = computeCleavageStats<PreciseType, 1>;
-            break; 
-        case 2:
-            func = computeCleavageStats<PreciseType, 2>; 
-            break; 
-        case 3: 
-            func = computeCleavageStats<PreciseType, 3>; 
-            break; 
-        case 4: 
-            func = computeCleavageStats<PreciseType, 4>; 
-            break; 
-        case 5: 
-            func = computeCleavageStats<PreciseType, 5>; 
-            break; 
-        case 6: 
-            func = computeCleavageStats<PreciseType, 6>; 
-            break; 
-        case 7: 
-            func = computeCleavageStats<PreciseType, 7>; 
-            break; 
-        case 8: 
-            func = computeCleavageStats<PreciseType, 8>; 
-            break; 
-        case 9: 
-            func = computeCleavageStats<PreciseType, 9>; 
-            break; 
-        case 10: 
-            func = computeCleavageStats<PreciseType, 10>; 
-            break; 
-        case 11:
-            func = computeCleavageStats<PreciseType, 11>; 
-            break; 
-        case 12: 
-            func = computeCleavageStats<PreciseType, 12>; 
-            break; 
-        case 13: 
-            func = computeCleavageStats<PreciseType, 13>; 
-            break; 
-        case 14: 
-            func = computeCleavageStats<PreciseType, 14>; 
-            break; 
-        case 15:
-            func = computeCleavageStats<PreciseType, 15>; 
-            break; 
-        case 16: 
-            func = computeCleavageStats<PreciseType, 16>; 
-            break;
-        case 17: 
-            func = computeCleavageStats<PreciseType, 17>; 
-            break; 
-        case 18:
-            func = computeCleavageStats<PreciseType, 18>; 
-            break; 
-        case 19:
-            func = computeCleavageStats<PreciseType, 19>; 
-            break; 
-        default:
-            break; 
-    }
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
     finder.run(
         func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,
         min_pull_iter, max_pull_iter, max_edges, verbose, sqp_max_iter,
