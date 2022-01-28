@@ -46,7 +46,7 @@ int coin_toss(boost::random::mt19937& rng)
  * - cleavage specificity with respect to the single-distal-mismatch substrate
  * for the line graph with the given set of parameter values. 
  */
-template <typename T>
+template <typename T, int position>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
 {
     // Array of DNA/RNA match parameters
@@ -90,7 +90,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
     labels[1] = mismatch_params.second; 
     labels[2] = mismatch_params.first; 
     labels[3] = mismatch_params.second; 
-    model->setRungLabels(length - 1, labels); 
+    model->setRungLabels(position, labels); 
     T prob_mismatched = std::get<0>(model->getExitStats(unbind_rate, cleave_rate)); 
 
     // Compile results and return 
