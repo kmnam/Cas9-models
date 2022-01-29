@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     1/27/2022
+ *     1/28/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -44,8 +44,8 @@ int coin_toss(boost::random::mt19937& rng)
  * Compute:
  * - cleavage activity on the perfect-match substrate and
  * - cleavage specificity with respect to the single-mismatch substrate
- *   with the given mismatch position for the line graph with the given 
- *   set of parameter values. 
+ *   with the given mismatch position for the line graph
+ * with the given set of parameter values. 
  */
 template <typename T, int position>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
@@ -134,7 +134,7 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
         case 19:
             return computeCleavageStats<PreciseType, 19>; 
         default:
-            return std::function<VectorXd(const Ref<const VectorXd>&)>();  
+            throw std::invalid_argument("Invalid mismatch position"); 
     }
 }
 
@@ -166,13 +166,13 @@ int main(int argc, char** argv)
 
     // Boundary-finding algorithm settings
     double tol = 1e-6;
-    unsigned n_within = 100;
+    unsigned n_within = 2000;
     unsigned n_bound = 0;
     unsigned min_step_iter = 100;
-    unsigned max_step_iter = 200;
+    unsigned max_step_iter = 1000;
     unsigned min_pull_iter = 10;
     unsigned max_pull_iter = 50;
-    unsigned max_edges = 500;
+    unsigned max_edges = 1000;
     bool verbose = true;
     unsigned sqp_max_iter = 50;
     double sqp_tol = 1e-3;

@@ -13,7 +13,7 @@
 #include <boostMultiprecisionEigen.hpp>
 
 /*
- * Estimates the boundary of the cleavage rate vs. *normalized* cleavage rate
+ * Estimates the boundary of the unbinding rate vs. *normalized* unbinding rate
  * region in the line Cas9 model. 
  *
  * **Authors:**
@@ -42,8 +42,8 @@ int coin_toss(boost::random::mt19937& rng)
 
 /**
  * Compute:
- * - cleavage rate on the perfect-match substrate and
- * - *normalized* cleavage rate with respect to the single-mismatch substrate
+ * - unbinding rate on the perfect-match substrate and
+ * - *normalized* unbinding rate with respect to the single-mismatch substrate
  *   with the given mismatch position for the line graph
  * with the given set of parameter values. 
  */
@@ -65,15 +65,14 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
     for (unsigned j = 0; j < length; ++j)
         model->setEdgeLabels(j, match_params);
     
-    // Compute cleavage rate on the perfect-match substrate 
+    // Compute unbinding rate on the perfect-match substrate 
     T unbind_rate = 1;
-    T cleave_rate = 1;
-    T rate_perfect = model->getUpperExitRate(unbind_rate, cleave_rate);  
+    T rate_perfect = model->getLowerExitRate(unbind_rate); 
 
     // Introduce one mismatch at the specified position and re-compute
-    // cleavage rate 
+    // unbinding rate 
     model->setEdgeLabels(position, mismatch_params); 
-    T rate_mismatched = model->getUpperExitRate(unbind_rate, cleave_rate); 
+    T rate_mismatched = model->getLowerExitRate(unbind_rate); 
 
     // Compile results and return 
     VectorXd output(2);
@@ -178,7 +177,7 @@ int main(int argc, char** argv)
     double sqp_tol = 1e-3;
     bool sqp_verbose = false;
     std::stringstream ss;
-    ss << argv[3] << "-cleave-spec" << argv[4] << "-boundary";
+    ss << argv[3] << "-unbind-spec" << argv[4] << "-boundary";
 
     // Run the boundary-finding algorithm
     BoundaryFinder finder(tol, rng, argv[1], argv[2]);
@@ -194,7 +193,7 @@ int main(int argc, char** argv)
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;
-    oss << argv[3] << "-cleave-spec" << argv[4] << "-boundary-params.tsv";
+    oss << argv[3] << "-unbind-spec" << argv[4] << "-boundary-params.tsv";
     std::ofstream samplefile(oss.str());
     samplefile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (samplefile.is_open())
