@@ -21,7 +21,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/25/2022
+ *     2/1/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -89,10 +89,11 @@ int main(int argc, char** argv)
     // Sample model parameter combinations
     unsigned n;
     sscanf(argv[3], "%u", &n);
-    MatrixXd vertices, params;
+    MatrixXd params;
+    DelaunayTriangulation tri; 
     try
     {
-        std::tie(vertices, params) = sampleFromConvexPolytopeTriangulation<double>(argv[1], n, rng);
+        std::tie(tri, params) = sampleFromConvexPolytopeTriangulation(argv[1], n, rng);
     }
     catch (const std::exception& e)
     {
