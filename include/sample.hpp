@@ -278,6 +278,7 @@ DelaunayTriangulation parseTriangulationFile(const std::string filename)
                             vertex_indices.push_back(std::stoul(match_str));
                         }
                         simplices.push_back(vertex_indices);
+                        /*
                         std::string volume_num = matches[matches.size() - 2].str();
                         std::string volume_den = matches[matches.size() - 1].str();
                         double volume = 0.0;
@@ -289,19 +290,17 @@ DelaunayTriangulation parseTriangulationFile(const std::string filename)
                         // was specified as a fraction
                         else
                             volume = std::stod(volume_num) / std::stod(volume_den.erase(0, 1));
-                        volumes.push_back(volume);
+                        */
                     }
                     // The line does not match the regular expression
                     else
                     {
-                        std::cerr << "Incorrect number of matches" << std::endl;
-                        throw std::exception();
+                        throw std::runtime_error("Incorrectly formatted line in .delv file");
                     }
                 }
                 else
                 {
-                    std::cerr << "Does not match regex" << std::endl;
-                    throw std::exception();
+                    throw std::runtime_error("Incorrectly formatted line in .delv file"); 
                 }
             }
         }
@@ -340,7 +339,7 @@ std::pair<DelaunayTriangulation, MatrixXd> sampleFromConvexPolytopeTriangulation
 
     // Maintain an array of points ...
     int dim = tri.getDim(); 
-    Matrix<T, Dynamic, Dynamic> sample(npoints, dim);
+    MatrixXd sample(npoints, dim); 
     for (unsigned i = 0; i < npoints; i++)
     {
         // Sample a simplex with probability proportional to its volume
@@ -350,7 +349,7 @@ std::pair<DelaunayTriangulation, MatrixXd> sampleFromConvexPolytopeTriangulation
         MatrixXd simplex = tri.getSimplex(j); 
 
         // Sample a point from the simplex
-        sample.row(i) = sampleFromSimplex<T>(simplex, 1, rng);
+        sample.row(i) = sampleFromSimplex(simplex, 1, rng);
     }
    
     return std::make_pair(tri, sample);
