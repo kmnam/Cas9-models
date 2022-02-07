@@ -108,7 +108,7 @@ int main(int argc, char** argv)
     // faces (note that the polytope is 4-dimensional) 
     for (int codim = 1; codim <= 3; ++codim)
     {
-        MatrixXd sample_codim = sampleFromConvexPolytope<PRECISION>(argv[1], npoints, codim, rng);
+        MatrixXd sample_codim = sampleFromConvexPolytope<PRECISION, PRECISION>(argv[1], npoints, codim, rng);
         MatrixXd probs(npoints, MODEL_LENGTH + 1); 
         MatrixXd specs(npoints, MODEL_LENGTH); 
         MatrixXd unbind(npoints, MODEL_LENGTH + 1); 
