@@ -14,13 +14,13 @@
 
 /*
  * Estimates the boundary of the cleavage activity vs. cleavage specificity
- * region in the line Cas9 model. 
+ * region in the line-graph Cas9 model. 
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     2/7/2022
+ *     2/8/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -41,29 +41,29 @@ int coin_toss(boost::random::mt19937& rng)
 }
 
 /**
- * Compute:
+ * Compute the following quantities for the given set of parameter values:
+ *
  * - cleavage activity on the perfect-match substrate and
  * - cleavage specificity with respect to the single-mismatch substrate
- *   with the given mismatch position for the line graph
- * with the given set of parameter values. 
+ *   with the given mismatch position for the line-graph Cas9 model. 
  */
 template <typename T, int position>
-VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
+VectorXd computeCleavageStats(const Ref<const VectorXd>& final_input)
 {
     // Array of DNA/RNA match parameters
-    std::pair<T, T> match_params;
-    match_params.first = static_cast<T>(std::pow(10.0, params(0)));
-    match_params.second = static_cast<T>(std::pow(10.0, params(1)));
+    std::pair<T, T> match_final_input;
+    match_final_input.first = static_cast<T>(std::pow(10.0, final_input(0)));
+    match_final_input.second = static_cast<T>(std::pow(10.0, final_input(1)));
 
     // Array of DNA/RNA mismatch parameters
-    std::pair<T, T> mismatch_params;
-    mismatch_params.first = static_cast<T>(std::pow(10.0, params(2)));
-    mismatch_params.second = static_cast<T>(std::pow(10.0, params(3)));
+    std::pair<T, T> mismatch_final_input;
+    mismatch_final_input.first = static_cast<T>(std::pow(10.0, final_input(2)));
+    mismatch_final_input.second = static_cast<T>(std::pow(10.0, final_input(3)));
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<T, T>* model = new LineGraph<T, T>(length);
     for (unsigned j = 0; j < length; ++j)
-        model->setEdgeLabels(j, match_params);
+        model->setEdgeLabels(j, match_final_input);
     
     // Compute cleavage probability on the perfect-match substrate
     T unbind_rate = 1;
@@ -72,7 +72,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
 
     // Introduce one mismatch at the specified position and re-compute
     // cleavage probability
-    model->setEdgeLabels(position, mismatch_params); 
+    model->setEdgeLabels(position, mismatch_final_input); 
     T prob_mismatched = model->getUpperExitProb(unbind_rate, cleave_rate); 
 
     // Compile results and return 
@@ -142,9 +142,10 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
  * Mutate the given parameter values by delta = 0.1. 
  */
 template <typename T>
-Matrix<T, Dynamic, 1> mutateByDelta(const Ref<const Matrix<T, Dynamic, 1> >& params, boost::random::mt19937& rng)
+Matrix<T, Dynamic, 1> mutateByDelta(const Ref<const Matrix<T, Dynamic, 1> >& final_input,
+                                    boost::random::mt19937& rng)
 {
-    Matrix<T, Dynamic, 1> mutated(params);
+    Matrix<T, Dynamic, 1> mutated(final_input);
     const T delta = 0.1;
     for (unsigned i = 0; i < mutated.size(); ++i)
     {
@@ -157,7 +158,7 @@ Matrix<T, Dynamic, 1> mutateByDelta(const Ref<const Matrix<T, Dynamic, 1> >& par
 
 int main(int argc, char** argv)
 {
-    // Define filtering function
+    // Define trivial filtering function
     std::function<bool(const Ref<const VectorXd>&)> filter
         = [](const Ref<const VectorXd>& x)
         {
@@ -165,47 +166,51 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    double tol = 1e-6;
-    unsigned n_within = 2000;
-    unsigned n_bound = 0;
-    unsigned min_step_iter = 100;
-    unsigned max_step_iter = 1000;
-    unsigned min_pull_iter = 10;
-    unsigned max_pull_iter = 50;
-    unsigned max_edges = 1000;
-    bool verbose = true;
-    unsigned sqp_max_iter = 50;
-    double sqp_tol = 1e-3;
-    bool sqp_verbose = false;
+    const unsigned n_init = 1000; 
+    const double tol = 1e-6;
+    const unsigned min_step_iter = 100;
+    const unsigned max_step_iter = 1000;
+    const unsigned min_pull_iter = 10;
+    const unsigned max_pull_iter = 50;
+    const unsigned max_edges = 1000;
+    const bool verbose = true;
+    const unsigned sqp_max_iter = 50;
+    const double sqp_tol = 1e-3;
+    const bool sqp_verbose = false;
     std::stringstream ss;
     ss << argv[3] << "-activity-spec" << argv[4] << "-boundary";
 
-    // Run the boundary-finding algorithm
-    BoundaryFinder finder(tol, rng, argv[1], argv[2]);
-    int position = std::stoi(argv[4]); 
+    // Initialize the boundary-finding algorithm
+    const int position = std::stoi(argv[4]); 
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position);
+    BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], func);
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
-    finder.run(
-        func, mutate, filter, n_within, n_bound, min_step_iter, max_step_iter,
-        min_pull_iter, max_pull_iter, max_edges, verbose, sqp_max_iter,
-        sqp_tol, sqp_verbose, ss.str()
-    );
-    MatrixXd params = finder.getParams();
 
-    // Write sampled parameter combinations to file
+    // Obtain the initial set of input points
+    MatrixXd init_input = finder.sampleInput(n_init);
+
+    // Run the boundary-finding algorithm  
+    finder.run(
+        mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
+        max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose,
+        ss.str()
+    );
+    MatrixXd final_input = finder.getInput(); 
+
+    // Write final set of input points to file 
     std::ostringstream oss;
-    oss << argv[3] << "-activity-spec" << argv[4] << "-boundary-params.tsv";
+    oss << argv[3] << "-activity-spec" << argv[4] << "-boundary-input.tsv";
     std::ofstream samplefile(oss.str());
-    samplefile << std::setprecision(std::numeric_limits<double>::max_digits10);
+    samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (samplefile.is_open())
     {
-        for (unsigned i = 0; i < params.rows(); i++)
+        for (unsigned i = 0; i < final_input.rows(); i++)
         {
-            for (unsigned j = 0; j < params.cols() - 1; j++)
+            for (unsigned j = 0; j < final_input.cols() - 1; j++)
             {
-                samplefile << params(i, j) << "\t";
+                samplefile << final_input(i, j) << "\t";
             }
-            samplefile << params(i, params.cols()-1) << std::endl;
+            samplefile << final_input(i, final_input.cols() - 1) << std::endl;
         }
     }
     samplefile.close();
