@@ -133,7 +133,7 @@ int main(int argc, char** argv)
         std::ostringstream oss;
         oss << argv[2] << "-boundary-codim" << codim << "-params.tsv";
         std::ofstream samplefile(oss.str());
-        samplefile << std::setprecision(std::numeric_limits<double>::max_digits10);
+        samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         if (samplefile.is_open())
         {
             for (unsigned i = 0; i < npoints; ++i) 
@@ -152,7 +152,7 @@ int main(int argc, char** argv)
         // Write matrix of cleavage probabilities
         oss << argv[2] << "-boundary-codim" << codim << "-probs.tsv";
         std::ofstream probsfile(oss.str());
-        probsfile << std::setprecision(std::numeric_limits<double>::max_digits10);
+        probsfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         if (probsfile.is_open())
         {
             for (unsigned i = 0; i < npoints; ++i)
@@ -171,7 +171,7 @@ int main(int argc, char** argv)
         // Write matrix of cleavage specificities 
         oss << argv[2] << "-boundary-codim" << codim << "-specs.tsv";
         std::ofstream specsfile(oss.str());
-        specsfile << std::setprecision(std::numeric_limits<double>::max_digits10);
+        specsfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         if (specsfile.is_open())
         {
             for (unsigned i = 0; i < npoints; ++i)
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
         // Write matrix of (unnormalized) unconditional unbinding rates
         oss << argv[2] << "-boundary-codim" << codim << "-unbind-rates.tsv";
         std::ofstream unbindfile(oss.str());
-        unbindfile << std::setprecision(std::numeric_limits<double>::max_digits10);
+        unbindfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         if (unbindfile.is_open())
         {
             for (unsigned i = 0; i < npoints; ++i)
@@ -209,7 +209,7 @@ int main(int argc, char** argv)
         // Write matrix of (unnormalized) conditional cleavage rates 
         oss << argv[2] << "-boundary-codim" << codim << "-cleave-rates.tsv";
         std::ofstream cleavefile(oss.str());
-        cleavefile << std::setprecision(std::numeric_limits<double>::max_digits10);
+        cleavefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         if (cleavefile.is_open())
         {
             for (unsigned i = 0; i < npoints; ++i)
@@ -228,7 +228,7 @@ int main(int argc, char** argv)
         // Write matrix of normalized unconditional unbinding rates
         oss << argv[2] << "-boundary-codim" << codim << "-norm-unbind.tsv";
         std::ofstream unbindfile2(oss.str());
-        unbindfile2 << std::setprecision(std::numeric_limits<double>::max_digits10);
+        unbindfile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         if (unbindfile2.is_open())
         {
             for (unsigned i = 0; i < npoints; ++i)
@@ -247,7 +247,7 @@ int main(int argc, char** argv)
         // Write matrix of normalized conditional cleavage rates 
         oss << argv[2] << "-boundary-codim" << codim << "-norm-cleave.tsv";
         std::ofstream cleavefile2(oss.str());
-        cleavefile2 << std::setprecision(std::numeric_limits<double>::max_digits10);
+        cleavefile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         if (cleavefile2.is_open())
         {
             for (unsigned i = 0; i < npoints; ++i)
