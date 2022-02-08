@@ -195,7 +195,7 @@ int main(int argc, char** argv)
         max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose,
         ss.str()
     );
-    MatrixXd final_input = finder.getParams();
+    MatrixXd final_input = finder.getInput();
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;
