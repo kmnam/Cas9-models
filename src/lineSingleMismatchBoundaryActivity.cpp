@@ -8,9 +8,9 @@
 #include <boost/math/constants/constants.hpp>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
+#include <boostMultiprecisionEigen.hpp>
 #include <boundaryFinder.hpp>
 #include <graphs/line.hpp>
-#include <boostMultiprecisionEigen.hpp>
 
 /*
  * Estimates the boundary of the cleavage activity vs. cleavage specificity
