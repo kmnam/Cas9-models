@@ -48,22 +48,22 @@ int coin_toss(boost::random::mt19937& rng)
  *   with the given mismatch position for the line-graph Cas9 model. 
  */
 template <typename T, int position>
-VectorXd computeCleavageStats(const Ref<const VectorXd>& final_input)
+VectorXd computeCleavageStats(const Ref<const VectorXd>& input) 
 {
     // Array of DNA/RNA match parameters
-    std::pair<T, T> match_final_input;
-    match_final_input.first = static_cast<T>(std::pow(10.0, final_input(0)));
-    match_final_input.second = static_cast<T>(std::pow(10.0, final_input(1)));
+    std::pair<T, T> match;
+    match.first = static_cast<T>(std::pow(10.0, input(0)));
+    match.second = static_cast<T>(std::pow(10.0, input(1)));
 
     // Array of DNA/RNA mismatch parameters
-    std::pair<T, T> mismatch_final_input;
-    mismatch_final_input.first = static_cast<T>(std::pow(10.0, final_input(2)));
-    mismatch_final_input.second = static_cast<T>(std::pow(10.0, final_input(3)));
+    std::pair<T, T> mismatch;
+    mismatch.first = static_cast<T>(std::pow(10.0, input(2)));
+    mismatch.second = static_cast<T>(std::pow(10.0, input(3)));
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<T, T>* model = new LineGraph<T, T>(length);
     for (unsigned j = 0; j < length; ++j)
-        model->setEdgeLabels(j, match_final_input);
+        model->setEdgeLabels(j, match);
     
     // Compute cleavage probability on the perfect-match substrate
     T unbind_rate = 1;
@@ -72,7 +72,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& final_input)
 
     // Introduce one mismatch at the specified position and re-compute
     // cleavage probability
-    model->setEdgeLabels(position, mismatch_final_input); 
+    model->setEdgeLabels(position, mismatch); 
     T prob_mismatched = model->getUpperExitProb(unbind_rate, cleave_rate); 
 
     // Compile results and return 
@@ -142,10 +142,10 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
  * Mutate the given parameter values by delta = 0.1. 
  */
 template <typename T>
-Matrix<T, Dynamic, 1> mutateByDelta(const Ref<const Matrix<T, Dynamic, 1> >& final_input,
+Matrix<T, Dynamic, 1> mutateByDelta(const Ref<const Matrix<T, Dynamic, 1> >& input,
                                     boost::random::mt19937& rng)
 {
-    Matrix<T, Dynamic, 1> mutated(final_input);
+    Matrix<T, Dynamic, 1> mutated(input);
     const T delta = 0.1;
     for (unsigned i = 0; i < mutated.size(); ++i)
     {
@@ -178,7 +178,7 @@ int main(int argc, char** argv)
     const double sqp_tol = 1e-3;
     const bool sqp_verbose = false;
     std::stringstream ss;
-    ss << argv[3] << "-activity-spec" << argv[4] << "-boundary";
+    ss << argv[3] << "-activity-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]); 
@@ -199,7 +199,7 @@ int main(int argc, char** argv)
 
     // Write final set of input points to file 
     std::ostringstream oss;
-    oss << argv[3] << "-activity-spec" << argv[4] << "-boundary-input.tsv";
+    oss << argv[3] << "-activity-mm" << argv[4] << "-boundary-input.tsv";
     std::ofstream samplefile(oss.str());
     samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (samplefile.is_open())
