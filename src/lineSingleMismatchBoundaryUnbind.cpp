@@ -48,7 +48,7 @@ int coin_toss(boost::random::mt19937& rng)
  *   with the given mismatch position for the line-graph Cas9 model. 
  */
 template <typename T, int position>
-VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
+VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 {
     // Array of DNA/RNA match parameters
     std::pair<T, T> match;
