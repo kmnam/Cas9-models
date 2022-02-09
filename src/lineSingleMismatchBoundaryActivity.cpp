@@ -12,7 +12,7 @@
 #include <boundaryFinder.hpp>
 #include <graphs/line.hpp>
 
-/*
+/**
  * Estimates the boundary of the cleavage activity vs. cleavage specificity
  * region in the line-graph Cas9 model. 
  *
@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     2/8/2022
+ *     2/9/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -172,7 +172,7 @@ int main(int argc, char** argv)
     const unsigned max_step_iter = 1000;
     const unsigned min_pull_iter = 10;
     const unsigned max_pull_iter = 50;
-    const unsigned max_edges = 1000;
+    const unsigned max_edges = 500;
     const bool verbose = true;
     const unsigned sqp_max_iter = 50;
     const double sqp_tol = 1e-3;
