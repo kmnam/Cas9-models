@@ -177,7 +177,7 @@ int main(int argc, char** argv)
     const unsigned max_step_iter = 1000;
     const unsigned min_pull_iter = 10;
     const unsigned max_pull_iter = 50;
-    const unsigned max_edges = 1000;
+    const unsigned max_edges = 500;
     const bool verbose = true;
     const unsigned sqp_max_iter = 50;
     const double sqp_tol = 1e-3;
