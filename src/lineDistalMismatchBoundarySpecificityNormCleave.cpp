@@ -13,7 +13,7 @@
 #include <graphs/line.hpp>
 
 /*
- * Estimates the boundary of the cleavage specificity vs. normalized unbinding
+ * Estimates the boundary of the cleavage specificity vs. normalized cleavage
  * rate region in the line-graph Cas9 model. 
  *
  * **Authors:**
@@ -43,12 +43,12 @@ int coin_toss(boost::random::mt19937& rng)
 /**
  * Compute the following quantities for the given set of parameter values:
  *
- * - cleavage specificity with respect to the single-mismatch substrate
- *   with the given mismatch position
- * - normalized unbinding rate with respect to the single-mismatch substrate
- *   with the given mismatch position for the line-graph Cas9 model. 
+ * - cleavage specificity with respect to the distal-mismatch substrate with 
+ *   the given number of mismatches and 
+ * - normalized cleavage rate with respect to the distal-mismatch substrate 
+ *   with the given number of mismatches for the line-graph Cas9 model. 
  */
-template <typename T, int position>
+template <typename T, int num_mismatches>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 {
     // Array of DNA/RNA match parameters
@@ -66,18 +66,19 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
     for (unsigned j = 0; j < length; ++j)
         model->setEdgeLabels(j, match);
     
-    // Compute cleavage probability and unbinding rate on the perfect-match
+    // Compute cleavage probability and cleavage rate on the perfect-match
     // substrate
     T unbind_rate = 1;
     T cleave_rate = 1; 
     T prob_perfect = model->getUpperExitProb(unbind_rate, cleave_rate);
-    T rate_perfect = model->getLowerExitRate(unbind_rate); 
+    T rate_perfect = model->getUpperExitRate(unbind_rate, cleave_rate); 
 
-    // Introduce one mismatch at the specified position and re-compute
-    // cleavage probability and unbinding rate 
-    model->setEdgeLabels(position, mismatch); 
+    // Introduce the specified number of distal mismatches and re-compute 
+    // cleavage probability and cleavage rate 
+    for (unsigned j = 0; j < num_mismatches; ++j)
+        model->setEdgeLabels(19 - j, mismatch); 
     T prob_mismatched = model->getUpperExitProb(unbind_rate, cleave_rate);
-    T rate_mismatched = model->getLowerExitRate(unbind_rate);  
+    T rate_mismatched = model->getUpperExitRate(unbind_rate, cleave_rate);  
 
     // Compile results and return 
     VectorXd output(2);
@@ -182,7 +183,7 @@ int main(int argc, char** argv)
     const double sqp_tol = 1e-3;
     const bool sqp_verbose = false;
     std::stringstream ss;
-    ss << argv[3] << "-spec-vs-unbind-mm" << argv[4] << "-boundary";
+    ss << argv[3] << "-spec-vs-cleave-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
@@ -203,7 +204,7 @@ int main(int argc, char** argv)
 
     // Write final set of input points to file 
     std::ostringstream oss;
-    oss << argv[3] << "-spec-vs-unbind-mm" << argv[4] << "-boundary-input.tsv";
+    oss << argv[3] << "-spec-vs-cleave-mm" << argv[4] << "-boundary-input.tsv";
     std::ofstream samplefile(oss.str());
     samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (samplefile.is_open())

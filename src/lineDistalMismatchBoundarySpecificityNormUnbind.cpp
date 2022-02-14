@@ -43,12 +43,12 @@ int coin_toss(boost::random::mt19937& rng)
 /**
  * Compute the following quantities for the given set of parameter values:
  *
- * - cleavage specificity with respect to the single-mismatch substrate
- *   with the given mismatch position
- * - normalized unbinding rate with respect to the single-mismatch substrate
- *   with the given mismatch position for the line-graph Cas9 model. 
+ * - cleavage specificity with respect to the distal-mismatch substrate with 
+ *   the given number of mismatches and 
+ * - normalized unbinding rate with respect to the distal-mismatch substrate 
+ *   with the given number of mismatches for the line-graph Cas9 model. 
  */
-template <typename T, int position>
+template <typename T, int num_mismatches>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 {
     // Array of DNA/RNA match parameters
@@ -73,9 +73,10 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
     T prob_perfect = model->getUpperExitProb(unbind_rate, cleave_rate);
     T rate_perfect = model->getLowerExitRate(unbind_rate); 
 
-    // Introduce one mismatch at the specified position and re-compute
+    // Introduce the specified number of distal mismatches and re-compute 
     // cleavage probability and unbinding rate 
-    model->setEdgeLabels(position, mismatch); 
+    for (unsigned j = 0; j < num_mismatches; ++j)
+        model->setEdgeLabels(19 - j, mismatch); 
     T prob_mismatched = model->getUpperExitProb(unbind_rate, cleave_rate);
     T rate_mismatched = model->getLowerExitRate(unbind_rate);  
 

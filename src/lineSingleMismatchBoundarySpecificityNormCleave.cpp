@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     2/9/2022
+ *     2/14/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -44,10 +44,9 @@ int coin_toss(boost::random::mt19937& rng)
  * Compute the following quantities for the given set of parameter values:
  *
  * - cleavage specificity with respect to the single-mismatch substrate
- *   with the given mismatch position for the line graph
+ *   with the given mismatch position and
  * - normalized cleavage rate with respect to the single-mismatch substrate
- *   with the given mismatch position for the line graph for the line-graph
- *   Cas9 model. 
+ *   with the given mismatch position for the line-graph Cas9 model. 
  */
 template <typename T, int position>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
