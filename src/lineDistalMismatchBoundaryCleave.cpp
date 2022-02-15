@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     2/14/2022
+ *     2/15/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -87,15 +87,13 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 
 /**
  * Return the template specialization of `computeCleavageStats()` corresponding
- * to the given mismatch position. 
+ * to the given number of mismatches. 
  */ 
 template <typename T>
-std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position)
+std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int num_mismatches)
 {
-    switch (position)
+    switch (num_mismatches)
     {
-        case 0:
-            return computeCleavageStats<PreciseType, 0>;
         case 1: 
             return computeCleavageStats<PreciseType, 1>;
         case 2:
@@ -133,9 +131,11 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
         case 18:
             return computeCleavageStats<PreciseType, 18>; 
         case 19:
-            return computeCleavageStats<PreciseType, 19>; 
+            return computeCleavageStats<PreciseType, 19>;
+        case 20:
+            return computeCleavageStats<PreciseType, 20>;  
         default:
-            throw std::invalid_argument("Invalid mismatch position"); 
+            throw std::invalid_argument("Invalid number of mismatches"); 
     }
 }
 
@@ -182,8 +182,8 @@ int main(int argc, char** argv)
     ss << argv[3] << "-cleave-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
-    const int position = std::stoi(argv[4]); 
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
+    const int num_mismatches = std::stoi(argv[4]); 
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(num_mismatches);
     BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], func);
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
