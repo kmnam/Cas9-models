@@ -191,12 +191,6 @@ int main(int argc, char** argv)
     BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], func);
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
-    // Initialize the boundary-finding algorithm
-    const int position = std::stoi(argv[4]);
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
-    BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], func);
-    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
-
     // Obtain the initial set of input points 
     MatrixXd init_input = finder.sampleInput(n_init); 
 
