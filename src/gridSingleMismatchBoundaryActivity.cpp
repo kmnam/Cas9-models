@@ -48,36 +48,36 @@ int coin_toss(boost::random::mt19937& rng)
  *   with the given mismatch position for the grid-graph Cas9 model.
  */
 template <typename T, int position>
-VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
+VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 {
     // Array of DNA/RNA match parameters
-    std::pair<T, T> match_params;
-    match_params.first = static_cast<T>(std::pow(10.0, params(0)));
-    match_params.second = static_cast<T>(std::pow(10.0, params(1)));
+    std::pair<T, T> match;
+    match.first = static_cast<T>(std::pow(10.0, input(0)));
+    match.second = static_cast<T>(std::pow(10.0, input(1)));
 
     // Array of DNA/RNA mismatch parameters
-    std::pair<T, T> mismatch_params;
-    mismatch_params.first = static_cast<T>(std::pow(10.0, params(2)));
-    mismatch_params.second = static_cast<T>(std::pow(10.0, params(3)));
+    std::pair<T, T> mismatch;
+    mismatch.first = static_cast<T>(std::pow(10.0, input(2)));
+    mismatch.second = static_cast<T>(std::pow(10.0, input(3)));
 
     // Array of conformational change parameters
-    std::pair<T, T> switch_params = std::make_pair(
-        static_cast<T>(std::pow(10.0, params(4))), 
-        static_cast<T>(std::pow(10.0, params(5)))
+    std::pair<T, T> conf_switch = std::make_pair(
+        static_cast<T>(std::pow(10.0, input(4))), 
+        static_cast<T>(std::pow(10.0, input(5)))
     ); 
 
     // Populate each rung with DNA/RNA match parameters
     GridGraph<T, T>* model = new GridGraph<T, T>(length);
     std::array<T, 6> labels; 
-    model->setZerothLabels(switch_params.first, switch_params.second);
+    model->setZerothLabels(conf_switch.first, conf_switch.second);
     for (unsigned j = 0; j < length; ++j)
     {
-        labels[0] = match_params.first; 
-        labels[1] = match_params.second; 
-        labels[2] = match_params.first; 
-        labels[3] = match_params.second; 
-        labels[4] = switch_params.first; 
-        labels[5] = switch_params.second; 
+        labels[0] = match.first; 
+        labels[1] = match.second; 
+        labels[2] = match.first; 
+        labels[3] = match.second; 
+        labels[4] = conf_switch.first; 
+        labels[5] = conf_switch.second; 
         model->setRungLabels(j, labels); 
     } 
     
@@ -88,10 +88,10 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& params)
 
     // Introduce one mismatch at the specified position and re-compute
     // cleavage probability
-    labels[0] = mismatch_params.first; 
-    labels[1] = mismatch_params.second; 
-    labels[2] = mismatch_params.first; 
-    labels[3] = mismatch_params.second; 
+    labels[0] = mismatch.first; 
+    labels[1] = mismatch.second; 
+    labels[2] = mismatch.first; 
+    labels[3] = mismatch.second; 
     model->setRungLabels(position, labels); 
     T prob_mismatched = std::get<0>(model->getExitStats(unbind_rate, cleave_rate)); 
 
