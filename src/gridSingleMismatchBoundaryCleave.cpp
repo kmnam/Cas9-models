@@ -192,7 +192,7 @@ int main(int argc, char** argv)
     const unsigned max_step_iter = 1000;
     const unsigned min_pull_iter = 10;
     const unsigned max_pull_iter = 50;
-    const unsigned max_edges = 500;
+    const unsigned max_edges = 200;
     const bool verbose = true;
     const unsigned sqp_max_iter = 50;
     const double sqp_tol = 1e-3;
@@ -203,7 +203,7 @@ int main(int argc, char** argv)
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
     std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
-    BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], func);
+    BoundaryFinder<6> finder(tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo, func);
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
     // Obtain the initial set of input points

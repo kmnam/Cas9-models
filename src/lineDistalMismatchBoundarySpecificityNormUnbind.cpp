@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     2/15/2022
+ *     2/23/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -188,7 +188,7 @@ int main(int argc, char** argv)
     // Initialize the boundary-finding algorithm
     const int num_mismatches = std::stoi(argv[4]); 
     std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(num_mismatches);
-    BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], func);
+    BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo, func);
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
     // Obtain the initial set of input points 
