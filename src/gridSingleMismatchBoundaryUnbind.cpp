@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     2/16/2022
+ *     3/2/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -97,7 +97,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 
     // Compile results and return 
     VectorXd output(2);
-    output << static_cast<double>(rate_perfect),
+    output << static_cast<double>(log10(rate_perfect)),
               static_cast<double>(log10(rate_perfect) - log10(rate_mismatched)); 
 
     delete model;
