@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     3/2/2022
+ *     4/8/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -44,10 +44,10 @@ int coin_toss(boost::random::mt19937& rng)
  * Compute the following quantities for the given set of parameter values:
  *
  * - unbinding rate on the perfect-match substrate and
- * - normalized unbinding rate with respect to the single-mismatch substrate
- *   with the given mismatch position for the line-graph Cas9 model. 
+ * - normalized unbinding rate with respect to the proximal-mismatch substrate 
+ *   with the given number of mismatches for the line-graph Cas9 model.
  */
-template <typename T, int position>
+template <typename T, int num_mismatches>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 {
     // Array of DNA/RNA match parameters
@@ -69,9 +69,10 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
     T unbind_rate = 1;
     T rate_perfect = model->getLowerExitRate(unbind_rate); 
 
-    // Introduce one mismatch at the specified position and re-compute
+    // Introduce the specified number of proximal mismatches and re-compute 
     // unbinding rate 
-    model->setEdgeLabels(position, mismatch); 
+    for (unsigned j = 0; j < num_mismatches; ++j)
+        model->setEdgeLabels(j, mismatch); 
     T rate_mismatched = model->getLowerExitRate(unbind_rate); 
 
     // Compile results and return 
@@ -85,15 +86,13 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 
 /**
  * Return the template specialization of `computeCleavageStats()` corresponding
- * to the given mismatch position. 
+ * to the given number of mismatches. 
  */ 
 template <typename T>
-std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position)
+std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int num_mismatches)
 {
-    switch (position)
+    switch (num_mismatches)
     {
-        case 0:
-            return computeCleavageStats<PreciseType, 0>;
         case 1: 
             return computeCleavageStats<PreciseType, 1>;
         case 2:
@@ -131,9 +130,11 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
         case 18:
             return computeCleavageStats<PreciseType, 18>; 
         case 19:
-            return computeCleavageStats<PreciseType, 19>; 
+            return computeCleavageStats<PreciseType, 19>;
+        case 20:
+            return computeCleavageStats<PreciseType, 20>;  
         default:
-            throw std::invalid_argument("Invalid mismatch position"); 
+            throw std::invalid_argument("Invalid number of mismatches"); 
     }
 }
 
@@ -180,8 +181,8 @@ int main(int argc, char** argv)
     ss << argv[3] << "-unbind-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
-    const int position = std::stoi(argv[4]); 
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
+    const int num_mismatches = std::stoi(argv[4]); 
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(num_mismatches);
     BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo, func);
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
