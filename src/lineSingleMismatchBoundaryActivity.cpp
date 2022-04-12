@@ -169,9 +169,9 @@ int main(int argc, char** argv)
     const unsigned n_init = 1000; 
     const double tol = 1e-6;
     const unsigned min_step_iter = 10;
-    const unsigned max_step_iter = 30;
+    const unsigned max_step_iter = 50;
     const unsigned min_pull_iter = 10;
-    const unsigned max_pull_iter = 30;
+    const unsigned max_pull_iter = 50;
     const unsigned max_edges = 300;
     const bool verbose = true;
     const unsigned sqp_max_iter = 100;
