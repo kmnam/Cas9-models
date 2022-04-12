@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     2/23/2022
+ *     4/12/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -181,6 +181,7 @@ int main(int argc, char** argv)
     const unsigned sqp_max_iter = 50;
     const double sqp_tol = 1e-3;
     const bool sqp_verbose = false;
+    const bool use_line_search_sqp = true; 
     std::stringstream ss;
     ss << argv[3] << "-spec-vs-unbind-mm" << argv[4] << "-boundary";
 
@@ -197,7 +198,7 @@ int main(int argc, char** argv)
     finder.run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose,
-        ss.str()
+        use_line_search_sqp, ss.str()
     );
     MatrixXd final_input = finder.getInput(); 
 
