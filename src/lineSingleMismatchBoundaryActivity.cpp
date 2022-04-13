@@ -169,14 +169,14 @@ int main(int argc, char** argv)
     const unsigned n_init = 1000; 
     const double tol = 1e-6;
     const unsigned min_step_iter = 10;
-    const unsigned max_step_iter = 50;
+    const unsigned max_step_iter = 100;
     const unsigned min_pull_iter = 10;
-    const unsigned max_pull_iter = 50;
+    const unsigned max_pull_iter = 100;
     const unsigned max_edges = 300;
     const bool verbose = true;
     const unsigned sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
-    const bool sqp_verbose = true;
+    const bool sqp_verbose = false;
     const bool use_line_search_sqp = false; 
     std::stringstream ss;
     ss << argv[3] << "-activity-mm" << argv[4] << "-boundary";

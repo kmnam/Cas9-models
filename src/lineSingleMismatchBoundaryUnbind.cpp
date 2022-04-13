@@ -165,18 +165,18 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 5000; 
+    const unsigned n_init = 1000; 
     const double tol = 1e-6;
-    const unsigned min_step_iter = 100;
-    const unsigned max_step_iter = 1000;
+    const unsigned min_step_iter = 10;
+    const unsigned max_step_iter = 100;
     const unsigned min_pull_iter = 10;
-    const unsigned max_pull_iter = 50;
-    const unsigned max_edges = 500;
+    const unsigned max_pull_iter = 100;
+    const unsigned max_edges = 300;
     const bool verbose = true;
-    const unsigned sqp_max_iter = 50;
-    const double sqp_tol = 1e-3;
+    const unsigned sqp_max_iter = 100;
+    const double sqp_tol = 1e-6;
     const bool sqp_verbose = false;
-    const bool use_line_search_sqp = true; 
+    const bool use_line_search_sqp = false; 
     std::stringstream ss;
     ss << argv[3] << "-unbind-mm" << argv[4] << "-boundary";
 
@@ -192,7 +192,7 @@ int main(int argc, char** argv)
     // Run the boundary-finding algorithm 
     finder.run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
-        max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose,
+        max_pull_iter, max_edges, sqp_max_iter, sqp_tol, verbose, sqp_verbose,
         use_line_search_sqp, ss.str()
     );
     MatrixXd final_input = finder.getInput();
