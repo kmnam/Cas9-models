@@ -179,9 +179,11 @@ int main(int argc, char** argv)
     const unsigned max_edges = 300;
     const bool verbose = true;
     const unsigned sqp_max_iter = 100;
+    const double delta = 1e-8; 
+    const double beta = 1e-4; 
     const double sqp_tol = 1e-6;
     const bool sqp_verbose = false;
-    const bool use_line_search_sqp = false; 
+    const bool use_line_search_sqp = true; 
     std::stringstream ss;
     ss << argv[3] << "-spec-vs-cleave-mm" << argv[4] << "-boundary";
 
@@ -197,8 +199,8 @@ int main(int argc, char** argv)
     // Run the boundary-finding algorithm 
     finder.run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
-        max_pull_iter, max_edges, sqp_max_iter, sqp_tol, verbose, sqp_verbose,
-        use_line_search_sqp, ss.str()
+        max_pull_iter, max_edges, sqp_max_iter, delta, beta, sqp_tol, verbose,
+        sqp_verbose, use_line_search_sqp, ss.str()
     );
     MatrixXd final_input = finder.getInput(); 
 
