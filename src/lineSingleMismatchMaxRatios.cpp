@@ -193,20 +193,24 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& params,
     // with respect to each single-mismatch substrate 
     Matrix<T, Dynamic, 2> stats(length, 2);
 
-    // Compute log10((1 + c + ... + c^N) / (1 + c + ... + c^(N-1)))
-    Matrix<T, Dynamic, 1> logcpow(length + 1); 
+    // Compute the partial sums of the form log(1), log(1 + c), ..., log(1 + c + ... + c^N)
+    Matrix<T, Dynamic, 1> logc_powers(length + 1);
+    Matrix<T, Dynamic, 1> logc_partial_sums(length + 1); 
     for (unsigned i = 0; i < length + 1; ++i)
-        logcpow(i) = i * logc;
-    T lognumer = logsumexp(logcpow, ten);
-    T logdenom = logsumexp(logcpow.head(length), ten);
+        logc_powers(i) = i * logc;
+    for (unsigned i = 0; i < length + 1; ++i)
+        logc_partial_sums(i) = logsumexp(logc_powers.head(i + 1), ten); 
+    T lognumer = logc_partial_sums(length); 
+    T logdenom = logc_partial_sums(length - 1);
 
     // Compute the asymptotic associativity tradeoff constant for the
     // most-distal-mismatch substrate 
     Matrix<T, Dynamic, 1> arr1(3);
     arr1 << length * logc, 0, logdenom - logd;
+    T logdenom2 = logsumexp(arr1, ten); 
     stats(length - 1, 0) = logc - logcp + lognumer - logdenom;
     stats(length - 1, 0) += logsumexp<T>(0, -logdp, ten); 
-    stats(length - 1, 0) -= logsumexp(arr1, ten);
+    stats(length - 1, 0) -= logdenom2; 
 
     // Compute the asymptotic associativity tradeoff constants for all other 
     // single-mismatch substrates ...
@@ -215,12 +219,12 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& params,
     {
         arr2 << 0,
                 (length - 1 - m) * logc - logdp,
-                logsumexp(logcpow.head(length - 1 - m), ten);
+                logc_partial_sums(length - 2 - m);
         stats(m, 0) = 2 * (logc - logcp) + lognumer;
-        stats(m, 0) -= logsumexp(logcpow.head(m + 1), ten);
+        stats(m, 0) -= logc_partial_sums(m); 
         stats(m, 0) += 2 * logsumexp(arr2, ten); 
-        stats(m, 0) -= 2 * logsumexp(arr1, ten);  
-    } 
+        stats(m, 0) -= 2 * logdenom2; 
+    }
 
     // Compute the asymptotic rapidity tradeoff constants for all single-mismatch
     // substrates ...
@@ -256,23 +260,22 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& params,
             {
                 term1 = logsumexp<T>(
                     (i + 1) * logc,
-                    logc - logd + logsumexp(logcpow(Eigen::seq(0, i - 1)), ten),
+                    logc - logd + logc_partial_sums(i - 1), 
+                    //logc - logd + logsumexp(logc_powers(Eigen::seq(0, i - 1)), ten),
                     ten
                 ); 
             }
             if (m == length - 1)
             {
-                Matrix<T, Dynamic, 1> subarr(2); 
-                subarr << 0,
-                          (length - m - 1) * logc - logdp;
-                term2 = logsumexp(subarr, ten);
+                term2 = logsumexp<T>(0, (length - m - 1) * logc - logdp, ten);
             } 
             else
             {
                 Matrix<T, Dynamic, 1> subarr(3);
                 subarr << 0,
                           (length - m - 1) * logc - logdp,
-                          logsumexp(logcpow(Eigen::seq(0, length - 2 - m)), ten) - logd;
+                          logc_partial_sums(length - 2 - m) - logd; 
+                          //logsumexp(logc_powers(Eigen::seq(0, length - 2 - m)), ten) - logd;
                 term2 = logsumexp(subarr, ten); 
             }
             arrFm(i) = term1 + term2;
@@ -289,7 +292,8 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& params,
             {
                 term1 = logsumexp<T>(
                     0,
-                    logsumexp(logcpow(Eigen::seq(0, length - 1 - i)), ten) - logd,
+                    logc_partial_sums(length - 1 - i) - logd,
+                    //logsumexp(logc_powers(Eigen::seq(0, length - 1 - i)), ten) - logd,
                     ten
                 );
             }
@@ -300,15 +304,16 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& params,
             else 
             {
                 term2 = logsumexp<T>(
-                    (i - 1 - m) * logc - logdp, 
-                    logsumexp(logcpow(Eigen::seq(0, i - 2 - m)), ten) - logd,
+                    (i - 1 - m) * logc - logdp,
+                    logc_partial_sums(i - 2 - m) - logd, 
+                    //logsumexp(logc_powers(Eigen::seq(0, i - 2 - m)), ten) - logd,
                     ten
                 );
             }
             arrFm(i) = logc + term1 + term2; 
         }
 
-        stats(m, 1) = logsumexp(arrFm, ten) - F - logcp;  
+        stats(m, 1) = logsumexp(arrFm, ten) - F - logcp;
     }
 
     return stats;
@@ -498,7 +503,7 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
         specs.row(i) = stats.col(3).tail(length); 
         norm_unbind.row(i) = stats.col(4).tail(length); 
         norm_cleave.row(i) = stats.col(5).tail(length);
-        Matrix<PreciseType, Dynamic, 2> lims;  
+        Matrix<PreciseType, Dynamic, 2> lims; 
         if (idx_fixed_large == 0) 
         {
             lims = computeLimitsForLarge01<PreciseType>(
@@ -512,7 +517,7 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
             );
         }
         lim_norm_unbind.row(i) = lims.col(0); 
-        lim_norm_cleave.row(i) = lims.col(1); 
+        lim_norm_cleave.row(i) = lims.col(1);
     }
 
     // Write sampled parameter combinations to file
