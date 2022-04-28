@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     4/8/2022
+ *     4/29/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -189,17 +189,20 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 5000; 
+    const unsigned n_init = 1000; 
     const double tol = 1e-6;
-    const unsigned min_step_iter = 100;
-    const unsigned max_step_iter = 1000;
+    const unsigned min_step_iter = 10;
+    const unsigned max_step_iter = 100;
     const unsigned min_pull_iter = 10;
-    const unsigned max_pull_iter = 50;
-    const unsigned max_edges = 200;
+    const unsigned max_pull_iter = 100;
+    const unsigned max_edges = 300;
     const bool verbose = true;
-    const unsigned sqp_max_iter = 50;
-    const double sqp_tol = 1e-3;
+    const unsigned sqp_max_iter = 100;
+    const double delta = 1e-8; 
+    const double beta = 1e-4; 
+    const double sqp_tol = 1e-6;
     const bool sqp_verbose = false;
+    const bool use_line_search_sqp = true; 
     std::stringstream ss;
     ss << argv[3] << "-activity-mm" << argv[4] << "-boundary";
 
@@ -215,8 +218,8 @@ int main(int argc, char** argv)
     // Run the boundary-finding algorithm
     finder.run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
-        max_pull_iter, max_edges, verbose, sqp_max_iter, sqp_tol, sqp_verbose,
-        ss.str()
+        max_pull_iter, max_edges, sqp_max_iter, delta, beta, sqp_tol, verbose,
+        sqp_verbose, use_line_search_sqp, ss.str()
     );
     MatrixXd final_input = finder.getInput(); 
 
