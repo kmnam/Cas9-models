@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     4/12/2022
+ *     5/4/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -186,19 +186,22 @@ int main(int argc, char** argv)
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]); 
     std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position);
-    BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo, func);
+    BoundaryFinder* finder = new BoundaryFinder(
+        tol, rng, argv[1], argv[2],
+        Polytopes::InequalityType::GreaterThanOrEqualTo, func
+    );
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
     // Obtain the initial set of input points
-    MatrixXd init_input = finder.sampleInput(n_init);
+    MatrixXd init_input = finder->sampleInput(n_init);
 
     // Run the boundary-finding algorithm  
-    finder.run(
+    finder->run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, max_edges, sqp_max_iter, delta, beta, sqp_tol, verbose,
         sqp_verbose, use_line_search_sqp, ss.str()
     );
-    MatrixXd final_input = finder.getInput(); 
+    MatrixXd final_input = finder->getInput(); 
 
     // Write final set of input points to file 
     std::ostringstream oss;
@@ -220,5 +223,6 @@ int main(int argc, char** argv)
     oss.clear();
     oss.str(std::string());
     
+    delete finder;
     return 0;
 }

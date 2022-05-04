@@ -13,14 +13,14 @@
 #include <graphs/line.hpp>
 
 /*
- * Estimates the boundary of the cleavage specificity vs. normalized unbinding
- * rate region in the line-graph Cas9 model. 
+ * Estimates the boundary of the cleavage specificity vs. specific rapidity
+ * region in the line-graph Cas9 model.
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     4/12/2022
+ *     5/4/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -44,9 +44,11 @@ int coin_toss(boost::random::mt19937& rng)
  * Compute the following quantities for the given set of parameter values:
  *
  * - cleavage specificity with respect to the single-mismatch substrate
- *   with the given mismatch position
- * - normalized unbinding rate with respect to the single-mismatch substrate
- *   with the given mismatch position for the line-graph Cas9 model. 
+ *   with the given mismatch position and
+ * - specific rapidity with respect to the single-mismatch substrate with
+ *   the given mismatch position
+ *
+ * for the line-graph Cas9 model. 
  */
 template <typename T, int position>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
@@ -66,18 +68,18 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
     for (unsigned j = 0; j < length; ++j)
         model->setEdgeLabels(j, match);
     
-    // Compute cleavage probability and unbinding rate on the perfect-match
+    // Compute cleavage probability and cleavage rate on the perfect-match
     // substrate
     T unbind_rate = 1;
     T cleave_rate = 1; 
     T prob_perfect = model->getUpperExitProb(unbind_rate, cleave_rate);
-    T rate_perfect = model->getLowerExitRate(unbind_rate); 
+    T rate_perfect = model->getUpperExitRate(unbind_rate, cleave_rate); 
 
     // Introduce one mismatch at the specified position and re-compute
-    // cleavage probability and unbinding rate 
+    // cleavage probability and cleavage rate 
     model->setEdgeLabels(position, mismatch); 
     T prob_mismatched = model->getUpperExitProb(unbind_rate, cleave_rate);
-    T rate_mismatched = model->getLowerExitRate(unbind_rate);  
+    T rate_mismatched = model->getUpperExitRate(unbind_rate, cleave_rate);  
 
     // Compile results and return 
     VectorXd output(2);
@@ -185,28 +187,31 @@ int main(int argc, char** argv)
     const bool sqp_verbose = false;
     const bool use_line_search_sqp = true; 
     std::stringstream ss;
-    ss << argv[3] << "-spec-vs-unbind-mm" << argv[4] << "-boundary";
+    ss << argv[3] << "-spec-rapidity-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
     std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
-    BoundaryFinder<4> finder(tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo, func);
+    BoundaryFinder* finder = new BoundaryFinder(
+        tol, rng, argv[1], argv[2],
+        Polytopes::InequalityType::GreaterThanOrEqualTo, func
+    );
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
-    // Obtain the initial set of input points 
-    MatrixXd init_input = finder.sampleInput(n_init); 
+    // Obtain the initial set of input points
+    MatrixXd init_input = finder->sampleInput(n_init);
 
-    // Run the boundary-finding algorithm 
-    finder.run(
+    // Run the boundary-finding algorithm  
+    finder->run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, max_edges, sqp_max_iter, delta, beta, sqp_tol, verbose,
         sqp_verbose, use_line_search_sqp, ss.str()
     );
-    MatrixXd final_input = finder.getInput(); 
+    MatrixXd final_input = finder->getInput(); 
 
     // Write final set of input points to file 
     std::ostringstream oss;
-    oss << argv[3] << "-spec-vs-unbind-mm" << argv[4] << "-boundary-input.tsv";
+    oss << argv[3] << "-spec-rapidity-mm" << argv[4] << "-boundary-input.tsv";
     std::ofstream samplefile(oss.str());
     samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (samplefile.is_open())
@@ -223,6 +228,7 @@ int main(int argc, char** argv)
     samplefile.close();
     oss.clear();
     oss.str(std::string());
-    
+
+    delete finder;    
     return 0;
 }
