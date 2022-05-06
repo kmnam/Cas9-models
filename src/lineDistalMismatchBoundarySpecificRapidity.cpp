@@ -184,7 +184,8 @@ int main(int argc, char** argv)
     const unsigned max_edges = 300;
     const double tau = 0.5;
     const double delta = 1e-8; 
-    const double beta = 1e-4; 
+    const double beta = 1e-4;
+    const bool use_only_armijo = false; 
     const bool use_strong_wolfe = false;
     const unsigned hessian_modify_max_iter = 1000; 
     const double c1 = 1e-4; 
@@ -210,8 +211,8 @@ int main(int argc, char** argv)
     finder->run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, sqp_max_iter, sqp_tol, max_edges, tau, delta, beta,
-        use_strong_wolfe, hessian_modify_max_iter, ss.str(), c1, c2, verbose,
-        sqp_verbose 
+        use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, ss.str(),
+        c1, c2, verbose, sqp_verbose 
     );
     MatrixXd final_input = finder->getInput(); 
 
