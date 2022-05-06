@@ -186,7 +186,7 @@ int main(int argc, char** argv)
     const double beta = 1e-4;
     const bool use_only_armijo = false;  
     const bool use_strong_wolfe = false;
-    const unsigned hessian_modify_max_iter = 1000; 
+    const unsigned hessian_modify_max_iter = 10000; 
     const double c1 = 1e-4; 
     const double c2 = 0.9;
     const bool verbose = true;
