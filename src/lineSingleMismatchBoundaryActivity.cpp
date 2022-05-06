@@ -168,10 +168,10 @@ int main(int argc, char** argv)
     // Boundary-finding algorithm settings
     const unsigned n_init = 1000; 
     const double tol = 1e-6;
-    const unsigned min_step_iter = 2;
-    const unsigned max_step_iter = 10;
-    const unsigned min_pull_iter = 2;
-    const unsigned max_pull_iter = 10;
+    const unsigned min_step_iter = 10;
+    const unsigned max_step_iter = 100;
+    const unsigned min_pull_iter = 10;
+    const unsigned max_pull_iter = 100;
     const unsigned sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
     const unsigned max_edges = 300;
