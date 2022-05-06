@@ -168,10 +168,10 @@ int main(int argc, char** argv)
     // Boundary-finding algorithm settings
     const unsigned n_init = 1000; 
     const double tol = 1e-6;
-    const unsigned min_step_iter = 10;
-    const unsigned max_step_iter = 100;
-    const unsigned min_pull_iter = 10;
-    const unsigned max_pull_iter = 100;
+    const unsigned min_step_iter = 2;
+    const unsigned max_step_iter = 10;
+    const unsigned min_pull_iter = 2;
+    const unsigned max_pull_iter = 10;
     const unsigned sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
     const unsigned max_edges = 300;
@@ -179,7 +179,9 @@ int main(int argc, char** argv)
     const double delta = 1e-8; 
     const double beta = 1e-4; 
     const bool use_strong_wolfe = false;
-    const unsigned hessian_modify_max_iter = 1000; 
+    const unsigned hessian_modify_max_iter = 1000;
+    const double c1 = 1e-4; 
+    const double c2 = 0.9; 
     const bool verbose = true;
     const bool sqp_verbose = false;
     std::stringstream ss;
@@ -201,7 +203,8 @@ int main(int argc, char** argv)
     finder->run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, sqp_max_iter, sqp_tol, max_edges, tau, delta, beta,
-        use_strong_wolfe, hessian_modify_max_iter, ss.str(), verbose, sqp_verbose 
+        use_strong_wolfe, hessian_modify_max_iter, ss.str(), c1, c2, verbose,
+        sqp_verbose 
     );
     MatrixXd final_input = finder->getInput(); 
 
