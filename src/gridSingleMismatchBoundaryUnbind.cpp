@@ -219,16 +219,16 @@ int main(int argc, char** argv)
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
     // Obtain the initial set of input points
-    MatrixXd init_input = finder.sampleInput(n_init); 
+    MatrixXd init_input = finder->sampleInput(n_init); 
     
     // Run the boundary-finding algorithm
-    finder.run(
+    finder->run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, sqp_max_iter, sqp_tol, max_edges, tau, delta, beta,
         use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, ss.str(),
         c1, c2, verbose, sqp_verbose
     );
-    MatrixXd final_input = finder.getInput(); 
+    MatrixXd final_input = finder->getInput(); 
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;
