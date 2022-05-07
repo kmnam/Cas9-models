@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     4/18/2022
+ *     5/7/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -198,21 +198,30 @@ int main(int argc, char** argv)
     const unsigned max_step_iter = 100;
     const unsigned min_pull_iter = 10;
     const unsigned max_pull_iter = 100;
+    const unsigned sqp_max_iter = 100; 
+    const double sqp_tol = 1e-6; 
     const unsigned max_edges = 300;
     const bool verbose = true;
-    const unsigned sqp_max_iter = 100;
+    const double tau = 0.5;
     const double delta = 1e-8; 
-    const double beta = 1e-4; 
-    const double sqp_tol = 1e-6;
+    const double beta = 1e-4;
+    const bool use_only_armijo = false;
+    const bool use_strong_wolfe = false; 
+    const unsigned hessian_modify_max_iter = 10000;
+    const double c1 = 1e-4;
+    const double c2 = 0.9;
+    const bool verbose = true; 
     const bool sqp_verbose = false;
-    const bool use_line_search_sqp = true; 
     std::stringstream ss;
-    ss << argv[3] << "-spec-vs-unbind-mm" << argv[4] << "-boundary";
+    ss << argv[3] << "-spec-assoc-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
     std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
-    BoundaryFinder<6> finder(tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo, func);
+    BoundaryFinder* finder = new BoundaryFinder(
+        tol, rng, argv[1], argv[2],
+        Polytopes::InequalityType::GreaterThanOrEqualTo, func
+    );
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
     // Obtain the initial set of input points
@@ -221,14 +230,15 @@ int main(int argc, char** argv)
     // Run the boundary-finding algorithm
     finder.run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
-        max_pull_iter, max_edges, sqp_max_iter, delta, beta, sqp_tol, verbose,
-        sqp_verbose, use_line_search_sqp, ss.str()
+        max_pull_iter, sqp_max_iter, sqp_tol, max_edges, tau, delta, beta,
+        use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, ss.str(),
+        c1, c2, verbose, sqp_verbose
     );
     MatrixXd final_input = finder.getInput(); 
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;
-    oss << argv[3] << "-spec-vs-unbind-mm" << argv[4] << "-boundary-input.tsv";
+    oss << argv[3] << "-spec-assoc-mm" << argv[4] << "-boundary-input.tsv";
     std::ofstream samplefile(oss.str());
     samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (samplefile.is_open())
@@ -245,6 +255,7 @@ int main(int argc, char** argv)
     samplefile.close();
     oss.clear();
     oss.str(std::string());
-    
+   
+    delete finder;  
     return 0;
 }
