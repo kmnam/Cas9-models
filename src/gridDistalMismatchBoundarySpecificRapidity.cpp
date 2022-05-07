@@ -204,7 +204,6 @@ int main(int argc, char** argv)
     const unsigned sqp_max_iter = 100; 
     const double sqp_tol = 1e-6; 
     const unsigned max_edges = 300;
-    const bool verbose = true;
     const double tau = 0.5;
     const double delta = 1e-8; 
     const double beta = 1e-4;
