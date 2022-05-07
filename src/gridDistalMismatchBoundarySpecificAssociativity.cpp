@@ -13,14 +13,14 @@
 #include <graphs/grid.hpp>
 
 /*
- * Estimates the boundary of the cleavage specificity vs. normalized cleavage 
+ * Estimates the boundary of the cleavage specificity vs. normalized unbinding
  * rate region in the grid-graph Cas9 model. 
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     4/29/2022
+ *     5/7/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -45,10 +45,10 @@ int coin_toss(boost::random::mt19937& rng)
  *
  * - cleavage specificity with respect to the single-mismatch substrate 
  *   with the given number of mismatches and 
- * - normalized cleavage rate with respect to the single-mismatch substrate 
- *   with the given number of mismatches
+ * - normalized unbinding rate with respect to the single-mismatch substrate 
+ *   with the given number of mismatches 
  *
- * for the grid-graph Cas9 model. 
+ * for the grid-graph Cas9 model.
  */
 template <typename T, int num_mismatches>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
@@ -84,25 +84,25 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
         model->setRungLabels(j, labels); 
     } 
     
-    // Compute cleavage probability and cleavage rate on the perfect-match
+    // Compute cleavage probability and unbinding rate on the perfect-match
     // substrate
     T unbind_rate = 1;
     T cleave_rate = 1; 
     auto result = model->getExitStats(unbind_rate, cleave_rate);
     T prob_perfect = std::get<0>(result); 
-    T rate_perfect = std::get<2>(result); 
+    T rate_perfect = std::get<1>(result); 
 
     // Introduce the specified number of distal mismatches and re-compute 
-    // cleavage probability and cleavage rate
+    // cleavage probability and unbinding rate
     labels[0] = mismatch.first; 
     labels[1] = mismatch.second; 
     labels[2] = mismatch.first; 
-    labels[3] = mismatch.second;
+    labels[3] = mismatch.second; 
     for (unsigned j = 0; j < num_mismatches; ++j) 
         model->setRungLabels(19 - j, labels); 
     result = model->getExitStats(unbind_rate, cleave_rate);
     T prob_mismatched = std::get<0>(result); 
-    T rate_mismatched = std::get<2>(result); 
+    T rate_mismatched = std::get<1>(result); 
 
     // Compile results and return 
     VectorXd output(2);
@@ -115,7 +115,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 
 /**
  * Return the template specialization of `computeCleavageStats()` corresponding
- * to the given number of mismatches. 
+ * to the given number of mismatches.
  */ 
 template <typename T>
 std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int num_mismatches)
@@ -201,21 +201,30 @@ int main(int argc, char** argv)
     const unsigned max_step_iter = 100;
     const unsigned min_pull_iter = 10;
     const unsigned max_pull_iter = 100;
+    const unsigned sqp_max_iter = 100; 
+    const double sqp_tol = 1e-6; 
     const unsigned max_edges = 300;
     const bool verbose = true;
-    const unsigned sqp_max_iter = 100;
+    const double tau = 0.5;
     const double delta = 1e-8; 
-    const double beta = 1e-4; 
-    const double sqp_tol = 1e-6;
+    const double beta = 1e-4;
+    const bool use_only_armijo = false;
+    const bool use_strong_wolfe = false; 
+    const unsigned hessian_modify_max_iter = 10000;
+    const double c1 = 1e-4;
+    const double c2 = 0.9;
+    const bool verbose = true; 
     const bool sqp_verbose = false;
-    const bool use_line_search_sqp = true; 
     std::stringstream ss;
-    ss << argv[3] << "-spec-vs-cleave-mm" << argv[4] << "-boundary";
+    ss << argv[3] << "-spec-assoc-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
     const int num_mismatches = std::stoi(argv[4]);
     std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(num_mismatches); 
-    BoundaryFinder<6> finder(tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo, func);
+    BoundaryFinder* finder = new BoundaryFinder(
+        tol, rng, argv[1], argv[2],
+        Polytopes::InequalityType::GreaterThanOrEqualTo, func
+    );
     std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
 
     // Obtain the initial set of input points
@@ -224,14 +233,15 @@ int main(int argc, char** argv)
     // Run the boundary-finding algorithm
     finder.run(
         mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
-        max_pull_iter, max_edges, sqp_max_iter, delta, beta, sqp_tol, verbose,
-        sqp_verbose, use_line_search_sqp, ss.str()
+        max_pull_iter, sqp_max_iter, sqp_tol, max_edges, tau, delta, beta,
+        use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, ss.str(),
+        c1, c2, verbose, sqp_verbose
     );
     MatrixXd final_input = finder.getInput(); 
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;
-    oss << argv[3] << "-spec-vs-cleave-mm" << argv[4] << "-boundary-input.tsv";
+    oss << argv[3] << "-spec-assoc-mm" << argv[4] << "-boundary-input.tsv";
     std::ofstream samplefile(oss.str());
     samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (samplefile.is_open())
@@ -248,6 +258,7 @@ int main(int argc, char** argv)
     samplefile.close();
     oss.clear();
     oss.str(std::string());
-    
+
+    delete finder;     
     return 0;
 }
