@@ -35,7 +35,7 @@ boost::random::mt19937 rng(1234567890);
 
 std::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
 
-int coin_toss(boost::random::mt19937& rng)
+int fair_coin_toss(boost::random::mt19937& rng)
 {
     return fair_bernoulli_dist(rng);
 }
