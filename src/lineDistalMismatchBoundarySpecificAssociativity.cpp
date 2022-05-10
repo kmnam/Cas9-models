@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     5/6/2022
+ *     5/10/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -38,6 +38,29 @@ std::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
 int coin_toss(boost::random::mt19937& rng)
 {
     return fair_bernoulli_dist(rng);
+}
+
+/**
+ * Get the maximum distance between any pair of vertices in the given matrix.
+ *
+ * @param vertices Matrix of vertex coordinates.
+ * @returns        Maximum distance between any pair of vertices. 
+ */
+template <typename T>
+T getMaxDist(const Ref<const Matrix<T, Dynamic, Dynamic> >& vertices)
+{
+    T maxdist = 0;
+    for (int i = 0; i < vertices.rows() - 1; ++i)
+    {
+        for (int j = i + 1; j < vertices.rows(); ++j)
+        {
+            T dist = (vertices.row(i) - vertices.row(j)).norm(); 
+            if (maxdist < dist)
+                maxdist = dist; 
+        }
+    }
+    
+    return maxdist; 
 }
 
 /**
@@ -144,20 +167,31 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int num_mism
 }
 
 /**
- * Mutate the given parameter values by delta = 0.1. 
+ * Mutate the given parameter values by randomly chosen increments from 
+ * the given uniform distribution.
  */
 template <typename T>
-Matrix<T, Dynamic, 1> mutateByDelta(const Ref<const Matrix<T, Dynamic, 1> >& input,
-                                    boost::random::mt19937& rng)
+Matrix<T, Dynamic, 1> mutateByRandomIncrements(const Ref<const Matrix<T, Dynamic, 1> >& input,
+                                               boost::random::mt19937& rng,
+                                               boost::random::uniform_real_distribution<T>& dist,
+                                               const bool sample_sign = false)
 {
     Matrix<T, Dynamic, 1> mutated(input);
-    const T delta = 0.1;
-    for (unsigned i = 0; i < mutated.size(); ++i)
+    if (sample_sign)    // If the sign of the increment should also be sampled
     {
-        int toss = coin_toss(rng);
-        if (!toss) mutated(i) += delta;
-        else       mutated(i) -= delta;
+        for (unsigned i = 0; i < mutated.size(); ++i)
+        {
+            int toss = fair_coin_toss(rng);
+            if (!toss) mutated(i) += dist(rng);
+            else       mutated(i) -= dist(rng);
+        }
     }
+    else                // Otherwise, simply add each randomly sampled increment
+    {
+        for (unsigned i = 0; i < mutated.size(); ++i)
+            mutated(i) += dist(rng); 
+    }
+
     return mutated;
 }
 
@@ -200,7 +234,13 @@ int main(int argc, char** argv)
         tol, rng, argv[1], argv[2],
         Polytopes::InequalityType::GreaterThanOrEqualTo, func
     );
-    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate = mutateByDelta<double>;
+    double mutate_delta = 0.1 * getMaxDist<double>(finder->getVertices());
+    boost::random::uniform_real_distribution<double> dist(-mutate_delta, mutate_delta); 
+    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate
+        = [&dist](const Ref<const VectorXd>& x, boost::random::mt19937& gen) -> VectorXd
+        {
+            return mutateByRandomIncrements<double>(x, gen, dist, false); 
+        };
 
     // Obtain the initial set of input points
     MatrixXd init_input = finder->sampleInput(n_init);
@@ -212,27 +252,6 @@ int main(int argc, char** argv)
         use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, ss.str(),
         c1, c2, verbose, sqp_verbose 
     );
-    MatrixXd final_input = finder->getInput(); 
-
-    // Write final set of input points to file 
-    std::ostringstream oss;
-    oss << argv[3] << "-spec-assoc-mm" << argv[4] << "-boundary-input.tsv";
-    std::ofstream samplefile(oss.str());
-    samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-    if (samplefile.is_open())
-    {
-        for (unsigned i = 0; i < final_input.rows(); i++)
-        {
-            for (unsigned j = 0; j < final_input.cols() - 1; j++)
-            {
-                samplefile << final_input(i, j) << "\t";
-            }
-            samplefile << final_input(i, final_input.cols() - 1) << std::endl;
-        }
-    }
-    samplefile.close();
-    oss.clear();
-    oss.str(std::string());
 
     delete finder;    
     return 0;
