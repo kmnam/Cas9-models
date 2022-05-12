@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     5/10/2022
+ *     5/12/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -32,13 +32,6 @@ const unsigned length = 20;
 
 // Instantiate random number generator 
 boost::random::mt19937 rng(1234567890);
-
-std::uniform_int_distribution<> fair_bernoulli_dist(0, 1);
-
-int fair_coin_toss(boost::random::mt19937& rng)
-{
-    return fair_bernoulli_dist(rng);
-}
 
 /**
  * Get the maximum distance between any pair of vertices in the given matrix.
@@ -161,35 +154,6 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
     }
 }
 
-/**
- * Mutate the given parameter values by randomly chosen increments from 
- * the given uniform distribution.
- */
-template <typename T>
-Matrix<T, Dynamic, 1> mutateByRandomIncrements(const Ref<const Matrix<T, Dynamic, 1> >& input,
-                                               boost::random::mt19937& rng,
-                                               boost::random::uniform_real_distribution<T>& dist,
-                                               const bool sample_sign = false)
-{
-    Matrix<T, Dynamic, 1> mutated(input);
-    if (sample_sign)    // If the sign of the increment should also be sampled
-    {
-        for (unsigned i = 0; i < mutated.size(); ++i)
-        {
-            int toss = fair_coin_toss(rng);
-            if (!toss) mutated(i) += dist(rng);
-            else       mutated(i) -= dist(rng);
-        }
-    }
-    else                // Otherwise, simply add each randomly sampled increment
-    {
-        for (unsigned i = 0; i < mutated.size(); ++i)
-            mutated(i) += dist(rng); 
-    }
-
-    return mutated;
-}
-
 int main(int argc, char** argv)
 {
     // Define trivial filtering function
@@ -230,19 +194,13 @@ int main(int argc, char** argv)
         Polytopes::InequalityType::GreaterThanOrEqualTo, func
     );
     double mutate_delta = 0.1 * getMaxDist<double>(finder->getVertices());
-    boost::random::uniform_real_distribution<double> dist(-mutate_delta, mutate_delta); 
-    std::function<VectorXd(const Ref<const VectorXd>&, boost::random::mt19937&)> mutate
-        = [&dist](const Ref<const VectorXd>& x, boost::random::mt19937& gen) -> VectorXd
-        {
-            return mutateByRandomIncrements<double>(x, gen, dist, false); 
-        };
-
+    
     // Obtain the initial set of input points
     MatrixXd init_input = finder->sampleInput(n_init); 
 
     // Run the boundary-finding algorithm
     finder->run(
-        mutate, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
+        mutate_delta, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, sqp_max_iter, sqp_tol, max_edges, tau, delta, beta,
         use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, ss.str(),
         c1, c2, verbose, sqp_verbose 
