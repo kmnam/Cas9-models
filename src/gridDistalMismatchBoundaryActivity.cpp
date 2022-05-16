@@ -34,6 +34,29 @@ const unsigned length = 20;
 boost::random::mt19937 rng(1234567890);
 
 /**
+ * Get the maximum distance between any pair of vertices in the given matrix.
+ *
+ * @param vertices Matrix of vertex coordinates.
+ * @returns        Maximum distance between any pair of vertices. 
+ */
+template <typename T>
+T getMaxDist(const Ref<const Matrix<T, Dynamic, Dynamic> >& vertices)
+{
+    T maxdist = 0;
+    for (int i = 0; i < vertices.rows() - 1; ++i)
+    {
+        for (int j = i + 1; j < vertices.rows(); ++j)
+        {
+            T dist = (vertices.row(i) - vertices.row(j)).norm(); 
+            if (maxdist < dist)
+                maxdist = dist; 
+        }
+    }
+    
+    return maxdist; 
+}
+
+/**
  * Compute the following quantities for the given set of parameter values:
  *
  * - cleavage activity on the perfect-match substrate and
