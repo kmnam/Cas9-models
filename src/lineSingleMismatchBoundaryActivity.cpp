@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     5/12/2022
+ *     5/16/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 1000; 
+    const unsigned n_init = 2000; 
     const double tol = 1e-6;
     const unsigned min_step_iter = 10;
     const unsigned max_step_iter = 100;
@@ -172,7 +172,7 @@ int main(int argc, char** argv)
     const unsigned max_pull_iter = 100;
     const unsigned sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
-    const unsigned max_edges = 300;
+    const unsigned max_edges = 500;
     const double tau = 0.5;
     const double delta = 1e-8; 
     const double beta = 1e-4;
