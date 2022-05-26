@@ -13,14 +13,14 @@
 #include <graphs/line.hpp>
 
 /*
- * Estimates the boundary of the cleavage specificity vs. specific associativity
- * region in the line-graph Cas9 model.
+ * Estimates the boundary of the cleavage specificity vs. dead specific
+ * associativity region in the line-graph Cas9 model.
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     5/16/2022
+ *     5/26/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -61,7 +61,7 @@ T getMaxDist(const Ref<const Matrix<T, Dynamic, Dynamic> >& vertices)
  *
  * - cleavage specificity with respect to the single-mismatch substrate
  *   with the given mismatch position
- * - specific associativity with respect to the single-mismatch substrate
+ * - dead specific associativity with respect to the single-mismatch substrate
  *   with the given mismatch position
  *
  * for the line-graph Cas9 model. 
@@ -84,7 +84,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
     for (unsigned j = 0; j < length; ++j)
         model->setEdgeLabels(j, match);
     
-    // Compute cleavage probability and unbinding rate on the perfect-match
+    // Compute cleavage probability and dead unbinding rate on the perfect-match
     // substrate
     T unbind_rate = 1;
     T cleave_rate = 1; 
@@ -92,7 +92,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
     T rate_perfect = model->getLowerExitRate(unbind_rate); 
 
     // Introduce one mismatch at the specified position and re-compute
-    // cleavage probability and unbinding rate 
+    // cleavage probability and dead unbinding rate 
     model->setEdgeLabels(position, mismatch); 
     T prob_mismatched = model->getUpperExitProb(unbind_rate, cleave_rate);
     T rate_mismatched = model->getLowerExitRate(unbind_rate);  
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
     const bool verbose = true;
     const bool sqp_verbose = false;
     std::stringstream ss;
-    ss << argv[3] << "-spec-assoc-mm" << argv[4] << "-boundary";
+    ss << argv[3] << "-spec-assoc-dead-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
