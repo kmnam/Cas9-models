@@ -15,7 +15,7 @@
  * respect to single-mismatch substrates for the line-graph Cas9 model.
  *
  * Call as: 
- *     ./bin/lineSingleMismatch [SAMPLING POLYTOPE .delv FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
+ *     ./bin/lineSingleMismatch [SAMPLING POLYTOPE .vert FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
