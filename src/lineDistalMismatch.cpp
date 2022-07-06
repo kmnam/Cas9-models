@@ -21,7 +21,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     7/5/2022
+ *     7/6/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -60,7 +60,7 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
     // Compute cleavage probability, cleavage rate, dead unbinding rate, and
     // live unbinding rate
     T terminal_unbind_rate = static_cast<T>(std::pow(10.0, logrates(4))); 
-    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(5))); 
+    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(5)));
     Matrix<T, Dynamic, 8> stats = Matrix<T, Dynamic, 8>::Zero(length + 1, 8); 
     stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
@@ -71,14 +71,14 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
     for (int j = 1; j <= length; ++j)    // j = number of distal mismatches 
     {
         model->setEdgeLabels(length - j, mismatch_rates);
-        stats(j+1, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
-        stats(j+1, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
-        stats(j+1, 2) = model->getLowerExitRate(terminal_unbind_rate);
-        stats(j+1, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        stats(j+1, 4) = log10(stats(0, 0)) - log10(stats(j+1, 0));
-        stats(j+1, 5) = log10(stats(0, 1)) - log10(stats(j+1, 1)); 
-        stats(j+1, 6) = log10(stats(j+1, 2)) - log10(stats(0, 2));
-        stats(j+1, 7) = log10(stats(j+1, 3)) - log10(stats(0, 3));
+        stats(j, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+        stats(j, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
+        stats(j, 2) = model->getLowerExitRate(terminal_unbind_rate);
+        stats(j, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
+        stats(j, 4) = log10(stats(0, 0)) - log10(stats(j, 0));
+        stats(j, 5) = log10(stats(0, 1)) - log10(stats(j, 1)); 
+        stats(j, 6) = log10(stats(j, 2)) - log10(stats(0, 2));
+        stats(j, 7) = log10(stats(j, 3)) - log10(stats(0, 3));
     }
 
     delete model;
