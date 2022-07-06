@@ -86,16 +86,16 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
     
     // Compute cleavage probability and dead unbinding rate on the perfect-match
     // substrate
-    T unbind_rate = 1;
-    T cleave_rate = 1; 
-    T prob_perfect = model->getUpperExitProb(unbind_rate, cleave_rate);
-    T rate_perfect = model->getLowerExitRate(unbind_rate); 
+    T terminal_unbind_rate = static_cast<T>(std::pow(10.0, input(4)));
+    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, input(5))); 
+    T prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+    T rate_perfect = model->getLowerExitRate(terminal_unbind_rate); 
 
     // Introduce one mismatch at the specified position and re-compute
     // cleavage probability and dead unbinding rate 
     model->setEdgeLabels(position, mismatch); 
-    T prob_mismatched = model->getUpperExitProb(unbind_rate, cleave_rate);
-    T rate_mismatched = model->getLowerExitRate(unbind_rate);  
+    T prob_mismatched = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+    T rate_mismatched = model->getLowerExitRate(terminal_unbind_rate);  
 
     // Compile results and return 
     VectorXd output(2);
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
     const bool verbose = true;
     const bool sqp_verbose = false;
     std::stringstream ss;
-    ss << argv[3] << "-spec-dissoc-dead-mm" << argv[4] << "-boundary";
+    ss << argv[3] << "-spec-vs-deaddissoc-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);

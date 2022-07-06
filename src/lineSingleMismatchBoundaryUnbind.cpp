@@ -82,13 +82,13 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
         model->setEdgeLabels(j, match);
     
     // Compute unbinding rate on the perfect-match substrate 
-    T unbind_rate = 1;
-    T rate_perfect = model->getLowerExitRate(unbind_rate); 
+    T terminal_unbind_rate = static_cast<T>(std::pow(10.0, input(4)));
+    T rate_perfect = model->getLowerExitRate(terminal_unbind_rate); 
 
     // Introduce one mismatch at the specified position and re-compute
     // unbinding rate 
     model->setEdgeLabels(position, mismatch); 
-    T rate_mismatched = model->getLowerExitRate(unbind_rate); 
+    T rate_mismatched = model->getLowerExitRate(terminal_unbind_rate); 
 
     // Compile results and return 
     VectorXd output(2);
