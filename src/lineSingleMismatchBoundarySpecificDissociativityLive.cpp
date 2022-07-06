@@ -12,9 +12,9 @@
 #include <boundaryFinder.hpp>
 #include <graphs/line.hpp>
 
-/**
- * Estimates the boundary of the cleavage rate vs. *normalized* cleavage rate
- * region in the line-graph Cas9 model. 
+/*
+ * Estimates the boundary of the cleavage specificity vs. live specific 
+ * dissociativity region in the line-graph Cas9 model. 
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
@@ -59,9 +59,12 @@ T getMaxDist(const Ref<const Matrix<T, Dynamic, Dynamic> >& vertices)
 /**
  * Compute the following quantities for the given set of parameter values:
  *
- * - cleavage rate on the perfect-match substrate and
- * - normalized cleavage rate with respect to the single-mismatch substrate
- *   with the given mismatch position for the line-graph Cas9 model. 
+ * - cleavage specificity with respect to the single-mismatch substrate
+ *   with the given mismatch position and
+ * - live specific dissociativity with respect to the single-mismatch substrate
+ *   with the given mismatch position
+ *
+ * for the line-graph Cas9 model. 
  */
 template <typename T, int position>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
@@ -81,19 +84,22 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
     for (unsigned j = 0; j < length; ++j)
         model->setEdgeLabels(j, match);
     
-    // Compute cleavage rate on the perfect-match substrate 
+    // Compute cleavage probability and live unbinding rate on the perfect-match
+    // substrate
     T unbind_rate = 1;
-    T cleave_rate = 1;
-    T rate_perfect = model->getUpperExitRate(unbind_rate, cleave_rate);  
+    T cleave_rate = 1; 
+    T prob_perfect = model->getUpperExitProb(unbind_rate, cleave_rate);
+    T rate_perfect = model->getLowerExitRate(unbind_rate, cleave_rate); 
 
     // Introduce one mismatch at the specified position and re-compute
-    // cleavage rate 
+    // cleavage probability and live unbinding rate 
     model->setEdgeLabels(position, mismatch); 
-    T rate_mismatched = model->getUpperExitRate(unbind_rate, cleave_rate); 
+    T prob_mismatched = model->getUpperExitProb(unbind_rate, cleave_rate);
+    T rate_mismatched = model->getLowerExitRate(unbind_rate, cleave_rate);
 
     // Compile results and return 
     VectorXd output(2);
-    output << static_cast<double>(log10(rate_perfect)),
+    output << static_cast<double>(log10(prob_perfect) - log10(prob_mismatched)),
               static_cast<double>(log10(rate_perfect) - log10(rate_mismatched)); 
 
     delete model;
@@ -178,27 +184,27 @@ int main(int argc, char** argv)
     const double beta = 1e-4;
     const bool use_only_armijo = false; 
     const bool use_strong_wolfe = false;
-    const unsigned hessian_modify_max_iter = 10000;
+    const unsigned hessian_modify_max_iter = 10000; 
     const double c1 = 1e-4;
-    const double c2 = 0.9; 
+    const double c2 = 0.9;
     const bool verbose = true;
     const bool sqp_verbose = false;
     std::stringstream ss;
-    ss << argv[3] << "-cleave-mm" << argv[4] << "-boundary";
+    ss << argv[3] << "-spec-live-dissoc-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
-    const int position = std::stoi(argv[4]); 
+    const int position = std::stoi(argv[4]);
     std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
     BoundaryFinder* finder = new BoundaryFinder(
         tol, rng, argv[1], argv[2],
         Polytopes::InequalityType::GreaterThanOrEqualTo, func
     );
     double mutate_delta = 0.1 * getMaxDist<double>(finder->getVertices());
-    
-    // Obtain the initial set of input points
-    MatrixXd init_input = finder->sampleInput(n_init); 
 
-    // Run the boundary-finding algorithm
+    // Obtain the initial set of input points
+    MatrixXd init_input = finder->sampleInput(n_init);
+
+    // Run the boundary-finding algorithm  
     finder->run(
         mutate_delta, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, sqp_max_iter, sqp_tol, max_edges, tau, delta, beta,
