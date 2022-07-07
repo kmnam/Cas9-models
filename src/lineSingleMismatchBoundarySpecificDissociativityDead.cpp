@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     7/6/2022
+ *     7/7/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -162,15 +162,15 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
 
 int main(int argc, char** argv)
 {
-    // Define trivial filtering function
+    // Define filtering function that excludes all output points with x <= 0.1
     std::function<bool(const Ref<const VectorXd>&)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return false;
+            return (x(0) <= 0.1);
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 10000; 
+    const unsigned n_init = 20000; 
     const double tol = 1e-6;
     const unsigned min_step_iter = 10;
     const unsigned max_step_iter = 100;
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
     const bool verbose = true;
     const bool sqp_verbose = false;
     std::stringstream ss;
-    ss << argv[3] << "-spec-vs-deaddissoc-mm" << argv[4] << "-boundary";
+    ss << argv[3] << "-deaddissoc-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
