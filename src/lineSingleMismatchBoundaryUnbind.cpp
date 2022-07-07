@@ -163,7 +163,7 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 10000; 
+    const unsigned n_init = 20000; 
     const double tol = 1e-6;
     const unsigned min_step_iter = 10;
     const unsigned max_step_iter = 100;
