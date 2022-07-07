@@ -190,7 +190,7 @@ int main(int argc, char** argv)
     const bool verbose = true;
     const bool sqp_verbose = false;
     std::stringstream ss;
-    ss << argv[3] << "-spec-rapidity-mm" << argv[4] << "-boundary";
+    ss << argv[3] << "-rapid-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
