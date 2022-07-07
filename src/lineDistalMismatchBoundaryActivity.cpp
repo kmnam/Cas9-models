@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     5/16/2022
+ *     7/7/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -82,15 +82,15 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
         model->setEdgeLabels(j, match);
     
     // Compute cleavage probability on the perfect-match substrate
-    T unbind_rate = 1;
-    T cleave_rate = 1; 
-    T prob_perfect = model->getUpperExitProb(unbind_rate, cleave_rate);
+    T terminal_unbind_rate = static_cast<T>(std::pow(10.0, input(4)));
+    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, input(5))); 
+    T prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
 
     // Introduce the specified number of distal mismatches and re-compute 
     // cleavage probability
     for (unsigned j = 0; j < num_mismatches; ++j)
         model->setEdgeLabels(length - 1 - j, mismatch); 
-    T prob_mismatched = model->getUpperExitProb(unbind_rate, cleave_rate); 
+    T prob_mismatched = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
 
     // Compile results and return 
     VectorXd output(2);
@@ -165,7 +165,7 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 2000; 
+    const unsigned n_init = 20000; 
     const double tol = 1e-6;
     const unsigned min_step_iter = 10;
     const unsigned max_step_iter = 100;
