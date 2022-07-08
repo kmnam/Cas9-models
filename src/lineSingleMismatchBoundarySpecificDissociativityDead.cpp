@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     7/7/2022
+ *     7/8/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -100,7 +100,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
     // Compile results and return 
     VectorXd output(2);
     output << static_cast<double>(log10(prob_perfect) - log10(prob_mismatched)),
-              static_cast<double>(log10(rate_perfect) - log10(rate_mismatched)); 
+              static_cast<double>(log10(rate_mismatched) - log10(rate_perfect)); 
 
     delete model;
     return output;
@@ -170,7 +170,7 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 20000; 
+    const unsigned n_init = 50000; 
     const double tol = 1e-6;
     const unsigned min_step_iter = 10;
     const unsigned max_step_iter = 100;
