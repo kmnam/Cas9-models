@@ -21,14 +21,14 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     7/5/2022
+ *     7/13/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::log10;
-typedef number<mpfr_float_backend<1000> > PreciseType;
-const int INTERNAL_PRECISION = 1000; 
+typedef number<mpfr_float_backend<100> > PreciseType;
+const int INTERNAL_PRECISION = 100; 
 const int length = 20;
 
 // Instantiate random number generator 
