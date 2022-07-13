@@ -29,7 +29,6 @@ using namespace Eigen;
 using boost::multiprecision::mpq_rational;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
-using boost::multiprecision::log; 
 using boost::multiprecision::log10;
 using boost::multiprecision::pow;
 using boost::multiprecision::sqrt;
@@ -38,7 +37,6 @@ typedef number<mpfr_float_backend<INTERNAL_PRECISION> > PreciseType;
 
 const unsigned length = 20;
 const PreciseType ten("10");
-const PreciseType log_ten = log(ten); 
 
 /**
  * Compute cleavage statistics on the perfect-match sequence, as well as all
@@ -83,7 +81,7 @@ Matrix<PreciseType, Dynamic, 5> computeCleavageStats(const Ref<const Matrix<Prec
     stats_perfect(2) = model->getLowerExitRate(terminal_unbind_rate); 
     stats_perfect(3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
 
-    // Compute the composite cleavage rate 
+    // Compute the composite cleavage time 
     stats_perfect(4) = (
         1 / (bind_conc * bind_rate)
         + (1 / stats_perfect(3) + 1 / (bind_conc * bind_rate)) * (1 - stats_perfect(0)) / stats_perfect(0)
@@ -115,8 +113,12 @@ Matrix<PreciseType, Dynamic, 5> computeCleavageStats(const Ref<const Matrix<Prec
         // Normalize the metrics if desired 
         if (normalize)
         {
-            for (int k = 0; k < 5; ++k)
-                stats(j, k) /= stats_perfect(k); 
+            stats(j, 0) = pow(ten, log10(stats_perfect(0)) - log10(stats(j, 0))); 
+            stats(j, 1) = pow(ten, log10(stats_perfect(1)) - log10(stats(j, 1))); 
+            stats(j, 2) = pow(ten, log10(stats(j, 2)) - log10(stats_perfect(2))); 
+            stats(j, 3) = pow(ten, log10(stats(j, 3)) - log10(stats_perfect(3)));
+            // Note that computeCleavageStats() returns composite cleavage *times*, not rates  
+            stats(j, 4) = pow(ten, log10(stats(j, 4)) - log10(stats_perfect(4))); 
         }
     }
 
@@ -177,8 +179,8 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
             );
         }
 
-        // Normalize all cleavage and dead unbinding rates (with copies of the
-        // data matrices that were passed into this function)
+        // Normalize all given composite cleavage times and dead unbinding rates
+        // (with copies of the data matrices that were passed into this function)
         Matrix<PreciseType, Dynamic, 1> unbind_data2(unbind_data.size());
         Matrix<PreciseType, Dynamic, 1> cleave_data2(cleave_data.size());  
         for (int i = 0; i < unbind_data2.size(); ++i)
@@ -426,9 +428,18 @@ void fitCleavageStats(const std::string outfilename,
             fit_single_mismatch_stats(i, Eigen::seqN(j * 5 * (length + 1), 5)) = curr_fit_stats_perfect;
             for (int k = 0; k < length; ++k)
             {
-                Matrix<PreciseType, 5, 1> curr_fit_stats_mismatched = curr_fit_stats.row(k + 1); 
-                fit_single_mismatch_stats(i, Eigen::seqN(j * 5 * (length + 1) + 5 * (k + 1), 5))
-                    = (curr_fit_stats_perfect.array().log().matrix() - curr_fit_stats_mismatched.array().log().matrix()) / log_ten;
+                Matrix<PreciseType, 5, 1> curr_fit_stats_mismatched = curr_fit_stats.row(k + 1);
+                fit_single_mismatch_stats(i, j * 5 * (length + 1) + 5 * (k + 1))
+                    = log10(curr_fit_stats_perfect(0)) - log10(curr_fit_stats_mismatched(0));
+                fit_single_mismatch_stats(i, j * 5 * (length + 1) + 5 * (k + 1) + 1)
+                    = log10(curr_fit_stats_perfect(1)) - log10(curr_fit_stats_mismatched(1)); 
+                fit_single_mismatch_stats(i, j * 5 * (length + 1) + 5 * (k + 1) + 2)
+                    = log10(curr_fit_stats_mismatched(2)) - log10(curr_fit_stats_perfect(2));
+                fit_single_mismatch_stats(i, j * 5 * (length + 1) + 5 * (k + 1) + 3)
+                    = log10(curr_fit_stats_mismatched(3)) - log10(curr_fit_stats_perfect(3));
+                // Note that computeCleavageStats() returns composite cleavage *times*, not rates  
+                fit_single_mismatch_stats(i, j * 5 * (length + 1) + 5 * (k + 1) + 4)
+                    = log10(curr_fit_stats_mismatched(4)) - log10(curr_fit_stats_perfect(4));   
             }
         }
     }
@@ -459,7 +470,7 @@ void fitCleavageStats(const std::string outfilename,
                     << variant << "_mm" << i << "_log_live_dissoc\t"
                     << variant << "_mm" << i << "_log_composite_rapid";
             if (variant == "eSpCas9" && i == length - 1)
-                outfile << '\n';
+                outfile << std::endl;
             else 
                 outfile << '\t';
         }
