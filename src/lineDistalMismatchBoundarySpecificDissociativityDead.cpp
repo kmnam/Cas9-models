@@ -161,11 +161,11 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int num_mism
 
 int main(int argc, char** argv)
 {
-    // Define trivial filtering function
+    // Define filtering function that excludes all output points with x <= 0.1
     std::function<bool(const Ref<const VectorXd>&)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return false;
+            return (x(0) <= 0.1);
         };
 
     // Boundary-finding algorithm settings
