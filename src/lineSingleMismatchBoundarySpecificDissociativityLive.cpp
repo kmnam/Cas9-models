@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     7/8/2022
+ *     7/14/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -209,7 +209,7 @@ int main(int argc, char** argv)
         mutate_delta, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, sqp_max_iter, sqp_tol, max_edges, tau, delta, beta,
         use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, ss.str(),
-        c1, c2, verbose, sqp_verbose 
+        RegularizationMethod::NOREG, 0, c1, c2, verbose, sqp_verbose 
     );
 
     delete finder;    
