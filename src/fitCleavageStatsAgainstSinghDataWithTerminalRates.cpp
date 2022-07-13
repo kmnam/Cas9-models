@@ -485,7 +485,7 @@ int main(int argc, char** argv)
     const int n_init = std::stoi(argv[1]);
     const PreciseType bind_conc = static_cast<PreciseType>(std::stod(argv[2]));  
     fitCleavageStats(
-        "/Users/kmnam/Dropbox/gene-regulation/projects/Cas9-models/data/Singh-2018-NatStructMolBiol-fits.tsv",
+        "data/Singh-2018-NatStructMolBiol-fits.tsv", 
         bind_conc, n_init, rng
     );
 } 
