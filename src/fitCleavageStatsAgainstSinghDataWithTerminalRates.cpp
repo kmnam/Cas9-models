@@ -333,6 +333,8 @@ void fitCleavageStats(const std::string outfilename, const PreciseType bind_conc
     const int max_iter = 1000; 
     const PreciseType tol = 1e-8;       // Set the y-value tolerance to be small 
     const QuasiNewtonMethod method = QuasiNewtonMethod::BFGS;
+    const RegularizationMethod regularize = RegularizationMethod::L2; 
+    const PreciseType regularize_weight = 0.1; 
     const bool use_only_armijo = true;
     const bool use_strong_wolfe = false;
     const int hessian_modify_max_iter = 10000;
@@ -382,8 +384,8 @@ void fitCleavageStats(const std::string outfilename, const PreciseType bind_conc
                     ); 
                 },
                 x_init, l_init, tau, delta, beta, max_iter, tol, x_tol, method,
-                use_only_armijo, use_strong_wolfe, hessian_modify_max_iter,
-                c1, c2, verbose
+                regularize, regularize_weight, use_only_armijo, use_strong_wolfe,
+                hessian_modify_max_iter, c1, c2, verbose
             );
             errors(i, j) = errorAgainstData(
                 best_fit(i, Eigen::seqN(j * D, D)), curr_cleave_seqs, curr_cleave_data, 
