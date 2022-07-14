@@ -170,7 +170,7 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 20000; 
+    const unsigned n_init = 10000; 
     const double tol = 1e-6;
     const unsigned min_step_iter = 10;
     const unsigned max_step_iter = 100;
@@ -178,7 +178,7 @@ int main(int argc, char** argv)
     const unsigned max_pull_iter = 100;
     const unsigned sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
-    const unsigned max_edges = 500;
+    const unsigned max_edges = 1000;
     const double tau = 0.5;
     const double delta = 1e-8; 
     const double beta = 1e-4;
