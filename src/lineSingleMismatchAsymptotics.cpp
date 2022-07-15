@@ -12,12 +12,12 @@
 #include <polytopes.hpp>
 #include <vertexEnum.hpp>
 
-/*
+/**
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     4/28/2022
+ *     7/7/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -27,7 +27,7 @@ using boost::multiprecision::pow;
 using boost::multiprecision::log; 
 using boost::multiprecision::log1p; 
 using boost::multiprecision::log10;
-const unsigned INTERNAL_PRECISION = 1000;
+const unsigned INTERNAL_PRECISION = 100;
 typedef number<mpfr_float_backend<INTERNAL_PRECISION> > PreciseType;
 const mpq_rational BIG_RATIONAL = static_cast<mpq_rational>(std::numeric_limits<int>::max());
 
@@ -61,75 +61,84 @@ typename Derived::Scalar logsumexp(const MatrixBase<Derived>& logx,
     return maxlogx + log(x.sum()) / log(base);  
 }
 
+/**
+ * Compute the cleavage probabilities, cleavage rates, dead unbinding rates,
+ * and live unbinding rates of randomly parametrized line-graph Cas9 models
+ * against single-mismatch substrates. 
+ */
 template <typename T>
-Matrix<T, Dynamic, 6> computeStats(const Ref<const VectorXd>& params)
+Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
 {
-    /*
-     * Compute the cleavage probabilities, unbinding rates, and cleavage rates
-     * of randomly parametrized Cas9 enzymes with respect to single-mismatch
-     * substrates. 
-     */
-    // Array of DNA/RNA match parameters
-    std::pair<T, T> match_params = std::make_pair(
-        static_cast<T>(std::pow(10.0, params(0))),
-        static_cast<T>(std::pow(10.0, params(1)))
+    // Define arrays of DNA/RNA match and mismatch parameters 
+    std::pair<T, T> match_rates = std::make_pair(
+        static_cast<T>(std::pow(10.0, logrates(0))),
+        static_cast<T>(std::pow(10.0, logrates(1)))
     );
-
-    // Array of DNA/RNA mismatch parameters
-    std::pair<T, T> mismatch_params = std::make_pair(
-        static_cast<T>(std::pow(10.0, params(2))),
-        static_cast<T>(std::pow(10.0, params(3)))
+    std::pair<T, T> mismatch_rates = std::make_pair(
+        static_cast<T>(std::pow(10.0, logrates(2))),
+        static_cast<T>(std::pow(10.0, logrates(3)))
     );
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<T, T>* model = new LineGraph<T, T>(length);
-    for (unsigned j = 0; j < length; ++j)
-        model->setEdgeLabels(j, match_params);
+    for (int j = 0; j < length; ++j)
+        model->setEdgeLabels(j, match_rates); 
     
-    // Compute cleavage probability, unbinding rate, and cleavage rate 
-    Matrix<T, Dynamic, 6> stats = Matrix<T, Dynamic, 6>::Zero(length + 1, 6); 
-    stats(0, 0) = model->getUpperExitProb(1, 1); 
-    stats(0, 1) = model->getLowerExitRate(1); 
-    stats(0, 2) = model->getUpperExitRate(1, 1); 
+    // Compute cleavage probability, cleavage rate, dead unbinding rate, and
+    // live unbinding rate
+    T terminal_unbind_rate = static_cast<T>(std::pow(10.0, logrates(4))); 
+    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(5))); 
+    Matrix<T, Dynamic, 8> stats = Matrix<T, Dynamic, 8>::Zero(length + 1, 8); 
+    stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
+    stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
+    stats(0, 2) = model->getLowerExitRate(terminal_unbind_rate);
+    stats(0, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);  
 
-    // Introduce single mismatches and re-compute cleavage probability
-    // and mean first-passage time
-    for (unsigned j = 0; j < length; ++j)
+    // Introduce single mismatches and re-compute the four output metrics 
+    for (int j = 0; j < length; ++j)
     {
-        for (unsigned k = 0; k < length; ++k)
-            model->setEdgeLabels(k, match_params);
-        model->setEdgeLabels(j, mismatch_params);
-        stats(j+1, 0) = model->getUpperExitProb(1, 1);
-        stats(j+1, 1) = model->getLowerExitRate(1);
-        stats(j+1, 2) = model->getUpperExitRate(1, 1);
-        stats(j+1, 3) = log10(stats(0, 0)) - log10(stats(j+1, 0));
-        stats(j+1, 4) = log10(stats(0, 1)) - log10(stats(j+1, 1)); 
-        stats(j+1, 5) = log10(stats(0, 2)) - log10(stats(j+1, 2));
+        for (int k = 0; k < length; ++k)
+            model->setEdgeLabels(k, match_rates); 
+        model->setEdgeLabels(j, mismatch_rates);
+        stats(j+1, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+        stats(j+1, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
+        stats(j+1, 2) = model->getLowerExitRate(terminal_unbind_rate);
+        stats(j+1, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
+        stats(j+1, 4) = log10(stats(0, 0)) - log10(stats(j+1, 0));
+        stats(j+1, 5) = log10(stats(0, 1)) - log10(stats(j+1, 1)); 
+        stats(j+1, 6) = log10(stats(j+1, 2)) - log10(stats(0, 2));
+        stats(j+1, 7) = log10(stats(j+1, 3)) - log10(stats(0, 3));
     }
 
     delete model;
     return stats;
 }
 
+/**
+ * Compute the asymptotic specific rapidity and specific (dead) dissociativity
+ * of randomly parametrized line-graph Cas9 models with large b / d with
+ * respect to single-mismatch substrates.
+ */
 template <typename T>
-Matrix<T, Dynamic, 2> computeLimitsForLarge01(const Ref<const VectorXd>& params,
+Matrix<T, Dynamic, 2> computeLimitsForLarge01(const Ref<const VectorXd>& logrates,
                                               const double _logb,
                                               const double _logd)
 {
-    /*
-     * Compute the asymptotic normalized statistics of randomly parametrized 
-     * Cas9 enzymes with large b / d with respect to single-mismatch substrates.
-     */
     const T ten = static_cast<T>(10);
-    const T ln_ten = log(ten);  
+    const T two = static_cast<T>(2); 
+    const T log_two = log10(two);  
 
-    // Array of DNA/RNA match parameters
+    // Get DNA/RNA match parameters
     const T logb = static_cast<T>(_logb); 
     const T logd = static_cast<T>(_logd); 
 
-    // Array of DNA/RNA mismatch parameters
-    const T logbp = static_cast<T>(params(0)); 
-    const T logdp = static_cast<T>(params(1)); 
+    // Get DNA/RNA mismatch parameters
+    const T logbp = static_cast<T>(logrates(0)); 
+    const T logdp = static_cast<T>(logrates(1));
+
+    // Get terminal rates
+    const T terminal_unbind_lograte = static_cast<T>(logrates(2));
+    const T terminal_cleave_lograte = static_cast<T>(logrates(3)); 
 
     // Ratios of match/mismatch parameters
     const T logc = logb - logd; 
@@ -139,51 +148,57 @@ Matrix<T, Dynamic, 2> computeLimitsForLarge01(const Ref<const VectorXd>& params,
     // with respect to each single-mismatch substrate 
     Matrix<T, Dynamic, 2> stats(length, 2);
 
-    // For m = 0, compute log10(c / c') + log10(1 + (2 / b')) and
-    // log10(1 + (2 / b'))
-    stats(0, 1) = log1p(2 * pow(ten, -logbp)) / ln_ten; 
-    stats(0, 0) = logc - logcp + stats(0, 1);
+    // For m = 0, compute log10(c / c') + log10(1 + (2 * unbind_rate / b')
+    // + (unbind_rate / b')^2) and log10(1 + ((unbind_rate + cleave_rate) / b'))
+    T term1 = logsumexp<T>(0, log_two + terminal_unbind_lograte - logbp, ten);
+    T term2 = logsumexp<T>(term1, 2 * (terminal_unbind_lograte - logbp), ten);
+    T term3 = logsumexp<T>(0, logsumexp<T>(terminal_unbind_lograte, terminal_cleave_lograte, ten) - logbp, ten);  
+    stats(0, 0) = logc - logcp + term2; 
+    stats(0, 1) = term3; 
 
     for (unsigned m = 1; m < length - 1; ++m)
     {
         // For 0 < m < length - 1, compute log10(c / c') ...
         stats(m, 0) = logc - logcp;
 
-        // ... and log10(1 + (1 / b'))
-        stats(m, 1) = log1p(pow(ten, -logbp)) / ln_ten; 
+        // ... and log10(1 + (cleave_rate / b'))
+        stats(m, 1) = logsumexp<T>(0, terminal_cleave_lograte - logbp, ten); 
     }
 
     // For m = length - 1, compute log10(c / (1 + c')) = log10(c) - log10(1 + c')
-    // and log10(1 + ((d' + 1) / b'))
-    stats(length - 1, 0) = logc - (log1p(pow(ten, logcp)) / ln_ten);
-    stats(length - 1, 1) = log1p(pow(ten, (log1p(pow(ten, logdp)) / ln_ten) - logbp)) / ln_ten; 
+    // and log10(1 + ((d' + cleave_rate) / b'))
+    stats(length - 1, 0) = logc - logsumexp<T>(0, logcp, ten);
+    T term3 = logsumexp<T>(terminal_cleave_lograte, logdp, ten) - logbp;
+    stats(length - 1, 1) = logsumexp<T>(0, term3, ten);
 
     return stats;
 }
 
+/**
+ * Compute the asymptotic specific rapidity and specific (dead) dissociativity
+ * of randomly parametrized line-graph Cas9 models with small b' / d' with
+ * respect to single-mismatch substrates.
+ */
 template <typename T>
-Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& params,
+Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& logrates,
                                               const double _logbp,
                                               const double _logdp)
 {
-    /*
-     * Compute the asymptotic normalized statistics of randomly parametrized 
-     * Cas9 enzymes with small b' / d' with respect to single-mismatch substrates.
-     */
     const T ten = static_cast<T>(10);
-    const T ln_ten = log(ten);
     const T two = static_cast<T>(2); 
     const T log_two = log10(two);
-    const T three = static_cast<T>(3);
-    const T log_three = log10(three); 
 
-    // Array of DNA/RNA match parameters
-    const T logb = static_cast<T>(params(0)); 
-    const T logd = static_cast<T>(params(1)); 
+    // Get DNA/RNA match parameters
+    const T logb = static_cast<T>(logrates(0)); 
+    const T logd = static_cast<T>(logrates(1)); 
 
-    // Array of DNA/RNA mismatch parameters
+    // Get DNA/RNA mismatch parameters
     const T logbp = static_cast<T>(_logbp);
-    const T logdp = static_cast<T>(_logdp); 
+    const T logdp = static_cast<T>(_logdp);
+
+    // Get terminal rates
+    const T terminal_unbind_lograte = static_cast<T>(logrates(2));
+    const T terminal_cleave_lograte = static_cast<T>(logrates(3)); 
 
     // Ratios of match/mismatch parameters
     const T logc = logb - logd; 
@@ -200,120 +215,108 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& params,
         logc_powers(i) = i * logc;
     for (unsigned i = 0; i < length + 1; ++i)
         logc_partial_sums(i) = logsumexp(logc_powers.head(i + 1), ten); 
-    T lognumer = logc_partial_sums(length); 
-    T logdenom = logc_partial_sums(length - 1);
 
     // Compute the asymptotic associativity tradeoff constant for the
     // most-distal-mismatch substrate 
-    Matrix<T, Dynamic, 1> arr1(3);
-    arr1 << length * logc, 0, logdenom - logd;
-    T logdenom2 = logsumexp(arr1, ten); 
-    stats(length - 1, 0) = logc - logcp + lognumer - logdenom;
+    Matrix<T, Dynamic, 1> arr_gamma(3);
+    arr_gamma << logc_powers(length), 0, logc_partial_sums(length - 1) - logd;
+    T gamma = logsumexp(arr_gamma, ten);
+    stats(length - 1, 0) = logc - logcp + logc_partial_sums(length) - logc_partial_sums(length - 1); 
     stats(length - 1, 0) += logsumexp<T>(0, -logdp, ten); 
-    stats(length - 1, 0) -= logdenom2; 
+    stats(length - 1, 0) -= gamma; 
 
     // Compute the asymptotic associativity tradeoff constants for all other 
     // single-mismatch substrates ...
-    Matrix<T, Dynamic, 1> arr2(3);
-    for (unsigned m = 0; m < length - 1; ++m)
+    Matrix<T, Dynamic, 1> arr_gamma_m(3);
+    for (int m = 0; m < length - 1; ++m)
     {
-        arr2 << 0,
-                (length - 1 - m) * logc - logdp,
-                logc_partial_sums(length - 2 - m);
-        stats(m, 0) = 2 * (logc - logcp) + lognumer;
-        stats(m, 0) -= logc_partial_sums(m); 
-        stats(m, 0) += 2 * logsumexp(arr2, ten); 
-        stats(m, 0) -= 2 * logdenom2; 
+        arr_gamma_m << 0,
+                       logc_powers(length - 1 - m) - logdp,
+                       logc_partial_sums(length - 2 - m);
+        T gamma_m = logsumexp(arr_gamma_m, ten);
+        stats(m, 0) = 2 * (logc - logcp) + logc_partial_sums(length) - logc_partial_sums(m); 
+        stats(m, 0) += 2 * gamma_m; 
+        stats(m, 0) -= 2 * gamma; 
     }
 
     // Compute the asymptotic rapidity tradeoff constants for all single-mismatch
     // substrates ...
-    Matrix<T, Dynamic, 1> arrFm(length + 1);
-    Matrix<T, Dynamic, 1> arrF(length + 1);
+    Matrix<T, Dynamic, 1> arr_alpha_m(length + 1);
+    Matrix<T, Dynamic, 1> arr_alpha(length + 1);
 
-    // Compute each term of F, which does not depend on the mismatch position m 
-    for (unsigned i = 0; i <= length - 2; ++i)
+    // Compute each term of alpha, which does not depend on the mismatch position m
+    arr_alpha(0) = logsumexp<T>(0, logc_partial_sums(length - 1) - logd, ten);  
+    for (int i = 1; i < length; ++i)
     {
         Matrix<T, Dynamic, 1> subarr(4); 
-        subarr << 0,
-                  -logd,
-                  log10(static_cast<T>(length - i)) + log_two - logd,
-                  log10(static_cast<T>(length)) + log10(static_cast<T>(i + 1)) - (2 * logd);
-        arrF(i) = i * logc + logsumexp(subarr, ten); 
+        subarr << logc_powers(i),
+                  logc_partial_sums(i - 1) - logd,
+                  logc_partial_sums(length - i - 1) + logc_powers(i) - logd,
+                  logc_partial_sums(i - 1) + logc_partial_sums(length - i - 1) - (2 * logd); 
+        arr_alpha(i) = logsumexp(subarr, ten); 
     }
-    arrF(length - 1) = logsumexp<T>(logsumexp<T>(0, log_three - logd, ten), (length - 1) * logc, ten);
-    arrF(length) = length * logc;
-    T F = logsumexp(arrF, ten);
+    arr_alpha(length) = logsumexp<T>(
+        logc_powers(length), logc_partial_sums(length - 1) - logd, ten
+    ); 
+    T alpha = logsumexp(arr_alpha, ten);
 
-    // Compute each term of F_m, for each mismatch position m 
-    for (unsigned m = 0; m < length; ++m)
+    // Compute each term of alpha_m, for each mismatch position m 
+    for (int m = 0; m < length; ++m)
     {
-        for (unsigned i = 0; i <= m; ++i)
+        for (int i = 0; i <= m; ++i)
         {
             T term1 = 0;
             T term2 = 0; 
-            if (i == 0)
-            {
-                term1 = (i + 1) * logc;
-            }
-            else 
+            if (i >= 1)
             {
                 term1 = logsumexp<T>(
-                    (i + 1) * logc,
-                    logc - logd + logc_partial_sums(i - 1), 
-                    //logc - logd + logsumexp(logc_powers(Eigen::seq(0, i - 1)), ten),
+                    i * logc,
+                    logc_partial_sums(i - 1) - logd, 
                     ten
                 ); 
             }
-            if (m == length - 1)
+            if (m > length - 2)
             {
-                term2 = logsumexp<T>(0, (length - m - 1) * logc - logdp, ten);
+                term2 = logsumexp<T>(0, logc_powers(length - 1 - m) * logdp, ten);
             } 
             else
             {
                 Matrix<T, Dynamic, 1> subarr(3);
                 subarr << 0,
-                          (length - m - 1) * logc - logdp,
+                          logc_powers(length - 1 - m) - logdp,
                           logc_partial_sums(length - 2 - m) - logd; 
-                          //logsumexp(logc_powers(Eigen::seq(0, length - 2 - m)), ten) - logd;
                 term2 = logsumexp(subarr, ten); 
             }
-            arrFm(i) = term1 + term2;
+            arr_alpha_m(i) = term1 + term2;
         }
-        for (unsigned i = m + 1; i <= length; ++i)
+        for (int i = m + 1; i <= length; ++i)
         {
             T term1 = 0;
             T term2 = 0;
-            if (i == length)
-            {
-                term1 = 0; 
-            }
-            else
+            if (i <= length - 1)
             {
                 term1 = logsumexp<T>(
                     0,
                     logc_partial_sums(length - 1 - i) - logd,
-                    //logsumexp(logc_powers(Eigen::seq(0, length - 1 - i)), ten) - logd,
                     ten
                 );
             }
-            if (i == m + 1)
+            if (m > i - 2)
             {
-                term2 = -logdp; 
+                term2 = logc_powers(i - 1 - m) - logdp; 
             }
             else 
             {
                 term2 = logsumexp<T>(
-                    (i - 1 - m) * logc - logdp,
+                    logc_powers(i - 1 - m) - logdp,
                     logc_partial_sums(i - 2 - m) - logd, 
-                    //logsumexp(logc_powers(Eigen::seq(0, i - 2 - m)), ten) - logd,
                     ten
                 );
             }
-            arrFm(i) = logc + term1 + term2; 
+            arr_alpha_m(i) = term1 + term2;
         }
 
-        stats(m, 1) = logsumexp(arrFm, ten) - F - logcp;
+        stats(m, 1) = logsumexp(arr_alpha_m, ten) - alpha + logc - logcp;
     }
 
     return stats;
