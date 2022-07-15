@@ -216,7 +216,7 @@ void fitCleavageStats(const std::string outfilename, const PreciseType bind_conc
     Polytopes::LinearConstraints<mpq_rational>* constraints_opt = new Polytopes::LinearConstraints<mpq_rational>(
         Polytopes::InequalityType::GreaterThanOrEqualTo 
     );
-    constraints_opt->parse("/Users/kmnam/Dropbox/gene-regulation/projects/Cas9-models/polytopes/line-10-terminal-plusbind.poly");
+    constraints_opt->parse("polytopes/line-10-terminal-plusbind.poly");
     const int D = constraints_opt->getD(); 
     const int N = constraints_opt->getN(); 
     SQPOptimizer<PreciseType>* opt = new SQPOptimizer<PreciseType>(constraints_opt);
@@ -224,10 +224,7 @@ void fitCleavageStats(const std::string outfilename, const PreciseType bind_conc
     // Sample a set of points from an initial polytope in parameter space, 
     // which constrains all parameters to lie between 1e-5 and 1e+5
     Delaunay_triangulation* tri = new Delaunay_triangulation(D);
-    Polytopes::parseVerticesFile(
-        "/Users/kmnam/Dropbox/gene-regulation/projects/Cas9-models/polytopes/line-5-terminal-plusbind.vert", 
-        tri
-    );
+    Polytopes::parseVerticesFile("polytopes/line-5-terminal-plusbind.vert", tri); 
     Matrix<PreciseType, Dynamic, Dynamic> init_points
         = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(tri, n_init, 0, rng);
 
@@ -341,7 +338,7 @@ void fitCleavageStats(const std::string outfilename, const PreciseType bind_conc
     const PreciseType c1 = 1e-4;
     const PreciseType c2 = 0.9;
     const PreciseType x_tol = 10000;    // Set the x-value tolerance to be large 
-    const bool verbose = true;
+    const bool verbose = false;
 
     /** ------------------------------------------------------- //
      *         FIT AGAINST GIVEN CLEAVAGE/UNBINDING DATA        //
