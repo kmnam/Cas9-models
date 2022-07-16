@@ -163,11 +163,11 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 20000; 
+    const unsigned n_init = 50000; 
     const double tol = 1e-6;
-    const unsigned min_step_iter = 10;
-    const unsigned max_step_iter = 100;
-    const unsigned min_pull_iter = 10;
+    const unsigned min_step_iter = 100;
+    const unsigned max_step_iter = 200;
+    const unsigned min_pull_iter = 20;
     const unsigned max_pull_iter = 100;
     const unsigned sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
