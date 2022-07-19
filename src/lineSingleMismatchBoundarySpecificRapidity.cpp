@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     7/14/2022
+ *     7/19/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -170,7 +170,7 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const unsigned n_init = 50000; 
+    const unsigned n_init = 20000; 
     const double tol = 1e-6;
     const unsigned min_step_iter = 100;
     const unsigned max_step_iter = 200;
@@ -179,6 +179,7 @@ int main(int argc, char** argv)
     const unsigned sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
     const unsigned max_edges = 500;
+    const int psi = 100; 
     const double tau = 0.5;
     const double delta = 1e-8; 
     const double beta = 1e-4;
@@ -207,7 +208,7 @@ int main(int argc, char** argv)
     // Run the boundary-finding algorithm  
     finder->run(
         mutate_delta, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
-        max_pull_iter, sqp_max_iter, sqp_tol, max_edges, tau, delta, beta,
+        max_pull_iter, sqp_max_iter, sqp_tol, max_edges, psi, tau, delta, beta,
         use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, ss.str(),
         RegularizationMethod::NOREG, 0, c1, c2, verbose, sqp_verbose 
     );
