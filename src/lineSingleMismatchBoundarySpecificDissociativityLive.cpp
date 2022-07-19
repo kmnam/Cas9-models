@@ -179,7 +179,7 @@ int main(int argc, char** argv)
     const int sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
     const int max_edges = 500;
-    const int psi = 100
+    const int psi = 100;
     const double tau = 0.5;
     const double delta = 1e-8; 
     const double beta = 1e-4;
