@@ -179,10 +179,10 @@ int main(int argc, char** argv)
     const int sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
     const int max_edges = 2000;
-    int n_keep_interior = 5000; 
-    int n_keep_origbound = 5000;
-    int n_mutate_origbound = 200;
-    int n_pull_origbound = 200;
+    int n_keep_interior = 10000; 
+    int n_keep_origbound = 10000;
+    int n_mutate_origbound = 400;
+    int n_pull_origbound = 400;
     const double tau = 0.5;
     const double delta = 1e-8; 
     const double beta = 1e-4;
