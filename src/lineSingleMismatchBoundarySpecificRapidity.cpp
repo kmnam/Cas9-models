@@ -174,7 +174,7 @@ int main(int argc, char** argv)
     const double tol = 1e-6;
     const int min_step_iter = 100;
     const int max_step_iter = 200;
-    const int min_pull_iter = 20;
+    const int min_pull_iter = 50;
     const int max_pull_iter = 200;
     const int sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
