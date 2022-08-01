@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     7/29/2022
+ *     8/1/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -31,7 +31,7 @@ typedef number<mpfr_float_backend<100> > PreciseType;
 const int length = 20;
 
 // Instantiate random number generator 
-boost::random::mt19937 rng(1234567890);
+boost::random::mt19937 rng;
 
 /**
  * Get the maximum distance between any pair of vertices in the given matrix.
@@ -199,6 +199,7 @@ int main(int argc, char** argv)
 
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
+    rng.seed(1234567890 * position);
     std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
     BoundaryFinder* finder = new BoundaryFinder(
         tol, rng, argv[1], argv[2],

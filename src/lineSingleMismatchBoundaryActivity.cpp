@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     7/14/2022
+ *     8/1/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -31,7 +31,7 @@ typedef number<mpfr_float_backend<100> > PreciseType;
 const int length = 20;
 
 // Instantiate random number generator 
-boost::random::mt19937 rng(1234567890);
+boost::random::mt19937 rng;
 
 /**
  * Get the maximum distance between any pair of vertices in the given matrix.
@@ -168,12 +168,15 @@ int main(int argc, char** argv)
     const double tol = 1e-6;
     const int min_step_iter = 100;
     const int max_step_iter = 200;
-    const int min_pull_iter = 20;
-    const int max_pull_iter = 100;
+    const int min_pull_iter = 50;
+    const int max_pull_iter = 200;
     const int sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
-    const int max_edges = 500;
-    const int psi = 100; 
+    const int max_edges = 2000;
+    int n_keep_interior = 10000; 
+    int n_keep_origbound = 10000;
+    int n_mutate_origbound = 400;
+    int n_pull_origbound = 400;
     const double tau = 0.5;
     const double delta = 1e-8; 
     const double beta = 1e-4;
@@ -184,11 +187,13 @@ int main(int argc, char** argv)
     const double c2 = 0.9; 
     const bool verbose = true;
     const bool sqp_verbose = false;
+    const bool write_pulled_points = true; 
     std::stringstream ss;
     ss << argv[3] << "-activity-mm" << argv[4] << "-boundary";
 
     // Initialize the boundary-finding algorithm
-    const int position = std::stoi(argv[4]); 
+    const int position = std::stoi(argv[4]);
+    rng.seed(1234567890 * position);  
     std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position);
     BoundaryFinder* finder = new BoundaryFinder(
         tol, rng, argv[1], argv[2],
@@ -202,9 +207,11 @@ int main(int argc, char** argv)
     // Run the boundary-finding algorithm  
     finder->run(
         mutate_delta, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
-        max_pull_iter, sqp_max_iter, sqp_tol, max_edges, psi, tau, delta, beta,
-        use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, ss.str(),
-        RegularizationMethod::NOREG, 0, c1, c2, verbose, sqp_verbose 
+        max_pull_iter, sqp_max_iter, sqp_tol, max_edges, n_keep_interior,
+        n_keep_origbound, n_mutate_origbound, n_pull_origbound, tau, delta,
+        beta, use_only_armijo, use_strong_wolfe, hessian_modify_max_iter,
+        ss.str(), RegularizationMethod::NOREG, 0, c1, c2, verbose, sqp_verbose,
+        write_pulled_points 
     );
 
     delete finder;
