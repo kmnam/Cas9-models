@@ -132,7 +132,7 @@ VectorXd computeCleavageStatsUnbindingUnity(const Ref<const VectorXd>& input)
     // Compute cleavage probability and cleavage rate on the perfect-match
     // substrate
     T terminal_unbind_rate = 1;
-    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, input(5))); 
+    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, input(4))); 
     T prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
     T rate_perfect = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
 
