@@ -107,58 +107,252 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
 }
 
 /**
+ * A version of `computeCleavageStats()` with the lower terminal rate
+ * (the unbinding rate) set to unity, and the input vector specifying values
+ * for the other five parameters. 
+ */
+template <typename T, int position>
+VectorXd computeCleavageStatsUnbindingUnity(const Ref<const VectorXd>& input)
+{
+    // Array of DNA/RNA match parameters
+    std::pair<T, T> match;
+    match.first = static_cast<T>(std::pow(10.0, input(0)));
+    match.second = static_cast<T>(std::pow(10.0, input(1)));
+
+    // Array of DNA/RNA mismatch parameters
+    std::pair<T, T> mismatch;
+    mismatch.first = static_cast<T>(std::pow(10.0, input(2)));
+    mismatch.second = static_cast<T>(std::pow(10.0, input(3)));
+
+    // Populate each rung with DNA/RNA match parameters
+    LineGraph<T, T>* model = new LineGraph<T, T>(length);
+    for (int j = 0; j < length; ++j)
+        model->setEdgeLabels(j, match);
+    
+    // Compute cleavage probability and cleavage rate on the perfect-match
+    // substrate
+    T terminal_unbind_rate = 1;
+    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, input(4))); 
+    T prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+    T rate_perfect = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate); 
+
+    // Introduce one mismatch at the specified position and re-compute
+    // cleavage probability and cleavage rate 
+    model->setEdgeLabels(position, mismatch); 
+    T prob_mismatched = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+    T rate_mismatched = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);  
+
+    // Compile results and return 
+    VectorXd output(2);
+    output << static_cast<double>(log10(prob_perfect) - log10(prob_mismatched)),
+              static_cast<double>(log10(rate_perfect) - log10(rate_mismatched)); 
+
+    delete model;
+    return output;
+}
+
+/**
+ * A version of `computeCleavageStats()` with *both* terminal rates (cleavage
+ * and unbinding) set to unity, and the input vector specifying values for 
+ * the other four parameters.
+ */
+template <typename T, int position>
+VectorXd computeCleavageStatsBothTerminalUnity(const Ref<const VectorXd>& input)
+{
+    // Array of DNA/RNA match parameters
+    std::pair<T, T> match;
+    match.first = static_cast<T>(std::pow(10.0, input(0)));
+    match.second = static_cast<T>(std::pow(10.0, input(1)));
+
+    // Array of DNA/RNA mismatch parameters
+    std::pair<T, T> mismatch;
+    mismatch.first = static_cast<T>(std::pow(10.0, input(2)));
+    mismatch.second = static_cast<T>(std::pow(10.0, input(3)));
+
+    // Populate each rung with DNA/RNA match parameters
+    LineGraph<T, T>* model = new LineGraph<T, T>(length);
+    for (int j = 0; j < length; ++j)
+        model->setEdgeLabels(j, match);
+    
+    // Compute cleavage probability and cleavage rate on the perfect-match
+    // substrate
+    T terminal_unbind_rate = 1;
+    T terminal_cleave_rate = 1;
+    T prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+    T rate_perfect = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate); 
+
+    // Introduce one mismatch at the specified position and re-compute
+    // cleavage probability and cleavage rate 
+    model->setEdgeLabels(position, mismatch); 
+    T prob_mismatched = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+    T rate_mismatched = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);  
+
+    // Compile results and return 
+    VectorXd output(2);
+    output << static_cast<double>(log10(prob_perfect) - log10(prob_mismatched)),
+              static_cast<double>(log10(rate_perfect) - log10(rate_mismatched)); 
+
+    delete model;
+    return output;
+}
+
+/**
  * Return the template specialization of `computeCleavageStats()` corresponding
  * to the given mismatch position. 
  */ 
 template <typename T>
-std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position)
+std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position, int dim)
 {
-    switch (position)
+    if (dim == 6)
     {
-        case 0:
-            return computeCleavageStats<PreciseType, 0>;
-        case 1: 
-            return computeCleavageStats<PreciseType, 1>;
-        case 2:
-            return computeCleavageStats<PreciseType, 2>; 
-        case 3: 
-            return computeCleavageStats<PreciseType, 3>; 
-        case 4: 
-            return computeCleavageStats<PreciseType, 4>; 
-        case 5: 
-            return computeCleavageStats<PreciseType, 5>; 
-        case 6: 
-            return computeCleavageStats<PreciseType, 6>; 
-        case 7: 
-            return computeCleavageStats<PreciseType, 7>; 
-        case 8: 
-            return computeCleavageStats<PreciseType, 8>; 
-        case 9: 
-            return computeCleavageStats<PreciseType, 9>; 
-        case 10: 
-            return computeCleavageStats<PreciseType, 10>; 
-        case 11:
-            return computeCleavageStats<PreciseType, 11>; 
-        case 12: 
-            return computeCleavageStats<PreciseType, 12>; 
-        case 13: 
-            return computeCleavageStats<PreciseType, 13>; 
-        case 14: 
-            return computeCleavageStats<PreciseType, 14>; 
-        case 15:
-            return computeCleavageStats<PreciseType, 15>; 
-        case 16: 
-            return computeCleavageStats<PreciseType, 16>; 
-        case 17: 
-            return computeCleavageStats<PreciseType, 17>; 
-        case 18:
-            return computeCleavageStats<PreciseType, 18>; 
-        case 19:
-            return computeCleavageStats<PreciseType, 19>; 
-        default:
-            throw std::invalid_argument("Invalid mismatch position"); 
+        switch (position)
+        {
+            case 0:
+                return computeCleavageStats<PreciseType, 0>;
+            case 1: 
+                return computeCleavageStats<PreciseType, 1>;
+            case 2:
+                return computeCleavageStats<PreciseType, 2>; 
+            case 3: 
+                return computeCleavageStats<PreciseType, 3>; 
+            case 4: 
+                return computeCleavageStats<PreciseType, 4>; 
+            case 5: 
+                return computeCleavageStats<PreciseType, 5>; 
+            case 6: 
+                return computeCleavageStats<PreciseType, 6>; 
+            case 7: 
+                return computeCleavageStats<PreciseType, 7>; 
+            case 8: 
+                return computeCleavageStats<PreciseType, 8>; 
+            case 9: 
+                return computeCleavageStats<PreciseType, 9>; 
+            case 10: 
+                return computeCleavageStats<PreciseType, 10>; 
+            case 11:
+                return computeCleavageStats<PreciseType, 11>; 
+            case 12: 
+                return computeCleavageStats<PreciseType, 12>; 
+            case 13: 
+                return computeCleavageStats<PreciseType, 13>; 
+            case 14: 
+                return computeCleavageStats<PreciseType, 14>; 
+            case 15:
+                return computeCleavageStats<PreciseType, 15>; 
+            case 16: 
+                return computeCleavageStats<PreciseType, 16>; 
+            case 17: 
+                return computeCleavageStats<PreciseType, 17>; 
+            case 18:
+                return computeCleavageStats<PreciseType, 18>; 
+            case 19:
+                return computeCleavageStats<PreciseType, 19>; 
+            default:
+                throw std::invalid_argument("Invalid mismatch position");
+        }
+    }
+    else if (dim == 5)
+    {
+        switch (position)
+        {
+            case 0:
+                return computeCleavageStatsUnbindingUnity<PreciseType, 0>;
+            case 1: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 1>;
+            case 2:
+                return computeCleavageStatsUnbindingUnity<PreciseType, 2>; 
+            case 3: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 3>; 
+            case 4: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 4>; 
+            case 5: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 5>; 
+            case 6: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 6>; 
+            case 7: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 7>; 
+            case 8: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 8>; 
+            case 9: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 9>; 
+            case 10: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 10>; 
+            case 11:
+                return computeCleavageStatsUnbindingUnity<PreciseType, 11>; 
+            case 12: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 12>; 
+            case 13: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 13>; 
+            case 14: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 14>; 
+            case 15:
+                return computeCleavageStatsUnbindingUnity<PreciseType, 15>; 
+            case 16: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 16>; 
+            case 17: 
+                return computeCleavageStatsUnbindingUnity<PreciseType, 17>; 
+            case 18:
+                return computeCleavageStatsUnbindingUnity<PreciseType, 18>; 
+            case 19:
+                return computeCleavageStatsUnbindingUnity<PreciseType, 19>; 
+            default:
+                throw std::invalid_argument("Invalid mismatch position");
+        } 
+    }
+    else if (dim == 4)
+    {
+        switch (position)
+        {
+            case 0:
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 0>;
+            case 1: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 1>;
+            case 2:
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 2>; 
+            case 3: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 3>; 
+            case 4: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 4>; 
+            case 5: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 5>; 
+            case 6: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 6>; 
+            case 7: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 7>; 
+            case 8: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 8>; 
+            case 9: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 9>; 
+            case 10: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 10>; 
+            case 11:
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 11>; 
+            case 12: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 12>; 
+            case 13: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 13>; 
+            case 14: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 14>; 
+            case 15:
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 15>; 
+            case 16: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 16>; 
+            case 17: 
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 17>; 
+            case 18:
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 18>; 
+            case 19:
+                return computeCleavageStatsBothTerminalUnity<PreciseType, 19>; 
+            default:
+                throw std::invalid_argument("Invalid mismatch position");
+        } 
+    }
+    else 
+    {
+        throw std::invalid_argument("Invalid parameter space dimension"); 
     }
 }
+
 
 int main(int argc, char** argv)
 {
@@ -174,8 +368,8 @@ int main(int argc, char** argv)
     const double tol = 1e-6;
     const int min_step_iter = 100;
     const int max_step_iter = 200;
-    const int min_pull_iter = 50;
-    const int max_pull_iter = 200;
+    const int min_pull_iter = 100;
+    const int max_pull_iter = 1000;
     const int sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
     const int max_edges = 2000;
@@ -200,11 +394,11 @@ int main(int argc, char** argv)
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
     rng.seed(1234567890 * position); 
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position); 
     BoundaryFinder* finder = new BoundaryFinder(
-        tol, rng, argv[1], argv[2],
-        Polytopes::InequalityType::GreaterThanOrEqualTo, func
+        tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo
     );
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position, finder->getD());
+    finder->setFunc(func);  
     double mutate_delta = 0.1 * getMaxDist<double>(finder->getVertices());
 
     // Obtain the initial set of input points
