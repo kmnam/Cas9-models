@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <tuple>
 #include <Eigen/Dense>
+#include <boost/container_hash/hash.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
@@ -20,7 +21,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     8/16/2022
+ *     8/22/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -390,9 +391,19 @@ int main(int argc, char** argv)
     std::stringstream ss;
     ss << argv[3] << "-deaddissoc-mm" << argv[4] << "-boundary";
 
+    // Parse the given .poly file and store its contents as a string 
+    std::ifstream infile(argv[1]); 
+    std::stringstream ss2;
+    ss2 << infile.rdbuf(); 
+    infile.close();
+
     // Initialize the boundary-finding algorithm
     const int position = std::stoi(argv[4]);
-    rng.seed(1234567890 * position); 
+    std::size_t seed = 0; 
+    boost::hash_combine(seed, 1234567890); 
+    boost::hash_combine(seed, position); 
+    boost::hash_combine(seed, ss2.str()); 
+    rng.seed(seed); 
     BoundaryFinder* finder = new BoundaryFinder(
         tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo
     );
