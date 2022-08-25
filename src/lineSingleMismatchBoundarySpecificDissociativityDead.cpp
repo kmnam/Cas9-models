@@ -387,6 +387,7 @@ int main(int argc, char** argv)
     const double c2 = 0.9;
     const bool verbose = true;
     const bool sqp_verbose = false;
+    const bool traversal_verbose = true;  
     const bool write_pulled_points = true; 
     std::stringstream ss;
     ss << argv[3] << "-deaddissoc-mm" << argv[4] << "-boundary";
@@ -421,7 +422,7 @@ int main(int argc, char** argv)
         n_keep_origbound, n_mutate_origbound, n_pull_origbound, tau, delta,
         beta, use_only_armijo, use_strong_wolfe, hessian_modify_max_iter,
         ss.str(), RegularizationMethod::NOREG, 0, c1, c2, verbose, sqp_verbose,
-        write_pulled_points 
+        traversal_verbose, write_pulled_points 
     );
 
     delete finder;     
