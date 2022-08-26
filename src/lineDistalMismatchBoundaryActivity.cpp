@@ -107,7 +107,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
  * (the unbinding rate) set to unity, and the input vector specifying values
  * for the other five parameters. 
  */
-template <typename T, int position>
+template <typename T, int num_mismatches>
 VectorXd computeCleavageStatsUnbindingUnity(const Ref<const VectorXd>& input)
 {
     // Array of DNA/RNA match parameters
@@ -151,7 +151,7 @@ VectorXd computeCleavageStatsUnbindingUnity(const Ref<const VectorXd>& input)
  * and unbinding) set to unity, and the input vector specifying values for 
  * the other four parameters.
  */
-template <typename T, int position>
+template <typename T, int num_mismatches>
 VectorXd computeCleavageStatsBothTerminalUnity(const Ref<const VectorXd>& input)
 {
     // Array of DNA/RNA match parameters
@@ -192,14 +192,14 @@ VectorXd computeCleavageStatsBothTerminalUnity(const Ref<const VectorXd>& input)
 
 /**
  * Return the template specialization of `computeCleavageStats()` corresponding
- * to the given mismatch position. 
+ * to the given number of mismatches. 
  */ 
 template <typename T>
-std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position, int dim)
+std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int num_mismatches, int dim)
 {
     if (dim == 6)
     {
-        switch (position)
+        switch (num_mismatches)
         {
             case 1: 
                 return computeCleavageStats<PreciseType, 1>;
@@ -247,7 +247,7 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
     }
     else if (dim == 5)
     {
-        switch (position)
+        switch (num_mismatches)
         {
             case 1: 
                 return computeCleavageStatsUnbindingUnity<PreciseType, 1>;
@@ -295,7 +295,7 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
     }
     else if (dim == 4)
     {
-        switch (position)
+        switch (num_mismatches)
         {
             case 1: 
                 return computeCleavageStatsBothTerminalUnity<PreciseType, 1>;
@@ -395,7 +395,7 @@ int main(int argc, char** argv)
     const int num_mismatches = std::stoi(argv[4]);
     std::size_t seed = 0; 
     boost::hash_combine(seed, 1234567890); 
-    boost::hash_combine(seed, position); 
+    boost::hash_combine(seed, num_mismatches); 
     boost::hash_combine(seed, ss2.str()); 
     rng.seed(seed); 
     BoundaryFinder* finder = new BoundaryFinder(
