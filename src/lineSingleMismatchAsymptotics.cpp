@@ -140,7 +140,7 @@ Matrix<T, Dynamic, 2> computeLimitsForLargeMatchRatio(const Ref<const VectorXd>&
     const T logdp = static_cast<T>(logrates(1));
 
     // Get terminal rates
-    const T terminal_unbind_lograte = 1;
+    const T terminal_unbind_lograte = 0;
     const T terminal_cleave_lograte = static_cast<T>(logrates(2)); 
 
     // Ratios of match/mismatch parameters
@@ -213,7 +213,7 @@ Matrix<T, Dynamic, 2> computeLimitsForSmallMismatchRatio(const Ref<const VectorX
     const T logdp = static_cast<T>(_logdp);
 
     // Get terminal rates
-    const T terminal_unbind_lograte = 1;
+    const T terminal_unbind_lograte = 0;
     const T terminal_cleave_lograte = static_cast<T>(logrates(2));
     const T terminal_lograte_sum = terminal_unbind_lograte + terminal_cleave_lograte;  
 
@@ -363,7 +363,7 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
         Polytopes::InequalityType::GreaterThanOrEqualTo
     );
     std::stringstream ss; 
-    ss << "polytopes/line-" << static_cast<int>(exp) << "-unbindingunity-translated.poly"; 
+    ss << "polytopes/line-" << static_cast<int>(exp) << "-unbindingunity-translated.poly";
     constraints->parse(ss.str()); 
     Matrix<mpq_rational, Dynamic, Dynamic> A = constraints->getA(); 
     Matrix<mpq_rational, Dynamic, 1> b = constraints->getb();
@@ -403,8 +403,8 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
     {
         mpq_rational x = b(i) - A(i, idx_fixed_large) * max(idx_fixed_large) - A(i, idx_fixed_small) * min(idx_fixed_small); 
 
-        // If the constraint merely concerns the smaller parameter (d or b'), then
-        // change its stored max/min value accordingly 
+        // If the constraint merely concerns the smaller variable parameter
+        // (d or b'), then change its stored max/min value accordingly 
         if (A(i, idx_var_small) != 0 && A(i, idx_var_large) == 0)
         {
             if (A(i, idx_var_small) > 0 && min_reduced(idx_var_small) > x / A(i, idx_var_small))
@@ -412,8 +412,8 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
             else if (A(i, idx_var_small) < 0 && max_reduced(idx_var_small) < x / A(i, idx_var_small))
                 max_reduced(idx_var_small) = x / A(i, idx_var_small);
         }
-        // If the constraint merely concerns the larger parameter (b or d'), then 
-        // change its stored max/min value accordingly
+        // If the constraint merely concerns the larger variable parameter
+        // (b or d'), then change its stored max/min value accordingly
         else if (A(i, idx_var_small) == 0 && A(i, idx_var_large) != 0)
         {
             if (A(i, idx_var_large) > 0 && min_reduced(idx_var_large) > x / A(i, idx_var_large))
@@ -445,7 +445,7 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
     // Add the max/min values for the variable parameters as separate constraints 
     const int Dp = 2 * (D - 2); 
     nrows_reduced += Dp;
-    A_reduced.conservativeResize(nrows_reduced, Dp);
+    A_reduced.conservativeResize(nrows_reduced, D - 2);
     b_reduced.conservativeResize(nrows_reduced);
     // The first two rows provide minimum bounds for the two variable parameters
     A_reduced.block(nrows_reduced - Dp, 0, 2, 2) = Matrix<mpq_rational, Dynamic, Dynamic>::Identity(2, 2);
@@ -467,7 +467,7 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
         b_reduced(nrows_reduced - Dp + 3) = -max_reduced(idx_var_small);  
     }
     else                       // ... or 2 i.e. b' (in which case idx_var_large is 3 i.e. d')
-    { 
+    {
         b_reduced(nrows_reduced - Dp + 2) = -max_reduced(idx_var_small);
         b_reduced(nrows_reduced - Dp + 3) = -max_reduced(idx_var_large); 
     }
@@ -475,21 +475,16 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
     int c = nrows_reduced - Dp + 4;
     for (int i = 0; i < D - 4; ++i)
     {
-        A_reduced.block(c + 2 * i, 2 * i, 2, 2)
-            = Matrix<mpq_rational, Dynamic, Dynamic>::Identity(2, 2); 
-        b_reduced(c + 2 * i) = min_reduced(4 + 2 * i); 
-        b_reduced(c + 2 * i + 1) = min_reduced(4 + 2 * i + 1);
+        A_reduced(c + i, 2 + i) = 1; 
+        b_reduced(c + i) = min_reduced(2 + i); 
     }
     // Finally, provide maximum bounds for the remaining parameters
-    c = c + 2 * (D - 4); 
+    c += D - 4; 
     for (int i = 0; i < D - 4; ++i)
     {  
-        A_reduced.block(c + 2 * i, 2 * i, 2, 2) = -Matrix<mpq_rational, Dynamic, Dynamic>::Identity(2, 2);
-        b_reduced(c + 2 * i) = -max_reduced(4 + 2 * i); 
-        b_reduced(c + 2 * i + 1) = -max_reduced(4 + 2 * i + 1); 
+        A_reduced(c + i, 2 + i) = -1;
+        b_reduced(c + i) = -max_reduced(2 + i);
     }
-    std::cout << A_reduced << std::endl; 
-    std::cout << b_reduced << std::endl;  
 
     // Enumerate the vertices of this reduced 2-D polytope 
     Polytopes::PolyhedralDictionarySystem* dict = new Polytopes::PolyhedralDictionarySystem(
@@ -527,11 +522,10 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
     } 
     logrates.col(idx_fixed_large) = static_cast<double>(max(idx_fixed_large)) * VectorXd::Ones(n);
     logrates.col(idx_fixed_small) = static_cast<double>(min(idx_fixed_small)) * VectorXd::Ones(n);
-    logrates(Eigen::all, Eigen::seqN(4, D - 4)) = logrates_reduced(Eigen::all, Eigen::seqN(D - 4, D - 4));  
+    logrates(Eigen::all, Eigen::seqN(4, D - 4)) = logrates_reduced(Eigen::all, Eigen::seqN(2, D - 4));  
 
     // ... and translate the sampled values appropriately
     logrates -= exp * MatrixXd::Ones(n, D);
-    std::cout << logrates << std::endl; 
 
     // Compute cleavage probabilities, unbinding rates, and cleavage rates
     Matrix<PreciseType, Dynamic, Dynamic> probs(n, length + 1);
@@ -686,9 +680,9 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
   
     // Write matrix of normalized unconditional unbinding rates
     if (idx_fixed_large == 0)
-        oss << prefix << "-largematch-dead-dissoc.tsv";
+        oss << prefix << "-largematch-deaddissoc.tsv";
     else 
-        oss << prefix << "-smallmismatch-dead-dissoc.tsv";  
+        oss << prefix << "-smallmismatch-deaddissoc.tsv";  
     std::ofstream unbindfile2(oss.str());
     unbindfile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (unbindfile2.is_open())
