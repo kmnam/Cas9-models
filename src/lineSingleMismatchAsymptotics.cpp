@@ -239,7 +239,9 @@ Matrix<T, Dynamic, 2> computeLimitsForSmallMismatchRatio(const Ref<const VectorX
     Matrix<T, Dynamic, 1> arr_alpha(length + 1);
 
     // Compute each term of alpha, which does not depend on the mismatch position m
-    arr_alpha(0) = logsumexp<T>(0, logc_partial_sums(length - 1) - logd, ten);  
+    arr_alpha(0) = logsumexp<T>(
+        0, logc_partial_sums(length - 1) + terminal_cleave_lograte - logd, ten
+    );  
     for (int i = 1; i < length; ++i)
     {
         Matrix<T, Dynamic, 1> subarr(4); 
@@ -272,7 +274,9 @@ Matrix<T, Dynamic, 2> computeLimitsForSmallMismatchRatio(const Ref<const VectorX
             }
             if (m > length - 2)
             {
-                term2 = logsumexp<T>(0, logc_powers(length - 1 - m) + terminal_cleave_lograte - logdp, ten);
+                term2 = logsumexp<T>(
+                    0, logc_powers(length - 1 - m) + terminal_cleave_lograte - logdp, ten
+                );
             } 
             else
             {
@@ -545,20 +549,21 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
         specs.row(i) = stats.col(4).tail(length);
         rapid.row(i) = stats.col(5).tail(length);
         dead_dissoc.row(i) = stats.col(6).tail(length);
-        Matrix<PreciseType, Dynamic, 2> tradeoffs; 
+        Matrix<PreciseType, Dynamic, 2> tradeoffs;
+        VectorXd logrates_i(D - 2); 
         if (idx_fixed_large == 0) 
         {
+            logrates_i = logrates.row(i).tail(D - 2); 
             tradeoffs = computeLimitsForLargeMatchRatio<PreciseType>(
-                logrates.row(i).tail(D - 2), logrates(i, 0), logrates(i, 1)
+                logrates_i, logrates(i, 0), logrates(i, 1)
             );
         }
         else
         {
-            VectorXd logrates_i(D - 2); 
             logrates_i(0) = logrates(i, 0);
             logrates_i(1) = logrates(i, 1);
             for (int j = 0; j < D - 4; ++j)
-                logrates_i(j) = logrates(i, 4 + j);
+                logrates_i(2 + j) = logrates(i, 4 + j);
             tradeoffs = computeLimitsForSmallMismatchRatio<PreciseType>(
                 logrates_i, logrates(i, 2), logrates(i, 3)
             );
@@ -774,7 +779,7 @@ int main(int argc, char** argv)
 {
     int n = std::stoi(argv[2]);
     double exp = std::stod(argv[3]);
-    runConstrainedSampling(0, n, exp, argv[1]); 
+    //runConstrainedSampling(0, n, exp, argv[1]); 
     runConstrainedSampling(3, n, exp, argv[1]); 
 
     return 0;
