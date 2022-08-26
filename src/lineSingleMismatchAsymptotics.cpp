@@ -13,11 +13,14 @@
 #include <vertexEnum.hpp>
 
 /**
+ * Compute various asymptotic tradeoff constants for the line-graph Cas9 
+ * model with respect to single-mismatch substrates. 
+ *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     7/7/2022
+ *     8/26/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -27,11 +30,11 @@ using boost::multiprecision::pow;
 using boost::multiprecision::log; 
 using boost::multiprecision::log1p; 
 using boost::multiprecision::log10;
-const unsigned INTERNAL_PRECISION = 100;
+const int INTERNAL_PRECISION = 100;
 typedef number<mpfr_float_backend<INTERNAL_PRECISION> > PreciseType;
 const mpq_rational BIG_RATIONAL = static_cast<mpq_rational>(std::numeric_limits<int>::max());
 
-const unsigned length = 20;
+const int length = 20;
 
 // Instantiate random number generator 
 boost::random::mt19937 rng(1234567890);
@@ -55,7 +58,7 @@ typename Derived::Scalar logsumexp(const MatrixBase<Derived>& logx,
     typedef typename Derived::Scalar T; 
     T maxlogx = logx.maxCoeff();
     Matrix<T, Dynamic, 1> x(logx.size());
-    for (unsigned i = 0; i < logx.size(); ++i)
+    for (int i = 0; i < logx.size(); ++i)
         x(i) = pow(base, logx(i) - maxlogx); 
     
     return maxlogx + log(x.sum()) / log(base);  
@@ -86,8 +89,8 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
     
     // Compute cleavage probability, cleavage rate, dead unbinding rate, and
     // live unbinding rate
-    T terminal_unbind_rate = static_cast<T>(std::pow(10.0, logrates(4))); 
-    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(5))); 
+    T terminal_unbind_rate = 1;
+    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(4))); 
     Matrix<T, Dynamic, 8> stats = Matrix<T, Dynamic, 8>::Zero(length + 1, 8); 
     stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
@@ -115,14 +118,14 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
 }
 
 /**
- * Compute the asymptotic specific rapidity and specific (dead) dissociativity
- * of randomly parametrized line-graph Cas9 models with large b / d with
- * respect to single-mismatch substrates.
+ * Compute the asymptotic specific rapidity and dead dissociativity tradeoff 
+ * constants of randomly parametrized line-graph Cas9 models with large b / d
+ * with respect to single-mismatch substrates.
  */
 template <typename T>
-Matrix<T, Dynamic, 2> computeLimitsForLarge01(const Ref<const VectorXd>& logrates,
-                                              const double _logb,
-                                              const double _logd)
+Matrix<T, Dynamic, 2> computeLimitsForLargeMatchRatio(const Ref<const VectorXd>& logrates,
+                                                      const double _logb,
+                                                      const double _logd)
 {
     const T ten = static_cast<T>(10);
     const T two = static_cast<T>(2); 
@@ -137,8 +140,8 @@ Matrix<T, Dynamic, 2> computeLimitsForLarge01(const Ref<const VectorXd>& lograte
     const T logdp = static_cast<T>(logrates(1));
 
     // Get terminal rates
-    const T terminal_unbind_lograte = static_cast<T>(logrates(2));
-    const T terminal_cleave_lograte = static_cast<T>(logrates(3)); 
+    const T terminal_unbind_lograte = 1;
+    const T terminal_cleave_lograte = static_cast<T>(logrates(2)); 
 
     // Ratios of match/mismatch parameters
     const T logc = logb - logd; 
@@ -148,41 +151,54 @@ Matrix<T, Dynamic, 2> computeLimitsForLarge01(const Ref<const VectorXd>& lograte
     // with respect to each single-mismatch substrate 
     Matrix<T, Dynamic, 2> stats(length, 2);
 
-    // For m = 0, compute log10(c / c') + log10(1 + (2 * unbind_rate / b')
-    // + (unbind_rate / b')^2) and log10(1 + ((unbind_rate + cleave_rate) / b'))
-    T term1 = logsumexp<T>(0, log_two + terminal_unbind_lograte - logbp, ten);
-    T term2 = logsumexp<T>(term1, 2 * (terminal_unbind_lograte - logbp), ten);
-    T term3 = logsumexp<T>(0, logsumexp<T>(terminal_unbind_lograte, terminal_cleave_lograte, ten) - logbp, ten);  
-    stats(0, 0) = logc - logcp + term2; 
-    stats(0, 1) = term3; 
+    // For m = 0, compute the rapidity tradeoff constant: 
+    //
+    // log10(1 + ((unbind_rate + cleave_rate) / b'))
+    //
+    stats(0, 0) = logsumexp<T>(0, logsumexp<T>(terminal_unbind_lograte, terminal_cleave_lograte, ten) - logbp, ten);
+    
+    // ... and the dead dissociativity tradeoff constant: 
+    //
+    // log10(c / c') + log10(1 + unbind_rate / b')
+    //
+    stats(0, 1) = logc - logcp + logsumexp<T>(0, terminal_unbind_lograte - logbp, ten); 
 
-    for (unsigned m = 1; m < length - 1; ++m)
+    for (int m = 1; m < length - 1; ++m)
     {
-        // For 0 < m < length - 1, compute log10(c / c') ...
-        stats(m, 0) = logc - logcp;
+        // For 0 < m < length - 1, compute the rapidity tradeoff constant:
+        //
+        // log10(1 + (cleave_rate / b'))
+        //
+        stats(m, 0) = logsumexp<T>(0, terminal_cleave_lograte - logbp, ten);
 
-        // ... and log10(1 + (cleave_rate / b'))
-        stats(m, 1) = logsumexp<T>(0, terminal_cleave_lograte - logbp, ten); 
+        // ... and the dead dissociativity tradeoff constant: log10(c / c')
+        stats(m, 1) = logc - logcp;
     }
 
-    // For m = length - 1, compute log10(c / (1 + c')) = log10(c) - log10(1 + c')
-    // and log10(1 + ((d' + cleave_rate) / b'))
-    stats(length - 1, 0) = logc - logsumexp<T>(0, logcp, ten);
-    T term3 = logsumexp<T>(terminal_cleave_lograte, logdp, ten) - logbp;
-    stats(length - 1, 1) = logsumexp<T>(0, term3, ten);
+    // For m = length - 1, compute the rapidity tradeoff constant: 
+    //
+    // log10(1 + ((d' + cleave_rate) / b'))
+    //
+    stats(length-1, 0) = logsumexp<T>(0, logsumexp<T>(terminal_cleave_lograte, logdp, ten) - logbp, ten);
+
+    // ... and the dead dissociativity tradeoff constant: 
+    //
+    // log10(c / (1 + c')) = log10(c) - log10(1 + c')
+    //
+    stats(length-1, 1) = logc - logsumexp<T>(0, logcp, ten);
 
     return stats;
 }
 
 /**
- * Compute the asymptotic specific rapidity and specific (dead) dissociativity
- * of randomly parametrized line-graph Cas9 models with small b' / d' with
- * respect to single-mismatch substrates.
+ * Compute the asymptotic specific rapidity and dead dissociativity tradeoff
+ * constants of randomly parametrized line-graph Cas9 models with small b' / d'
+ * with respect to single-mismatch substrates.
  */
 template <typename T>
-Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& logrates,
-                                              const double _logbp,
-                                              const double _logdp)
+Matrix<T, Dynamic, 2> computeLimitsForSmallMismatchRatio(const Ref<const VectorXd>& logrates,
+                                                         const double _logbp,
+                                                         const double _logdp)
 {
     const T ten = static_cast<T>(10);
     const T two = static_cast<T>(2); 
@@ -197,8 +213,9 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& lograte
     const T logdp = static_cast<T>(_logdp);
 
     // Get terminal rates
-    const T terminal_unbind_lograte = static_cast<T>(logrates(2));
-    const T terminal_cleave_lograte = static_cast<T>(logrates(3)); 
+    const T terminal_unbind_lograte = 1;
+    const T terminal_cleave_lograte = static_cast<T>(logrates(2));
+    const T terminal_lograte_sum = terminal_unbind_lograte + terminal_cleave_lograte;  
 
     // Ratios of match/mismatch parameters
     const T logc = logb - logd; 
@@ -211,33 +228,10 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& lograte
     // Compute the partial sums of the form log(1), log(1 + c), ..., log(1 + c + ... + c^N)
     Matrix<T, Dynamic, 1> logc_powers(length + 1);
     Matrix<T, Dynamic, 1> logc_partial_sums(length + 1); 
-    for (unsigned i = 0; i < length + 1; ++i)
+    for (int i = 0; i < length + 1; ++i)
         logc_powers(i) = i * logc;
-    for (unsigned i = 0; i < length + 1; ++i)
-        logc_partial_sums(i) = logsumexp(logc_powers.head(i + 1), ten); 
-
-    // Compute the asymptotic associativity tradeoff constant for the
-    // most-distal-mismatch substrate 
-    Matrix<T, Dynamic, 1> arr_gamma(3);
-    arr_gamma << logc_powers(length), 0, logc_partial_sums(length - 1) - logd;
-    T gamma = logsumexp(arr_gamma, ten);
-    stats(length - 1, 0) = logc - logcp + logc_partial_sums(length) - logc_partial_sums(length - 1); 
-    stats(length - 1, 0) += logsumexp<T>(0, -logdp, ten); 
-    stats(length - 1, 0) -= gamma; 
-
-    // Compute the asymptotic associativity tradeoff constants for all other 
-    // single-mismatch substrates ...
-    Matrix<T, Dynamic, 1> arr_gamma_m(3);
-    for (int m = 0; m < length - 1; ++m)
-    {
-        arr_gamma_m << 0,
-                       logc_powers(length - 1 - m) - logdp,
-                       logc_partial_sums(length - 2 - m);
-        T gamma_m = logsumexp(arr_gamma_m, ten);
-        stats(m, 0) = 2 * (logc - logcp) + logc_partial_sums(length) - logc_partial_sums(m); 
-        stats(m, 0) += 2 * gamma_m; 
-        stats(m, 0) -= 2 * gamma; 
-    }
+    for (int i = 0; i < length + 1; ++i)
+        logc_partial_sums(i) = logsumexp(logc_powers.head(i + 1), ten);
 
     // Compute the asymptotic rapidity tradeoff constants for all single-mismatch
     // substrates ...
@@ -250,20 +244,21 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& lograte
     {
         Matrix<T, Dynamic, 1> subarr(4); 
         subarr << logc_powers(i),
-                  logc_partial_sums(i - 1) - logd,
-                  logc_partial_sums(length - i - 1) + logc_powers(i) - logd,
-                  logc_partial_sums(i - 1) + logc_partial_sums(length - i - 1) - (2 * logd); 
+                  logc_partial_sums(i - 1) + terminal_unbind_lograte - logd,
+                  logc_partial_sums(length - i - 1) + logc_powers(i) + terminal_cleave_lograte - logd,
+                  logc_partial_sums(i - 1) + logc_partial_sums(length - i - 1) + terminal_lograte_sum - (2 * logd); 
         arr_alpha(i) = logsumexp(subarr, ten); 
     }
     arr_alpha(length) = logsumexp<T>(
-        logc_powers(length), logc_partial_sums(length - 1) - logd, ten
+        logc_powers(length),
+        logc_partial_sums(length - 1) + terminal_unbind_lograte - logd, ten
     ); 
     T alpha = logsumexp(arr_alpha, ten);
 
     // Compute each term of alpha_m, for each mismatch position m 
     for (int m = 0; m < length; ++m)
     {
-        for (int i = 0; i <= m; ++i)
+        for (int i = 0; i <= m; ++i)    // First sum in the formula (i = 0, ..., m)
         {
             T term1 = 0;
             T term2 = 0; 
@@ -271,25 +266,25 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& lograte
             {
                 term1 = logsumexp<T>(
                     i * logc,
-                    logc_partial_sums(i - 1) - logd, 
+                    logc_partial_sums(i - 1) + terminal_unbind_lograte - logd, 
                     ten
                 ); 
             }
             if (m > length - 2)
             {
-                term2 = logsumexp<T>(0, logc_powers(length - 1 - m) * logdp, ten);
+                term2 = logsumexp<T>(0, logc_powers(length - 1 - m) + terminal_cleave_lograte - logdp, ten);
             } 
             else
             {
                 Matrix<T, Dynamic, 1> subarr(3);
                 subarr << 0,
-                          logc_powers(length - 1 - m) - logdp,
-                          logc_partial_sums(length - 2 - m) - logd; 
+                          logc_powers(length - 1 - m) + terminal_cleave_lograte - logdp,
+                          logc_partial_sums(length - 2 - m) + terminal_cleave_lograte - logd; 
                 term2 = logsumexp(subarr, ten); 
             }
             arr_alpha_m(i) = term1 + term2;
         }
-        for (int i = m + 1; i <= length; ++i)
+        for (int i = m + 1; i <= length; ++i)    // Second sum in the formula
         {
             T term1 = 0;
             T term2 = 0;
@@ -297,42 +292,66 @@ Matrix<T, Dynamic, 2> computeLimitsForSmall23(const Ref<const VectorXd>& lograte
             {
                 term1 = logsumexp<T>(
                     0,
-                    logc_partial_sums(length - 1 - i) - logd,
+                    logc_partial_sums(length - 1 - i) + terminal_cleave_lograte - logd,
                     ten
                 );
             }
             if (m > i - 2)
             {
-                term2 = logc_powers(i - 1 - m) - logdp; 
+                term2 = logc_powers(i - 1 - m) + terminal_unbind_lograte - logdp; 
             }
             else 
             {
                 term2 = logsumexp<T>(
-                    logc_powers(i - 1 - m) - logdp,
-                    logc_partial_sums(i - 2 - m) - logd, 
+                    logc_powers(i - 1 - m) + terminal_unbind_lograte - logdp,
+                    logc_partial_sums(i - 2 - m) + terminal_unbind_lograte - logd, 
                     ten
                 );
             }
             arr_alpha_m(i) = term1 + term2;
         }
 
-        stats(m, 1) = logsumexp(arr_alpha_m, ten) - alpha + logc - logcp;
+        stats(m, 0) = logsumexp(arr_alpha_m, ten) - alpha + logc - logcp;
     }
+
+    // Compute the asymptotic dissociativity tradeoff constants for all other 
+    // single-mismatch substrates ...
+    Matrix<T, Dynamic, 1> arr_gamma(3); 
+    Matrix<T, Dynamic, 1> arr_gamma_m(3);
+    arr_gamma << terminal_cleave_lograte + logc_powers(length), 
+                 terminal_unbind_lograte, 
+                 terminal_cleave_lograte + terminal_unbind_lograte - logd + logc_partial_sums(length - 1); 
+    T gamma = logsumexp(arr_gamma, ten) - logc_partial_sums(length);
+    T gamma_m = 0; 
+    for (int m = 0; m < length - 1; ++m)
+    {
+        arr_gamma_m << 0,
+                       terminal_cleave_lograte + logc_powers(length - 1 - m) - logdp,
+                       terminal_cleave_lograte + logc_partial_sums(length - 2 - m) - logd;
+        gamma_m = terminal_unbind_lograte + logsumexp(arr_gamma_m, ten) - logc_partial_sums(m);
+        stats(m, 1) = logc - logcp + gamma_m - gamma; 
+    }
+    gamma_m = (    // For m = length - 1
+        terminal_unbind_lograte
+        + logsumexp<T>(0, terminal_cleave_lograte + logc_powers(0) - logdp, ten)
+        - logc_partial_sums(length - 1)
+    ); 
+    stats(length - 1, 1) = logc - logcp + gamma_m - gamma; 
 
     return stats;
 }
 
-void runConstrainedSampling(const int idx_fixed_large, const int n,
+void runConstrainedSampling(const int idx_fixed_large, const int n, const double exp, 
                             const std::string prefix)
 {
     int idx_fixed_small, idx_var_large, idx_var_small; 
-    if (idx_fixed_large == 0)
+    if (idx_fixed_large == 0)    // b fixed large, d fixed small, b' variable small, d' variable large
     {
         idx_fixed_small = 1;
         idx_var_large = 3; 
         idx_var_small = 2;
     }
-    else     // idx_fixed_large == 3
+    else                         // d' fixed large, b' fixed small, b variable large, d variable small
     {
         idx_fixed_small = 2; 
         idx_var_large = 0; 
@@ -343,18 +362,20 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
     Polytopes::LinearConstraints<mpq_rational>* constraints = new Polytopes::LinearConstraints<mpq_rational>(
         Polytopes::InequalityType::GreaterThanOrEqualTo
     );
-    constraints->parse("/Users/kmnam/Dropbox/gene-regulation/projects/Cas9-models/polytopes/line-5-translated.poly"); 
+    std::stringstream ss; 
+    ss << "polytopes/line-" << static_cast<int>(exp) << "-unbindingunity-translated.poly"; 
+    constraints->parse(ss.str()); 
     Matrix<mpq_rational, Dynamic, Dynamic> A = constraints->getA(); 
     Matrix<mpq_rational, Dynamic, 1> b = constraints->getb();
+    const int D = constraints->getD();
 
     // Get the min/max values of all four (translated) parameters
-    Matrix<mpq_rational, 4, 1> max, min;
-    max << -BIG_RATIONAL, -BIG_RATIONAL, -BIG_RATIONAL, -BIG_RATIONAL; 
-    min <<  BIG_RATIONAL,  BIG_RATIONAL,  BIG_RATIONAL,  BIG_RATIONAL; 
-    for (unsigned i = 0; i < A.rows(); ++i)
+    Matrix<mpq_rational, Dynamic, 1> max = -BIG_RATIONAL * Matrix<mpq_rational, Dynamic, 1>::Ones(D);
+    Matrix<mpq_rational, Dynamic, 1> min = BIG_RATIONAL * Matrix<mpq_rational, Dynamic, 1>::Ones(D);
+    for (int i = 0; i < A.rows(); ++i)
     {
         std::vector<int> nonzero; 
-        for (unsigned j = 0; j < 4; ++j)
+        for (int j = 0; j < D; ++j)
         {
             if (A(i, j) != 0)
                 nonzero.push_back(j); 
@@ -364,7 +385,7 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
         else if (nonzero.size() == 1 && A(i, nonzero[0]) > 0)    // A(i, j) * x(i) >= b(i), so b(i) / A(i, j) = min(x(i))
             min(nonzero[0]) = b(i) / A(i, nonzero[0]);
     }
-    for (unsigned i = 0; i < 4; ++i)
+    for (int i = 0; i < D; ++i)
     {
         if (max(i) == -BIG_RATIONAL)
             throw std::runtime_error("Maximum value for at least one parameter not specified");
@@ -374,11 +395,11 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
 
     // Specify reduced constraints with a pair of parameters fixed  
     int nrows_reduced = 0; 
-    Matrix<mpq_rational, Dynamic, Dynamic> A_reduced(nrows_reduced, 2); 
+    Matrix<mpq_rational, Dynamic, Dynamic> A_reduced(nrows_reduced, D - 2); 
     Matrix<mpq_rational, Dynamic, 1> b_reduced(nrows_reduced);
-    Matrix<mpq_rational, 4, 1> max_reduced(max); 
-    Matrix<mpq_rational, 4, 1> min_reduced(min);
-    for (unsigned i = 0; i < A.rows(); ++i)
+    Matrix<mpq_rational, Dynamic, 1> max_reduced(max); 
+    Matrix<mpq_rational, Dynamic, 1> min_reduced(min);
+    for (int i = 0; i < A.rows(); ++i)
     {
         mpq_rational x = b(i) - A(i, idx_fixed_large) * max(idx_fixed_large) - A(i, idx_fixed_small) * min(idx_fixed_small); 
 
@@ -405,7 +426,7 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
         else if (A(i, idx_var_small) != 0 && A(i, idx_var_large) != 0)
         { 
             nrows_reduced++;
-            A_reduced.conservativeResize(nrows_reduced, 2); 
+            A_reduced.conservativeResize(nrows_reduced, D - 2); 
             b_reduced.conservativeResize(nrows_reduced);
             if (idx_var_small == 1)    // Either 1 (in which case idx_var_large is 0) ...
             { 
@@ -422,31 +443,53 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
     }
     
     // Add the max/min values for the variable parameters as separate constraints 
-    nrows_reduced += 4; 
-    A_reduced.conservativeResize(nrows_reduced, 2); 
+    const int Dp = 2 * (D - 2); 
+    nrows_reduced += Dp;
+    A_reduced.conservativeResize(nrows_reduced, Dp);
     b_reduced.conservativeResize(nrows_reduced);
-    A_reduced.block(nrows_reduced - 4, 0, 2, 2) = Matrix<mpq_rational, Dynamic, Dynamic>::Identity(2, 2);
-    if (idx_var_small == 1)    // Either 1 (in which case idx_var_large is 0) ...
+    // The first two rows provide minimum bounds for the two variable parameters
+    A_reduced.block(nrows_reduced - Dp, 0, 2, 2) = Matrix<mpq_rational, Dynamic, Dynamic>::Identity(2, 2);
+    if (idx_var_small == 1)    // Either 1 i.e. d (in which case idx_var_large is 0 i.e. b) ...
     {
-        b_reduced(nrows_reduced - 4) = min_reduced(idx_var_large); 
-        b_reduced(nrows_reduced - 3) = min_reduced(idx_var_small);
+        b_reduced(nrows_reduced - Dp) = min_reduced(idx_var_large); 
+        b_reduced(nrows_reduced - Dp + 1) = min_reduced(idx_var_small);
     }
-    else                       // ... or 2 (in which case idx_var_large is 3) 
+    else                       // ... or 2 i.e. b' (in which case idx_var_large is 3 i.e. d') 
     {
-        b_reduced(nrows_reduced - 4) = min_reduced(idx_var_small); 
-        b_reduced(nrows_reduced - 3) = min_reduced(idx_var_large); 
-    } 
-    A_reduced.block(nrows_reduced - 2, 0, 2, 2) = -Matrix<mpq_rational, Dynamic, Dynamic>::Identity(2, 2);
-    if (idx_var_small == 1)    // Either 1 (in which case idx_var_large is 0) ...
-    {
-        b_reduced(nrows_reduced - 2) = -max_reduced(idx_var_large);
-        b_reduced(nrows_reduced - 1) = -max_reduced(idx_var_small);  
+        b_reduced(nrows_reduced - Dp) = min_reduced(idx_var_small); 
+        b_reduced(nrows_reduced - Dp + 1) = min_reduced(idx_var_large); 
     }
-    else                       // ... or 2 (in which case idx_var_large is 3)
+    // The second two rows provide maximum bounds for the two variable parameters
+    A_reduced.block(nrows_reduced - Dp + 2, 0, 2, 2) = -Matrix<mpq_rational, Dynamic, Dynamic>::Identity(2, 2);
+    if (idx_var_small == 1)    // Either 1 i.e. d (in which case idx_var_large is 0 i.e. b) ...
+    {
+        b_reduced(nrows_reduced - Dp + 2) = -max_reduced(idx_var_large);
+        b_reduced(nrows_reduced - Dp + 3) = -max_reduced(idx_var_small);  
+    }
+    else                       // ... or 2 i.e. b' (in which case idx_var_large is 3 i.e. d')
     { 
-        b_reduced(nrows_reduced - 2) = -max_reduced(idx_var_small);
-        b_reduced(nrows_reduced - 1) = -max_reduced(idx_var_large); 
+        b_reduced(nrows_reduced - Dp + 2) = -max_reduced(idx_var_small);
+        b_reduced(nrows_reduced - Dp + 3) = -max_reduced(idx_var_large); 
     }
+    // Next, provide minimum bounds for the remaining parameters
+    int c = nrows_reduced - Dp + 4;
+    for (int i = 0; i < D - 4; ++i)
+    {
+        A_reduced.block(c + 2 * i, 2 * i, 2, 2)
+            = Matrix<mpq_rational, Dynamic, Dynamic>::Identity(2, 2); 
+        b_reduced(c + 2 * i) = min_reduced(4 + 2 * i); 
+        b_reduced(c + 2 * i + 1) = min_reduced(4 + 2 * i + 1);
+    }
+    // Finally, provide maximum bounds for the remaining parameters
+    c = c + 2 * (D - 4); 
+    for (int i = 0; i < D - 4; ++i)
+    {  
+        A_reduced.block(c + 2 * i, 2 * i, 2, 2) = -Matrix<mpq_rational, Dynamic, Dynamic>::Identity(2, 2);
+        b_reduced(c + 2 * i) = -max_reduced(4 + 2 * i); 
+        b_reduced(c + 2 * i + 1) = -max_reduced(4 + 2 * i + 1); 
+    }
+    std::cout << A_reduced << std::endl; 
+    std::cout << b_reduced << std::endl;  
 
     // Enumerate the vertices of this reduced 2-D polytope 
     Polytopes::PolyhedralDictionarySystem* dict = new Polytopes::PolyhedralDictionarySystem(
@@ -460,10 +503,10 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
     Delaunay_triangulation tri = Polytopes::triangulate(vertices); 
 
     // Sample model parameter combinations from the reduced polytope ...
-    MatrixXd params_reduced;
+    MatrixXd logrates_reduced;
     try
     {
-        params_reduced = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(tri, n, 0, rng); 
+        logrates_reduced = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(tri, n, 0, rng); 
     }
     catch (const std::exception& e)
     {
@@ -471,75 +514,82 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
     }
 
     // ... add values for the excluded parameters ...
-    MatrixXd params(n, 4);
-    if (idx_var_small == 1)    // Either 1 (in which case idx_var_large is 0) ...
+    MatrixXd logrates(n, D);
+    if (idx_var_small == 1)    // Either 1 i.e. d (in which case idx_var_large is 0 i.e. b) ...
     {
-        params.col(idx_var_large) = params_reduced.col(0); 
-        params.col(idx_var_small) = params_reduced.col(1);
+        logrates.col(idx_var_large) = logrates_reduced.col(0); 
+        logrates.col(idx_var_small) = logrates_reduced.col(1);
     }
-    else                       // ... or 2 (in which case idx_var_large is 3) 
+    else                       // ... or 2 i.e. b' (in which case idx_var_large is 3 i.e. d') 
     {
-        params.col(idx_var_small) = params_reduced.col(0);
-        params.col(idx_var_large) = params_reduced.col(1); 
+        logrates.col(idx_var_small) = logrates_reduced.col(0);
+        logrates.col(idx_var_large) = logrates_reduced.col(1); 
     } 
-    params.col(idx_fixed_large) = static_cast<double>(max(idx_fixed_large)) * VectorXd::Ones(n);
-    params.col(idx_fixed_small) = static_cast<double>(min(idx_fixed_small)) * VectorXd::Ones(n);  
+    logrates.col(idx_fixed_large) = static_cast<double>(max(idx_fixed_large)) * VectorXd::Ones(n);
+    logrates.col(idx_fixed_small) = static_cast<double>(min(idx_fixed_small)) * VectorXd::Ones(n);
+    logrates(Eigen::all, Eigen::seqN(4, D - 4)) = logrates_reduced(Eigen::all, Eigen::seqN(D - 4, D - 4));  
 
     // ... and translate the sampled values appropriately
-    params -= 5 * MatrixXd::Ones(n, 4);
+    logrates -= exp * MatrixXd::Ones(n, D);
+    std::cout << logrates << std::endl; 
 
     // Compute cleavage probabilities, unbinding rates, and cleavage rates
     Matrix<PreciseType, Dynamic, Dynamic> probs(n, length + 1);
     Matrix<PreciseType, Dynamic, Dynamic> unbind_rates(n, length + 1);
     Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, length + 1);
     Matrix<PreciseType, Dynamic, Dynamic> specs(n, length);
-    Matrix<PreciseType, Dynamic, Dynamic> norm_unbind(n, length); 
-    Matrix<PreciseType, Dynamic, Dynamic> norm_cleave(n, length);
-    Matrix<PreciseType, Dynamic, Dynamic> lim_norm_unbind(n, length); 
-    Matrix<PreciseType, Dynamic, Dynamic> lim_norm_cleave(n, length);  
-    for (unsigned i = 0; i < n; ++i)
+    Matrix<PreciseType, Dynamic, Dynamic> rapid(n, length);
+    Matrix<PreciseType, Dynamic, Dynamic> dead_dissoc(n, length); 
+    Matrix<PreciseType, Dynamic, Dynamic> asymp_tradeoff_rapid(n, length); 
+    Matrix<PreciseType, Dynamic, Dynamic> asymp_tradeoff_deaddissoc(n, length);  
+    for (int i = 0; i < n; ++i)
     {
-        Matrix<PreciseType, Dynamic, 6> stats = computeStats<PreciseType>(params.row(i));
+        Matrix<PreciseType, Dynamic, 8> stats = computeCleavageStats<PreciseType>(logrates.row(i));
         probs.row(i) = stats.col(0);
         unbind_rates.row(i) = stats.col(1);
         cleave_rates.row(i) = stats.col(2);
-        specs.row(i) = stats.col(3).tail(length); 
-        norm_unbind.row(i) = stats.col(4).tail(length); 
-        norm_cleave.row(i) = stats.col(5).tail(length);
-        Matrix<PreciseType, Dynamic, 2> lims; 
+        specs.row(i) = stats.col(4).tail(length);
+        rapid.row(i) = stats.col(5).tail(length);
+        dead_dissoc.row(i) = stats.col(6).tail(length);
+        Matrix<PreciseType, Dynamic, 2> tradeoffs; 
         if (idx_fixed_large == 0) 
         {
-            lims = computeLimitsForLarge01<PreciseType>(
-                params.row(i).tail(2), params(i, 0), params(i, 1)
+            tradeoffs = computeLimitsForLargeMatchRatio<PreciseType>(
+                logrates.row(i).tail(D - 2), logrates(i, 0), logrates(i, 1)
             );
         }
         else
         {
-            lims = computeLimitsForSmall23<PreciseType>(
-                params.row(i).head(2), params(i, 2), params(i, 3)
+            VectorXd logrates_i(D - 2); 
+            logrates_i(0) = logrates(i, 0);
+            logrates_i(1) = logrates(i, 1);
+            for (int j = 0; j < D - 4; ++j)
+                logrates_i(j) = logrates(i, 4 + j);
+            tradeoffs = computeLimitsForSmallMismatchRatio<PreciseType>(
+                logrates_i, logrates(i, 2), logrates(i, 3)
             );
         }
-        lim_norm_unbind.row(i) = lims.col(0); 
-        lim_norm_cleave.row(i) = lims.col(1);
+        asymp_tradeoff_rapid.row(i) = tradeoffs.col(0);
+        asymp_tradeoff_deaddissoc.row(i) = tradeoffs.col(1);
     }
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;
     if (idx_fixed_large == 0)
-        oss << prefix << "-large01-params.tsv";
+        oss << prefix << "-largematch-logrates.tsv";
     else 
-        oss << prefix << "-small23-params.tsv";  
+        oss << prefix << "-smallmismatch-logrates.tsv";  
     std::ofstream samplefile(oss.str());
     samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (samplefile.is_open())
     {
-        for (unsigned i = 0; i < params.rows(); i++)
+        for (int i = 0; i < logrates.rows(); i++)
         {
-            for (unsigned j = 0; j < params.cols() - 1; j++)
+            for (int j = 0; j < logrates.cols() - 1; j++)
             {
-                samplefile << params(i,j) << "\t";
+                samplefile << logrates(i, j) << "\t";
             }
-            samplefile << params(i, params.cols()-1) << std::endl;
+            samplefile << logrates(i, logrates.cols()-1) << std::endl;
         }
     }
     samplefile.close();
@@ -548,18 +598,18 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
 
     // Write matrix of cleavage probabilities
     if (idx_fixed_large == 0)
-        oss << prefix << "-large01-probs.tsv";
+        oss << prefix << "-largematch-probs.tsv";
     else 
-        oss << prefix << "-small23-probs.tsv";  
+        oss << prefix << "-smallmismatch-probs.tsv";  
     std::ofstream probsfile(oss.str());
     probsfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (probsfile.is_open())
     {
-        for (unsigned i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length; ++j)
+            for (int j = 0; j < length; ++j)
             {
-                probsfile << probs(i,j) << "\t";
+                probsfile << probs(i, j) << "\t";
             }
             probsfile << probs(i, length) << std::endl; 
         }
@@ -570,18 +620,18 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
 
     // Write matrix of cleavage specificities
     if (idx_fixed_large == 0)
-        oss << prefix << "-large01-specs.tsv";
+        oss << prefix << "-largematch-specs.tsv";
     else 
-        oss << prefix << "-small23-specs.tsv";  
+        oss << prefix << "-smallmismatch-specs.tsv";  
     std::ofstream specsfile(oss.str());
     specsfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (specsfile.is_open())
     {
-        for (unsigned i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (int j = 0; j < length - 1; ++j)
             {
-                specsfile << specs(i,j) << "\t";
+                specsfile << specs(i, j) << "\t";
             }
             specsfile << specs(i, length - 1) << std::endl; 
         }
@@ -592,18 +642,18 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
 
     // Write matrix of (unnormalized) unconditional unbinding rates
     if (idx_fixed_large == 0)
-        oss << prefix << "-large01-unbind-rates.tsv";
+        oss << prefix << "-largematch-unbind-rates.tsv";
     else 
-        oss << prefix << "-small23-unbind-rates.tsv";  
+        oss << prefix << "-smallmismatch-unbind-rates.tsv";  
     std::ofstream unbindfile(oss.str());
     unbindfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (unbindfile.is_open())
     {
-        for (unsigned i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length; ++j)
+            for (int j = 0; j < length; ++j)
             {
-                unbindfile << unbind_rates(i,j) << "\t";
+                unbindfile << unbind_rates(i, j) << "\t";
             }
             unbindfile << unbind_rates(i, length) << std::endl; 
         }
@@ -614,18 +664,18 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
 
     // Write matrix of (unnormalized) conditional cleavage rates
     if (idx_fixed_large == 0)
-        oss << prefix << "-large01-cleave-rates.tsv";
+        oss << prefix << "-largematch-cleave-rates.tsv";
     else 
-        oss << prefix << "-small23-cleave-rates.tsv";  
+        oss << prefix << "-smallmismatch-cleave-rates.tsv";  
     std::ofstream cleavefile(oss.str());
     cleavefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (cleavefile.is_open())
     {
-        for (unsigned i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length; ++j)
+            for (int j = 0; j < length; ++j)
             {
-                cleavefile << cleave_rates(i,j) << "\t";
+                cleavefile << cleave_rates(i, j) << "\t";
             }
             cleavefile << cleave_rates(i, length) << std::endl; 
         }
@@ -636,20 +686,20 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
   
     // Write matrix of normalized unconditional unbinding rates
     if (idx_fixed_large == 0)
-        oss << prefix << "-large01-norm-unbind.tsv";
+        oss << prefix << "-largematch-dead-dissoc.tsv";
     else 
-        oss << prefix << "-small23-norm-unbind.tsv";  
+        oss << prefix << "-smallmismatch-dead-dissoc.tsv";  
     std::ofstream unbindfile2(oss.str());
     unbindfile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (unbindfile2.is_open())
     {
-        for (unsigned i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (int j = 0; j < length - 1; ++j)
             {
-                unbindfile2 << norm_unbind(i,j) << "\t";  
+                unbindfile2 << dead_dissoc(i, j) << "\t";  
             }
-            unbindfile2 << norm_unbind(i, length-1) << std::endl; 
+            unbindfile2 << dead_dissoc(i, length-1) << std::endl; 
         }
     }
     unbindfile2.close();
@@ -658,20 +708,20 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
 
     // Write matrix of normalized conditional cleavage rates
     if (idx_fixed_large == 0)
-        oss << prefix << "-large01-norm-cleave.tsv";
+        oss << prefix << "-largematch-rapid.tsv";
     else 
-        oss << prefix << "-small23-norm-cleave.tsv";  
+        oss << prefix << "-smallmismatch-rapid.tsv";  
     std::ofstream cleavefile2(oss.str());
     cleavefile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (cleavefile2.is_open())
     {
-        for (unsigned i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (int j = 0; j < length - 1; ++j)
             {
-                cleavefile2 << norm_cleave(i,j) << "\t"; 
+                cleavefile2 << rapid(i, j) << "\t"; 
             }
-            cleavefile2 << norm_cleave(i, length-1) << std::endl; 
+            cleavefile2 << rapid(i, length-1) << std::endl; 
         }
     }
     cleavefile2.close();
@@ -681,20 +731,20 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
     // Write matrix of asymptotically determined normalized conditional
     // unbinding rate tradeoff constants
     if (idx_fixed_large == 0)
-        oss << prefix << "-large01-lim-norm-unbind.tsv";
+        oss << prefix << "-largematch-asymp-deaddissoc.tsv";
     else 
-        oss << prefix << "-small23-lim-norm-unbind.tsv";  
+        oss << prefix << "-smallmismatch-asymp-deaddissoc.tsv";  
     std::ofstream unbindfile3(oss.str()); 
     unbindfile3 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (unbindfile3.is_open())
     {
-        for (unsigned i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (int j = 0; j < length - 1; ++j)
             {
-                unbindfile3 << lim_norm_unbind(i,j) << "\t"; 
+                unbindfile3 << asymp_tradeoff_deaddissoc(i, j) << "\t"; 
             }
-            unbindfile3 << lim_norm_unbind(i, length-1) << std::endl; 
+            unbindfile3 << asymp_tradeoff_deaddissoc(i, length-1) << std::endl; 
         }
     }
     unbindfile3.close();
@@ -704,20 +754,20 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
     // Write matrix of asymptotically determined normalized conditional
     // cleavage rate tradeoff constants
     if (idx_fixed_large == 0)
-        oss << prefix << "-large01-lim-norm-cleave.tsv";
+        oss << prefix << "-largematch-asymp-rapid.tsv";
     else 
-        oss << prefix << "-small23-lim-norm-cleave.tsv";  
+        oss << prefix << "-smallmismatch-asymp-rapid.tsv";  
     std::ofstream cleavefile3(oss.str()); 
     cleavefile3 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (cleavefile3.is_open())
     {
-        for (unsigned i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i)
         {
-            for (unsigned j = 0; j < length - 1; ++j)
+            for (int j = 0; j < length - 1; ++j)
             {
-                cleavefile3 << lim_norm_cleave(i,j) << "\t"; 
+                cleavefile3 << asymp_tradeoff_rapid(i, j) << "\t"; 
             }
-            cleavefile3 << lim_norm_cleave(i, length-1) << std::endl; 
+            cleavefile3 << asymp_tradeoff_rapid(i, length-1) << std::endl; 
         }
     }
     cleavefile3.close(); 
@@ -728,10 +778,10 @@ void runConstrainedSampling(const int idx_fixed_large, const int n,
 
 int main(int argc, char** argv)
 {
-    unsigned n;
-    sscanf(argv[2], "%u", &n);
-    runConstrainedSampling(0, n, argv[1]); 
-    runConstrainedSampling(3, n, argv[1]); 
+    int n = std::stoi(argv[2]);
+    double exp = std::stod(argv[3]);
+    runConstrainedSampling(0, n, exp, argv[1]); 
+    runConstrainedSampling(3, n, exp, argv[1]); 
 
     return 0;
 }
