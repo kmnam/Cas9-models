@@ -779,7 +779,7 @@ int main(int argc, char** argv)
 {
     int n = std::stoi(argv[2]);
     double exp = std::stod(argv[3]);
-    //runConstrainedSampling(0, n, exp, argv[1]); 
+    runConstrainedSampling(0, n, exp, argv[1]); 
     runConstrainedSampling(3, n, exp, argv[1]); 
 
     return 0;
