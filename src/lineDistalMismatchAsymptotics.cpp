@@ -171,17 +171,16 @@ Matrix<T, Dynamic, 2> computeLimitsForLargeMatchRatio(const Ref<const VectorXd>&
 
     // For m = 0, compute the rapidity tradeoff constant: 
     //
-    // log10(beta / (c')^N)
+    // log10(alpha' / (c')^N)
     //
-    Matrix<T, Dynamic, 1> arr_beta(length + 1);
+    Matrix<T, Dynamic, 1> arr_alphap(length + 1);
     for (int i = 0; i < length + 1; ++i)
     {
         Matrix<T, Dynamic, 1> arr_term(4);
         if (i == 0)
         {
             arr_term.resize(2); 
-            arr_term << logcp_powers(0),
-                        terminal_cleave_lograte - logdp + logcp_partial_sums(length - 1);
+            arr_term << 0, terminal_cleave_lograte - logdp + logcp_partial_sums(length - 1);
         }
         else if (i == length)
         {
@@ -195,16 +194,16 @@ Matrix<T, Dynamic, 2> computeLimitsForLargeMatchRatio(const Ref<const VectorXd>&
                         terminal_unbind_lograte - logdp + logcp_partial_sums(i - 1),
                         terminal_cleave_lograte - logdp + logcp_powers(i) + logcp_partial_sums(length - 1 - i),
                         terminal_unbind_lograte + terminal_cleave_lograte - 2 * logdp
-                            + logcp_partial_sums(i) + logcp_partial_sums(length - 1 - i);
+                            + logcp_partial_sums(i - 1) + logcp_partial_sums(length - 1 - i);
         }
-        arr_beta(i) = logsumexp(arr_term, ten); 
+        arr_alphap(i) = logsumexp(arr_term, ten); 
     }
-    T beta = logsumexp(arr_beta, ten); 
-    stats(0, 0) = logsumexp<T>(beta, -length * logcp, ten); 
+    T alphap = logsumexp(arr_alphap, ten); 
+    stats(0, 0) = logsumexp<T>(alphap, -length * logcp, ten); 
     
     // ... and the dead dissociativity tradeoff constant: 
     //
-    // log10((c / c')^N) + log10(gamma' / cleave_rate)
+    // log10(1 / cleave_rate) + log10((c / c')^N) + log10(gamma' / (1 + c' + ... + (c')^N))
     //
     Matrix<T, Dynamic, 1> arr_gamma_p(3); 
     arr_gamma_p << logcp_powers(length) + terminal_cleave_lograte,
@@ -344,24 +343,34 @@ Matrix<T, Dynamic, 2> computeLimitsForSmallMismatchRatio(const Ref<const VectorX
 
     // Compute the dead dissociativity tradeoff constant for m = 0:  
     //
-    // log10((c / c')^N * (unbind_rate + cleave_rate * unbind_rate / d') / gamma)
+    // log10((c / c')^N * (unbind_rate + cleave_rate * unbind_rate / d') * (1 + c + ... + c^N) / gamma)
     //
     Matrix<T, Dynamic, 1> arr_gamma(3);
-    arr_gamma << logc_powers(length), 0, logc_partial_sums(length - 1) - logd;
+    arr_gamma << terminal_cleave_lograte + logc_powers(length),
+                 terminal_unbind_lograte,
+                 terminal_cleave_lograte + terminal_unbind_lograte + logc_partial_sums(length - 1) - logd;
     T gamma = logsumexp(arr_gamma, ten);
     T term = logsumexp<T>(
         terminal_unbind_lograte,
         terminal_unbind_lograte + terminal_cleave_lograte - logdp,
         ten
     ); 
-    stats(0, 1) = logc_powers(length) - logcp_powers(length) + term - gamma; 
+    stats(0, 1) = logc_powers(length) - logcp_powers(length) + term + logc_partial_sums(length) - gamma; 
 
     // ... then compute the dead dissociativity tradeoff constants for m > 0: 
     //
-    // log10((c / c')^(N-m) * (unbind_rate + cleave_rate * unbind_rate / d') / (gamma * (1 + c + ... + c^m)))
+    // log10(
+    //    (c / c')^(N-m) * (unbind_rate + cleave_rate * unbind_rate / d') *
+    //    (1 / gamma) * ((1 + c + ... + c^N) / (1 + c + ... + c^m))
+    // )
     //
     for (int m = 1; m < length; ++m)
-        stats(m, 1) = logc_powers(length - m) - logcp_powers(length - m) + term - gamma - logc_partial_sums(m); 
+    {
+        stats(m, 1) = (
+            logc_powers(length - m) - logcp_powers(length - m) + term - gamma +
+            logc_partial_sums(length) - logc_partial_sums(m)
+        );
+    } 
 
     return stats;
 }
