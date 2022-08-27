@@ -376,7 +376,7 @@ Matrix<T, Dynamic, 2> computeLimitsForSmallMismatchRatio(const Ref<const VectorX
 }
 
 void runConstrainedSampling(const int idx_fixed_large, const int n, const double exp,
-                            const std::string prefix)
+                            const double exp_limit, const std::string prefix)
 {
     int idx_fixed_small, idx_var_large, idx_var_small; 
     if (idx_fixed_large == 0)    // b fixed large, d fixed small, b' variable small, d' variable large
@@ -560,6 +560,15 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
 
     // ... and translate the sampled values appropriately
     logrates -= exp * MatrixXd::Ones(n, D);
+
+    // If the exponents determining the values of the fixed parameters are 
+    // different from those of the variable parameters, then overwrite
+    // accordingly
+    if (exp_limit != exp)
+    {
+        logrates.col(idx_fixed_large) = exp_limit * VectorXd::Ones(n); 
+        logrates.col(idx_fixed_small) = -exp_limit * VectorXd::Ones(n);
+    }
 
     // Compute cleavage probabilities, unbinding rates, and cleavage rates
     Matrix<PreciseType, Dynamic, Dynamic> probs(n, length + 1);
@@ -809,8 +818,11 @@ int main(int argc, char** argv)
 {
     int n = std::stoi(argv[2]);
     double exp = std::stod(argv[3]);
-    runConstrainedSampling(0, n, exp, argv[1]); 
-    runConstrainedSampling(3, n, exp, argv[1]); 
+    double exp_limit = exp; 
+    if (argc == 5) 
+        exp_limit = std::stod(argv[4]); 
+    runConstrainedSampling(0, n, exp, exp_limit, argv[1]); 
+    runConstrainedSampling(3, n, exp, exp_limit, argv[1]); 
 
     return 0;
 }
