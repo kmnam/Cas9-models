@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     8/26/2022
+ *     8/29/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -116,6 +116,102 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
     }
 
     delete model;
+    return stats;
+}
+
+/**
+ * Compute asymptotic specificities for randomly parametrized line-graph 
+ * Cas9 models with large b / d with respect to the all-mismatch substrate.
+ */
+template <typename T>
+T computeAsymptoticSpecificityProximalForLargeMatchRatio(const Ref<const VectorXd>& logrates)
+{
+    const T ten = static_cast<T>(10);
+
+    // Get DNA/RNA match parameters
+    const T logbp = static_cast<T>(logrates(0)); 
+    const T logdp = static_cast<T>(logrates(1)); 
+
+    // Get terminal rates
+    const T terminal_unbind_lograte = 0;
+    const T terminal_cleave_lograte = static_cast<T>(logrates(2));
+
+    // Ratio of mismatch parameters
+    const T logcp = logbp - logdp;
+
+    // Compute the asymptotic dissociativity tradeoff constants for all other 
+    // single-mismatch substrates ...
+    Matrix<T, Dynamic, 1> logcp_powers(length + 1); 
+    for (int i = 0; i < length + 1; ++i)
+        logcp_powers(i) = i * logcp;
+    T logcp_partial_sum = logsumexp(logcp_powers.head(length), ten);  
+    Matrix<T, Dynamic, 1> arr_gamma_p(3); 
+    arr_gamma_p << terminal_cleave_lograte + logcp_powers(length), 
+                   terminal_unbind_lograte, 
+                   terminal_cleave_lograte + terminal_unbind_lograte - logdp + logcp_partial_sum; 
+    T gamma_p = logsumexp(arr_gamma_p, ten);
+
+    return gamma_p - terminal_cleave_lograte - logcp_powers(length); 
+}
+
+/**
+ * Compute asymptotic specificities for randomly parametrized line-graph 
+ * Cas9 models with small b' / d' with respect to the all-mismatch substrate.
+ */
+template <typename T>
+Matrix<T, Dynamic, 1> computeAsymptoticSpecificityForSmallMismatchRatio(
+    const Ref<const VectorXd>& logrates, const double _logbp, const double _logdp)
+{
+    const T ten = static_cast<T>(10);
+
+    // Get DNA/RNA match parameters
+    const T logb = static_cast<T>(logrates(0)); 
+    const T logd = static_cast<T>(logrates(1)); 
+
+    // Get DNA/RNA mismatch parameters
+    const T logbp = static_cast<T>(_logbp);
+    const T logdp = static_cast<T>(_logdp);
+
+    // Get terminal rates
+    const T terminal_unbind_lograte = 0;
+    const T terminal_cleave_lograte = static_cast<T>(logrates(2));
+    const T terminal_lograte_sum = terminal_unbind_lograte + terminal_cleave_lograte;  
+
+    // Ratios of match/mismatch parameters
+    const T logc = logb - logd; 
+    const T logcp = logbp - logdp;
+    
+    // Introduce single mismatches and compute asymptotic normalized statistics 
+    // with respect to each single-mismatch substrate 
+    Matrix<T, Dynamic, 1> stats(length);
+
+    // Compute the partial sums of the form log(1), log(1 + c), ..., log(1 + c + ... + c^N)
+    Matrix<T, Dynamic, 1> logc_powers(length + 1);
+    Matrix<T, Dynamic, 1> logcp_powers(length + 1); 
+    Matrix<T, Dynamic, 1> logc_partial_sums(length + 1); 
+    for (int i = 0; i < length + 1; ++i)
+        logc_powers(i) = i * logc;
+    for (int i = 0; i < length + 1; ++i)
+        logcp_powers(i) = i * logcp; 
+    for (int i = 0; i < length + 1; ++i)
+        logc_partial_sums(i) = logsumexp(logc_powers.head(i + 1), ten);
+
+    // Compute the asymptotic dissociativity tradeoff constants for all other 
+    // single-mismatch substrates ...
+    Matrix<T, Dynamic, 1> arr_gamma(3); 
+    Matrix<T, Dynamic, 1> arr_gamma_m(3);
+    arr_gamma << terminal_cleave_lograte + logc_powers(length), 
+                 terminal_unbind_lograte, 
+                 terminal_cleave_lograte + terminal_unbind_lograte - logd + logc_partial_sums(length - 1); 
+    T gamma = logsumexp(arr_gamma, ten);
+    T numer = logsumexp<T>(
+        terminal_unbind_lograte,
+        terminal_cleave_lograte + terminal_unbind_lograte - logdp,
+        ten
+    ); 
+    for (int m = 0; m < length; ++m)
+        stats(m) = logc_powers(length - m) - logcp_powers(length - m) + numer - gamma; 
+
     return stats;
 }
 
@@ -576,7 +672,12 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
     Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, length + 1);
     Matrix<PreciseType, Dynamic, Dynamic> specs(n, length);
     Matrix<PreciseType, Dynamic, Dynamic> rapid(n, length);
-    Matrix<PreciseType, Dynamic, Dynamic> dead_dissoc(n, length); 
+    Matrix<PreciseType, Dynamic, Dynamic> dead_dissoc(n, length);
+    Matrix<PreciseType, Dynamic, Dynamic> asymp_spec;
+    if (idx_fixed_large == 0)
+        asymp_spec.resize(n, 1); 
+    else 
+        asymp_spec.resize(n, length); 
     Matrix<PreciseType, Dynamic, Dynamic> asymp_tradeoff_rapid(n, length); 
     Matrix<PreciseType, Dynamic, Dynamic> asymp_tradeoff_deaddissoc(n, length);  
     for (int i = 0; i < n; ++i)
@@ -596,6 +697,7 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
             tradeoffs = computeLimitsForLargeMatchRatio<PreciseType>(
                 logrates_i, logrates(i, 0), logrates(i, 1)
             );
+            asymp_spec(i, 0) = computeAsymptoticSpecificityProximalForLargeMatchRatio<PreciseType>(logrates_i);
         }
         else
         {
@@ -604,6 +706,9 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
             for (int j = 0; j < D - 4; ++j)
                 logrates_i(2 + j) = logrates(i, 4 + j);
             tradeoffs = computeLimitsForSmallMismatchRatio<PreciseType>(
+                logrates_i, logrates(i, 2), logrates(i, 3)
+            );
+            asymp_spec.row(i) = computeAsymptoticSpecificityForSmallMismatchRatio<PreciseType>(
                 logrates_i, logrates(i, 2), logrates(i, 3)
             );
         }
@@ -658,23 +763,23 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
 
     // Write matrix of cleavage specificities
     if (idx_fixed_large == 0)
-        oss << prefix << "-largematch-specs.tsv";
+        oss << prefix << "-largematch-spec.tsv";
     else 
-        oss << prefix << "-smallmismatch-specs.tsv";  
-    std::ofstream specsfile(oss.str());
-    specsfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-    if (specsfile.is_open())
+        oss << prefix << "-smallmismatch-spec.tsv";  
+    std::ofstream specfile(oss.str());
+    specfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
+    if (specfile.is_open())
     {
         for (int i = 0; i < n; ++i)
         {
             for (int j = 0; j < length - 1; ++j)
             {
-                specsfile << specs(i, j) << "\t";
+                specfile << specs(i, j) << "\t";
             }
-            specsfile << specs(i, length - 1) << std::endl; 
+            specfile << specs(i, length - 1) << std::endl; 
         }
     }
-    specsfile.close();
+    specfile.close();
     oss.clear();
     oss.str(std::string());
 
@@ -808,7 +913,29 @@ void runConstrainedSampling(const int idx_fixed_large, const int n, const double
             cleavefile3 << asymp_tradeoff_rapid(i, length-1) << std::endl; 
         }
     }
-    cleavefile3.close(); 
+    cleavefile3.close();
+    oss.clear(); 
+    oss.str(std::string()); 
+
+    // Write matrix of asymptotic specificities
+    if (idx_fixed_large == 0)
+        oss << prefix << "-largematch-asymp-spec.tsv";
+    else 
+        oss << prefix << "-smallmismatch-asymp-spec.tsv";  
+    std::ofstream specfile2(oss.str());
+    specfile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
+    if (specfile2.is_open())
+    {
+        for (int i = 0; i < n; ++i)
+        {
+            for (int j = 0; j < asymp_spec.cols() - 1; ++j)
+            {
+                specfile2 << asymp_spec(i, j) << "\t";
+            }
+            specfile2 << asymp_spec(i, asymp_spec.cols()-1) << std::endl;
+        }
+    }
+    specfile2.close();
 
     delete constraints;
     delete dict;
