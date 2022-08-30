@@ -21,7 +21,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     8/26/2022
+ *     8/30/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -362,7 +362,7 @@ int main(int argc, char** argv)
     const int min_step_iter = 100;
     const int max_step_iter = 200;
     const int min_pull_iter = 100;
-    const int max_pull_iter = 1000;
+    const int max_pull_iter = 2000;
     const int sqp_max_iter = 100;
     const double sqp_tol = 1e-6;
     const int max_edges = 2000;
