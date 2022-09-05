@@ -15,7 +15,8 @@
 
 /*
  * Estimates the boundary of the cleavage specificity vs. dead specific
- * dissociativity region in the line-graph Cas9 model.
+ * dissociativity region in the line-graph Cas9 model *with* the constraint
+ * that specificity is small (> 0.001 and < 0.01).
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
@@ -356,11 +357,11 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position
 
 int main(int argc, char** argv)
 {
-    // Define filtering function that excludes all output points with x <= 0.1
+    // Define filtering function that excludes all output points with x > 0.01 and x <= 0.001
     std::function<bool(const Ref<const VectorXd>&)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return (x(0) <= 0.1);
+            return (x(0) > 0.01 || x(0) <= 0.001);
         };
 
     // Boundary-finding algorithm settings
