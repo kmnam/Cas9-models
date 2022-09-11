@@ -126,16 +126,21 @@ Matrix<PreciseType, Dynamic, 5> computeCleavageStats(const Ref<const Matrix<Prec
 }
 
 /**
- * Compute the error (L2 distance) between a set of cleavage rates and dead
- * unbinding rates inferred from the line-graph Cas9 model and a set of
- * experimentally determined cleavage rates and dead unbinding rates. 
+ * Compute the (unregularized) error between a set of (composite) cleavage
+ * rates and dead unbinding rates inferred from the line-graph Cas9 model
+ * and a set of experimentally determined cleavage rates/times and dead
+ * unbinding rates/times.
+ *
+ * Note that regularization, if desired, should be built into the optimizer
+ * function/class with which this function will be used.  
  */
 PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
                              const Ref<const MatrixXi>& cleave_seqs,
                              const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
                              const Ref<const MatrixXi>& unbind_seqs,
                              const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-                             const PreciseType bind_conc, const bool normalize = true)
+                             const PreciseType bind_conc, const bool normalize = true,
+                             const bool data_specified_as_times = false)
 {
     Matrix<PreciseType, Dynamic, 5> stats1, stats2; 
 
@@ -188,10 +193,18 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
         stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc, true);
 
         // Note that computeCleavageStats() returns composite cleavage *times* and 
-        // dead unbinding *rates*, whereas the data includes only *times* and no *rates*
+        // dead unbinding *rates*
         PreciseType error = 0;
-        error += (stats1.col(4) - cleave_data2).squaredNorm();
-        error += (stats2.col(2).array().pow(-1).matrix() - unbind_data2).squaredNorm();
+        if (data_specified_as_times)    // Measurements are of *times*, not of rates 
+        {
+            error += (stats1.col(4) - cleave_data2).squaredNorm();
+            error += (stats2.col(2).array().pow(-1).matrix() - unbind_data2).squaredNorm();
+        }
+        else                            // Measurements are of *rates*, not of times 
+        {
+            error += (stats1.col(4).array().pow(-1).matrix() - cleave_data2).squaredNorm();
+            error += (stats2.col(2) - unbind_data2).squaredNorm();
+        }
         return error;
     }
     else 
@@ -201,10 +214,18 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
         stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc, false);
 
         // Note that computeCleavageStats() returns composite cleavage *times* and 
-        // dead unbinding *rates*, whereas the data includes only *times* and no *rates*
+        // dead unbinding *rates*
         PreciseType error = 0;
-        error += (stats1.col(4) - cleave_data).squaredNorm();
-        error += (stats2.col(2).array().pow(-1).matrix() - unbind_data).squaredNorm();
+        if (data_specified_as_times)    // Measurements are of *times*, not of rates 
+        {
+            error += (stats1.col(4) - cleave_data).squaredNorm();
+            error += (stats2.col(2).array().pow(-1).matrix() - unbind_data).squaredNorm();
+        }
+        else                            // Measurements are of *rates*, not of times 
+        {
+            error += (stats1.col(4).array().pow(-1).matrix() - cleave_data).squaredNorm();
+            error += (stats2.col(2) - unbind_data).squaredNorm();
+        }
         return error;
     }
 }
@@ -213,7 +234,8 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
                                        const std::string unbind_infilename,
                                        const std::string outfilename,
                                        const PreciseType bind_conc,
-                                       const int n_init, boost::random::mt19937& rng)
+                                       const int n_init, boost::random::mt19937& rng,
+                                       const bool data_specified_as_times = false)
 {
     // Parse measured cleavage rates and dead unbinding rates, along with the
     // mismatched sequences on which they were measured 
@@ -358,14 +380,15 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
 
         // Get the best-fit parameter values from the i-th initial parameter vector
         best_fit.row(i) = opt->run([
-            &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data, &bind_conc 
+            &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data, &bind_conc,
+            &data_specified_as_times 
         ](
             const Ref<const Matrix<PreciseType, Dynamic, 1> >& x
         )
             {
                 return errorAgainstData(
                     x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    bind_conc, true 
+                    bind_conc, true, data_specified_as_times
                 ); 
             },
             x_init, l_init, tau, delta, beta, max_iter, tol, x_tol, method,
@@ -374,7 +397,7 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
         );
         errors(i) = errorAgainstData(
             best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-            bind_conc, true
+            bind_conc, true, data_specified_as_times
         );
 
         // Then compute the *unnormalized* cleavage statistics of the
@@ -448,8 +471,17 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
 int main(int argc, char** argv)
 {
     boost::random::mt19937 rng(1234567890);
-    const int n_init = std::stoi(argv[4]);
-    const PreciseType bind_conc = static_cast<PreciseType>(std::stod(argv[5]));  
-    fitLineParamsAgainstMeasuredRates(argv[1], argv[2], argv[3], bind_conc, n_init, rng);
+    const int n_init = std::stoi(argv[5]);
+    const PreciseType bind_conc = static_cast<PreciseType>(std::stod(argv[6]));  
+    fitLineParamsAgainstMeasuredRates(
+        argv[1],     // Input file of measured cleavage rates/times
+        argv[2],     // Input file of measured unbinding rates/times 
+        argv[3],     // Path to output file 
+        bind_conc,   // Nominal concentration of Cas9-RNA
+        n_init,      // Number of initial parameter vectors from which to run optimization
+        rng,         // Random number generator instance
+        (strcmp(argv[4], "0") == 0 || strcmp(argv[4], "false") == 0)
+                     // Whether each input file specifies rates (false) or times (true) 
+    );
 } 
 
