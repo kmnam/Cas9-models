@@ -45,10 +45,9 @@ const PreciseType ten("10");
  * mismatched sequences specified in the given matrix of complementarity
  * patterns, for the given line-graph Cas9 model. 
  */
-Matrix<PreciseType, Dynamic, 5> computeCleavageStats(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
+Matrix<PreciseType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
                                                      const Ref<const MatrixXi>& seqs, 
-                                                     const PreciseType bind_conc,
-                                                     const bool normalize = true)
+                                                     const PreciseType bind_conc)
 {
     // Array of DNA/RNA match parameters
     std::pair<PreciseType, PreciseType> match_rates = std::make_pair(
@@ -88,8 +87,9 @@ Matrix<PreciseType, Dynamic, 5> computeCleavageStats(const Ref<const Matrix<Prec
     );
 
     // Re-compute cleavage probability, cleavage rate, dead unbinding rate, 
-    // and live unbinding rate against each given substrate
-    Matrix<PreciseType, Dynamic, 5> stats(seqs.rows(), 5);  
+    // live unbinding rate, and composite cleavage time against each given
+    // mismatched substrate
+    Matrix<PreciseType, Dynamic, 4> stats(seqs.rows(), 4);  
     for (int j = 0; j < seqs.rows(); ++j)
     {
         for (int k = 0; k < length; ++k)
@@ -102,23 +102,25 @@ Matrix<PreciseType, Dynamic, 5> computeCleavageStats(const Ref<const Matrix<Prec
         stats(j, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         stats(j, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
         stats(j, 2) = model->getLowerExitRate(terminal_unbind_rate); 
-        stats(j, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        stats(j, 4) = (
+        PreciseType unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
+        stats(j, 3) = (
             1 / (bind_conc * bind_rate)
-            + (1 / stats(j, 3) + 1 / (bind_conc * bind_rate)) * (1 - stats(j, 0)) / stats(j, 0)
-            + 1 / stats(j, 1)
-        ); 
+            + (1 / unbind_rate + 1 / (bind_conc * bind_rate)) * (1 - stats(j, 0)) / stats(j, 0) + 1 / stats(j, 1)
+        );
 
-        // Normalize the metrics if desired 
-        if (normalize)
-        {
-            stats(j, 0) = pow(ten, log10(stats_perfect(0)) - log10(stats(j, 0))); 
-            stats(j, 1) = pow(ten, log10(stats_perfect(1)) - log10(stats(j, 1))); 
-            stats(j, 2) = pow(ten, log10(stats(j, 2)) - log10(stats_perfect(2))); 
-            stats(j, 3) = pow(ten, log10(stats(j, 3)) - log10(stats_perfect(3)));
-            // Note that computeCleavageStats() returns composite cleavage *times*, not rates  
-            stats(j, 4) = pow(ten, log10(stats(j, 4)) - log10(stats_perfect(4))); 
-        }
+        // Inverse specificity = cleavage probability on mismatched / cleavage probability on perfect
+        stats(j, 0) = log10(stats(j, 0)) - log10(stats_perfect(0)); 
+
+        // Inverse rapidity = cleavage rate on mismatched / cleavage rate on perfect
+        stats(j, 1) = log10(stats(j, 1)) - log10(stats_perfect(1));  
+
+        // Unbinding rate on mismatched > unbinding rate on perfect, so 
+        // return perfect rate / mismatched rate 
+        stats(j, 2) = log10(stats_perfect(2)) - log10(stats(j, 2));
+        
+        // Cleavage *time* on mismatched > cleavage *time* on perfect (usually), 
+        // so return perfect time / mismatched time
+        stats(j, 3) = log10(stats_perfect(4)) - log10(stats(j, 3));
     }
 
     delete model;
@@ -139,95 +141,35 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
                              const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
                              const Ref<const MatrixXi>& unbind_seqs,
                              const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-                             const PreciseType bind_conc, const bool normalize = true,
-                             const bool data_specified_as_times = false)
+                             const PreciseType bind_conc, const bool logscale = false)
 {
-    Matrix<PreciseType, Dynamic, 5> stats1, stats2; 
+    Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
-    if (normalize)
+    // Compute *normalized* cleavage metrics and corresponding error against data
+    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
+    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+    PreciseType error = 0;
+    if (logscale)               // Compute error function in log-scale
     {
-        // If normalization is desired, then assume that there exist cleavage 
-        // and dead unbinding rates for the perfect-match substrate
-        int unbind_perfect_index = -1;
-        for (int i = 0; i < unbind_seqs.rows(); ++i)
-        {
-            if (unbind_seqs.row(i).sum() == length)
-            {
-                unbind_perfect_index = i;
-                break; 
-            }
-        } 
-        if (unbind_perfect_index == -1)
-        {
-            throw std::runtime_error(
-                "Cannot normalize given data without value corresponding to perfect-match substrate"
-            );
-        }
-        int cleave_perfect_index = -1; 
-        for (int i = 0; i < cleave_seqs.rows(); ++i)
-        {
-            if (cleave_seqs.row(i).sum() == length)
-            {
-                cleave_perfect_index = i; 
-                break;
-            }
-        }
-        if (cleave_perfect_index == -1)
-        {
-            throw std::runtime_error(
-                "Cannot normalize given data without value corresponding to perfect-match substrate"
-            );
-        }
-
-        // Normalize all given composite cleavage times and dead unbinding rates
-        // (with copies of the data matrices that were passed into this function)
-        Matrix<PreciseType, Dynamic, 1> unbind_data2(unbind_data.size());
-        Matrix<PreciseType, Dynamic, 1> cleave_data2(cleave_data.size());  
-        for (int i = 0; i < unbind_data2.size(); ++i)
-            unbind_data2(i) = unbind_data(i) / unbind_data(unbind_perfect_index); 
-        for (int i = 0; i < cleave_data2.size(); ++i)
-            cleave_data2(i) = cleave_data(i) / cleave_data(cleave_perfect_index); 
-
-        // Compute *normalized* cleavage metrics 
-        stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc, true);
-        stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc, true);
-
-        // Note that computeCleavageStats() returns composite cleavage *times* and 
-        // dead unbinding *rates*
-        PreciseType error = 0;
-        if (data_specified_as_times)    // Measurements are of *times*, not of rates 
-        {
-            error += (stats1.col(4) - cleave_data2).squaredNorm();
-            error += (stats2.col(2).array().pow(-1).matrix() - unbind_data2).squaredNorm();
-        }
-        else                            // Measurements are of *rates*, not of times 
-        {
-            error += (stats1.col(4).array().pow(-1).matrix() - cleave_data2).squaredNorm();
-            error += (stats2.col(2) - unbind_data2).squaredNorm();
-        }
-        return error;
+        error += (stats1.col(3) - cleave_data.array().log10().matrix()).squaredNorm();
+        error += (stats2.col(2) - unbind_data.array().log10().matrix()).squaredNorm();
     }
-    else 
+    else                        // Compute error function in linear scale  
     {
-        // Otherwise, compute *unnormalized* cleavage metrics 
-        stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc, false);
-        stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc, false);
-
-        // Note that computeCleavageStats() returns composite cleavage *times* and 
-        // dead unbinding *rates*
-        PreciseType error = 0;
-        if (data_specified_as_times)    // Measurements are of *times*, not of rates 
+        Matrix<PreciseType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
+        Matrix<PreciseType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
+        for (int j = 0; j < 4; ++j)
         {
-            error += (stats1.col(4) - cleave_data).squaredNorm();
-            error += (stats2.col(2).array().pow(-1).matrix() - unbind_data).squaredNorm();
+            for (int i = 0; i < stats1.rows(); ++i)
+                stats1_transformed(i, j) = pow(ten, stats1(i, j)); 
+            for (int i = 0; i < stats2.rows(); ++i)
+                stats2_transformed(i, j) = pow(ten, stats2(i, j));
         }
-        else                            // Measurements are of *rates*, not of times 
-        {
-            error += (stats1.col(4).array().pow(-1).matrix() - cleave_data).squaredNorm();
-            error += (stats2.col(2) - unbind_data).squaredNorm();
-        }
-        return error;
+        error += (stats1_transformed.col(3) - cleave_data).squaredNorm(); 
+        error += (stats2_transformed.col(2) - unbind_data).squaredNorm(); 
     }
+
+    return error;
 }
 
 void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
@@ -235,6 +177,7 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
                                        const std::string outfilename,
                                        const PreciseType bind_conc,
                                        const int n_init, boost::random::mt19937& rng,
+                                       const bool logscale = false,
                                        const bool data_specified_as_times = false)
 {
     // Parse measured cleavage rates and dead unbinding rates, along with the
@@ -320,7 +263,60 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
 
     // Exit if no cleavage rates and no unbinding rates were specified 
     if (n_cleave_data == 0 && n_unbind_data == 0)
-        return; 
+        return;
+
+    // Assume that there exist cleavage and dead unbinding rates for the
+    // perfect-match substrate 
+    int unbind_perfect_index = -1;
+    for (int i = 0; i < unbind_seqs.rows(); ++i)
+    {
+        if (unbind_seqs.row(i).sum() == length)
+        {
+            unbind_perfect_index = i;
+            break; 
+        }
+    } 
+    if (unbind_perfect_index == -1)
+    {
+        throw std::runtime_error(
+            "Cannot normalize given data without value corresponding to perfect-match substrate"
+        );
+    }
+    int cleave_perfect_index = -1; 
+    for (int i = 0; i < cleave_seqs.rows(); ++i)
+    {
+        if (cleave_seqs.row(i).sum() == length)
+        {
+            cleave_perfect_index = i; 
+            break;
+        }
+    }
+    if (cleave_perfect_index == -1)
+    {
+        throw std::runtime_error(
+            "Cannot normalize given data without value corresponding to perfect-match substrate"
+        );
+    }
+
+    // Normalize all given composite cleavage rates/times and dead unbinding
+    // rates/times (with copies of the data matrices that were passed into
+    // this function)
+    Matrix<PreciseType, Dynamic, 1> unbind_data_norm(unbind_data.size());
+    Matrix<PreciseType, Dynamic, 1> cleave_data_norm(cleave_data.size());
+    if (data_specified_as_times)    // Data specified as times 
+    {
+        for (int i = 0; i < unbind_data_norm.size(); ++i)
+            unbind_data_norm(i) = unbind_data(i) / unbind_data(unbind_perfect_index);   // rate on perfect / rate on mismatched
+        for (int i = 0; i < cleave_data_norm.size(); ++i)
+            cleave_data_norm(i) = cleave_data(cleave_perfect_index) / cleave_data(i);   // time on perfect / time on mismatched
+    }
+    else                            // Data specified as rates 
+    { 
+        for (int i = 0; i < unbind_data_norm.size(); ++i)
+            unbind_data_norm(i) = unbind_data(unbind_perfect_index) / unbind_data(i);   // rate on perfect / rate on mismatched
+        for (int i = 0; i < cleave_data_norm.size(); ++i)
+            cleave_data_norm(i) = cleave_data(i) / cleave_data(cleave_perfect_index);   // time on perfect / time on mismatched
+    }
 
     // Set up an SQPOptimizer instance that constrains all parameters to lie 
     // between 1e-10 and 1e+10 
@@ -365,10 +361,9 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
     // from which to begin each round of optimization 
     Matrix<PreciseType, Dynamic, Dynamic> best_fit(n_init, D); 
     Matrix<PreciseType, Dynamic, 1> x_init, l_init;
-    Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats(n_init, 5 * (length + 1));
+    Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats(n_init, 4 * length);
     Matrix<PreciseType, Dynamic, 1> errors(n_init);
-    MatrixXi single_mismatch_seqs_plus_perfect = MatrixXi::Ones(length + 1, length);
-    single_mismatch_seqs_plus_perfect(Eigen::seqN(1, length), Eigen::all) -= MatrixXi::Identity(length, length); 
+    MatrixXi single_mismatch_seqs = MatrixXi::Ones(length, length) - MatrixXi::Identity(length, length); 
     for (int i = 0; i < n_init; ++i)
     {
         // Assemble initial parameter values
@@ -380,15 +375,15 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
 
         // Get the best-fit parameter values from the i-th initial parameter vector
         best_fit.row(i) = opt->run([
-            &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data, &bind_conc,
-            &data_specified_as_times 
+            &cleave_seqs, &unbind_seqs, &cleave_data_norm, &unbind_data_norm,
+            &bind_conc, &logscale
         ](
             const Ref<const Matrix<PreciseType, Dynamic, 1> >& x
         )
             {
                 return errorAgainstData(
-                    x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    bind_conc, true, data_specified_as_times
+                    x, cleave_seqs, cleave_data_norm, unbind_seqs, unbind_data_norm,
+                    bind_conc, logscale
                 ); 
             },
             x_init, l_init, tau, delta, beta, max_iter, tol, x_tol, method,
@@ -396,32 +391,21 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
             hessian_modify_max_iter, c1, c2, verbose
         );
         errors(i) = errorAgainstData(
-            best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-            bind_conc, true, data_specified_as_times
+            best_fit.row(i), cleave_seqs, cleave_data_norm, unbind_seqs, unbind_data_norm,
+            bind_conc, logscale
         );
 
-        // Then compute the *unnormalized* cleavage statistics of the
-        // best-fit model against all single-mismatch substrates (and 
-        // the perfect-match substrate) 
-        Matrix<PreciseType, Dynamic, 5> fit_stats = computeCleavageStats(
-            best_fit.row(i), single_mismatch_seqs_plus_perfect, bind_conc, false
+        // Then compute the normalized cleavage statistics of the best-fit 
+        // model against all single-mismatch substrates 
+        Matrix<PreciseType, Dynamic, 4> fit_stats = computeCleavageStats(
+            best_fit.row(i), single_mismatch_seqs, bind_conc
         );
-        Matrix<PreciseType, 5, 1> fit_stats_perfect = fit_stats.row(0); 
-        fit_single_mismatch_stats(i, Eigen::seqN(0, 5)) = fit_stats_perfect;
-        for (int k = 0; k < length; ++k)
+        for (int j = 0; j < length; ++j)
         {
-            Matrix<PreciseType, 5, 1> fit_stats_mismatched = fit_stats.row(k + 1);
-            fit_single_mismatch_stats(i, 5 * (k + 1))
-                = log10(fit_stats_perfect(0)) - log10(fit_stats_mismatched(0));
-            fit_single_mismatch_stats(i, 5 * (k + 1) + 1)
-                = log10(fit_stats_perfect(1)) - log10(fit_stats_mismatched(1)); 
-            fit_single_mismatch_stats(i, 5 * (k + 1) + 2)
-                = log10(fit_stats_mismatched(2)) - log10(fit_stats_perfect(2));
-            fit_single_mismatch_stats(i, 5 * (k + 1) + 3)
-                = log10(fit_stats_mismatched(3)) - log10(fit_stats_perfect(3));
-            // Note that computeCleavageStats() returns composite cleavage *times*, not rates  
-            fit_single_mismatch_stats(i, 5 * (k + 1) + 4)
-                = log10(fit_stats_mismatched(4)) - log10(fit_stats_perfect(4));   
+            for (int k = 0; k < 4; ++k)
+            { 
+                fit_single_mismatch_stats(i, 4 * j + k) = fit_stats(j, k); 
+            }
         }
     }
     
@@ -431,14 +415,11 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
     outfile << "fit_attempt\t"; 
     outfile << "forward_match\treverse_match\tforward_mismatch\treverse_mismatch\t"
             << "terminal_cleave_rate\tterminal_bind_rate\terror\t";
-    outfile << "perfect_cleave_prob\tperfect_cleave_rate\tperfect_dead_unbind_rate\t"
-            << "perfect_live_unbind_rate\tperfect_composite_cleave_rate\t";
     for (int i = 0; i < length; ++i)
     {
         outfile << "mm" << i << "_log_spec\t"
                 << "mm" << i << "_log_rapid\t"
-                << "mm" << i << "_log_dead_dissoc\t"
-                << "mm" << i << "_log_live_dissoc\t"
+                << "mm" << i << "_log_deaddissoc\t"
                 << "mm" << i << "_log_composite_rapid";
         if (i == length - 1)
             outfile << std::endl;
@@ -456,11 +437,10 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
         // ... along with the associated error against the corresponding data ... 
         outfile << errors(i) << '\t';
 
-        // ... along with the associated perfect-match and single-mismatch
-        // cleavage statistics
-        for (int j = 0; j < 5 * (length + 1) - 1; ++j)
+        // ... along with the associated single-mismatch cleavage statistics
+        for (int j = 0; j < 4 * length - 1; ++j)
             outfile << fit_single_mismatch_stats(i, j) << '\t';
-        outfile << fit_single_mismatch_stats(i, 5 * (length + 1) - 1) << std::endl;  
+        outfile << fit_single_mismatch_stats(i, 4 * length - 1) << std::endl;  
     }
     outfile.close();
 
@@ -480,8 +460,9 @@ int main(int argc, char** argv)
         bind_conc,   // Nominal concentration of Cas9-RNA
         n_init,      // Number of initial parameter vectors from which to run optimization
         rng,         // Random number generator instance
+        false,       // Perform optimization (compute error function) in log-scale
         !(strcmp(argv[4], "0") == 0 || strcmp(argv[4], "false") == 0)
-                     // Whether each input file specifies rates (false) or times (true) 
+                     // Whether each input file specifies rates (false) or times (true)
     );
 } 
 
