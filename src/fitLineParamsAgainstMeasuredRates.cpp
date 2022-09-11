@@ -480,7 +480,7 @@ int main(int argc, char** argv)
         bind_conc,   // Nominal concentration of Cas9-RNA
         n_init,      // Number of initial parameter vectors from which to run optimization
         rng,         // Random number generator instance
-        (strcmp(argv[4], "0") == 0 || strcmp(argv[4], "false") == 0)
+        !(strcmp(argv[4], "0") == 0 || strcmp(argv[4], "false") == 0)
                      // Whether each input file specifies rates (false) or times (true) 
     );
 } 
