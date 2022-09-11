@@ -6,7 +6,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     7/13/2022
+ *     9/10/2022
  */
 
 #include <iostream>
@@ -59,11 +59,11 @@ Matrix<PreciseType, Dynamic, 5> computeCleavageStats(const Ref<const Matrix<Prec
     );
 
     // Exit rates from terminal nodes 
-    PreciseType terminal_unbind_rate = pow(ten, logrates(4));
-    PreciseType terminal_cleave_rate = pow(ten, logrates(5)); 
+    PreciseType terminal_unbind_rate = 1;
+    PreciseType terminal_cleave_rate = pow(ten, logrates(4)); 
 
     // Binding rate entering state 0
-    PreciseType bind_rate = pow(ten, logrates(6));
+    PreciseType bind_rate = pow(ten, logrates(5));
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
@@ -133,8 +133,7 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
                              const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
                              const Ref<const MatrixXi>& unbind_seqs,
                              const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-                             const PreciseType bind_conc,
-                             const bool normalize = true)
+                             const PreciseType bind_conc, const bool normalize = true)
 {
     Matrix<PreciseType, Dynamic, 5> stats1, stats2; 
 
@@ -188,10 +187,10 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
 
         // Note that computeCleavageStats() returns composite cleavage *times* and 
         // dead unbinding *rates*, whereas the data includes only *times* and no *rates*
-        return sqrt(
-            (stats1.col(4) - cleave_data2).squaredNorm() +
-            (stats2.col(2).array().pow(-1).matrix() - unbind_data2).squaredNorm()
-        ); 
+        PreciseType error = 0;
+        error += (stats1.col(4) - cleave_data2).squaredNorm();
+        error += (stats2.col(2).array().pow(-1).matrix() - unbind_data2).squaredNorm();
+        return error;
     }
     else 
     {
@@ -201,10 +200,10 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
 
         // Note that computeCleavageStats() returns composite cleavage *times* and 
         // dead unbinding *rates*, whereas the data includes only *times* and no *rates*
-        return sqrt(
-            (stats1.col(4) - cleave_data).squaredNorm() +
-            (stats2.col(2).array().pow(-1).matrix() - unbind_data).squaredNorm()
-        ); 
+        PreciseType error = 0;
+        error += (stats1.col(4) - cleave_data).squaredNorm();
+        error += (stats2.col(2).array().pow(-1).matrix() - unbind_data).squaredNorm();
+        return error;
     }
 }
 
@@ -216,7 +215,7 @@ void fitCleavageStats(const std::string outfilename, const PreciseType bind_conc
     Polytopes::LinearConstraints<mpq_rational>* constraints_opt = new Polytopes::LinearConstraints<mpq_rational>(
         Polytopes::InequalityType::GreaterThanOrEqualTo 
     );
-    constraints_opt->parse("polytopes/line-10-terminal-plusbind.poly");
+    constraints_opt->parse("polytopes/line-10-unbindingunity-plusbind.poly");
     const int D = constraints_opt->getD(); 
     const int N = constraints_opt->getN(); 
     SQPOptimizer<PreciseType>* opt = new SQPOptimizer<PreciseType>(constraints_opt);
@@ -224,7 +223,7 @@ void fitCleavageStats(const std::string outfilename, const PreciseType bind_conc
     // Sample a set of points from an initial polytope in parameter space, 
     // which constrains all parameters to lie between 1e-5 and 1e+5
     Delaunay_triangulation* tri = new Delaunay_triangulation(D);
-    Polytopes::parseVerticesFile("polytopes/line-5-terminal-plusbind.vert", tri); 
+    Polytopes::parseVerticesFile("polytopes/line-5-unbindingunity-plusbind.vert", tri); 
     Matrix<PreciseType, Dynamic, Dynamic> init_points
         = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(tri, n_init, 0, rng);
 
@@ -338,7 +337,7 @@ void fitCleavageStats(const std::string outfilename, const PreciseType bind_conc
     const PreciseType c1 = 1e-4;
     const PreciseType c2 = 0.9;
     const PreciseType x_tol = 10000;    // Set the x-value tolerance to be large 
-    const bool verbose = false;
+    const bool verbose = true;
 
     /** ------------------------------------------------------- //
      *         FIT AGAINST GIVEN CLEAVAGE/UNBINDING DATA        //
@@ -425,7 +424,6 @@ void fitCleavageStats(const std::string outfilename, const PreciseType bind_conc
     { 
         outfile << variant << "_forward_match\t" << variant << "_reverse_match\t"
                 << variant << "_forward_mismatch\t" << variant << "_reverse_mismatch\t"
-                << variant << "_terminal_unbind_rate\t"
                 << variant << "_terminal_cleave_rate\t"
                 << variant << "_terminal_bind_rate\t"
                 << variant << "_error\t";
