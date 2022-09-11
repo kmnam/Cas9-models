@@ -115,11 +115,12 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<Prec
         stats(j, 1) = log10(stats(j, 1)) - log10(stats_perfect(1));  
 
         // Unbinding rate on mismatched > unbinding rate on perfect, so 
-        // return perfect rate / mismatched rate 
+        // return perfect rate / mismatched rate (inverse dissociativity) 
         stats(j, 2) = log10(stats_perfect(2)) - log10(stats(j, 2));
         
         // Cleavage *time* on mismatched > cleavage *time* on perfect (usually), 
-        // so return perfect time / mismatched time
+        // so return perfect time / mismatched time (inverse composite cleavage
+        // time ratio)
         stats(j, 3) = log10(stats_perfect(4)) - log10(stats(j, 3));
     }
 
@@ -403,8 +404,9 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
         for (int j = 0; j < length; ++j)
         {
             for (int k = 0; k < 4; ++k)
-            { 
-                fit_single_mismatch_stats(i, 4 * j + k) = fit_stats(j, k); 
+            {
+                // Invert all returned statistics  
+                fit_single_mismatch_stats(i, 4 * j + k) = -fit_stats(j, k); 
             }
         }
     }
