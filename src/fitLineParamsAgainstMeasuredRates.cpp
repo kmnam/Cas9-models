@@ -267,7 +267,8 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
         return;
 
     // Assume that there exist cleavage and dead unbinding rates for the
-    // perfect-match substrate 
+    // perfect-match substrate (if any cleavage/unbinding rates have been
+    // specified at all) 
     int unbind_perfect_index = -1;
     for (int i = 0; i < unbind_seqs.rows(); ++i)
     {
@@ -277,7 +278,7 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
             break; 
         }
     } 
-    if (unbind_perfect_index == -1)
+    if (n_unbind_data > 0 && unbind_perfect_index == -1)
     {
         throw std::runtime_error(
             "Cannot normalize given data without value corresponding to perfect-match substrate"
@@ -292,7 +293,7 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
             break;
         }
     }
-    if (cleave_perfect_index == -1)
+    if (n_cleave_data > 0 && cleave_perfect_index == -1)
     {
         throw std::runtime_error(
             "Cannot normalize given data without value corresponding to perfect-match substrate"
@@ -454,10 +455,12 @@ int main(int argc, char** argv)
 {
     boost::random::mt19937 rng(1234567890);
     const int n_init = std::stoi(argv[5]);
-    const PreciseType bind_conc = static_cast<PreciseType>(std::stod(argv[6]));  
+    const PreciseType bind_conc = static_cast<PreciseType>(std::stod(argv[6]));
     fitLineParamsAgainstMeasuredRates(
-        argv[1],     // Input file of measured cleavage rates/times
-        argv[2],     // Input file of measured unbinding rates/times 
+        (strcmp(argv[1], "NULL") == 0 ? "" : argv[1]),
+                     // Input file of measured cleavage rates/times
+        (strcmp(argv[2], "NULL") == 0 ? "" : argv[2]),
+                     // Input file of measured unbinding rates/times 
         argv[3],     // Path to output file 
         bind_conc,   // Nominal concentration of Cas9-RNA
         n_init,      // Number of initial parameter vectors from which to run optimization
