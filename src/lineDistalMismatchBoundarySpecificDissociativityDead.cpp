@@ -21,7 +21,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     8/30/2022
+ *     9/11/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -367,7 +367,8 @@ int main(int argc, char** argv)
         };
 
     // Boundary-finding algorithm settings
-    const int n_init = 40000; 
+    const int ninit = 40000; 
+    const int max_nsample = 1000000;
     const double tol = 1e-6;
     const int min_step_iter = 100;
     const int max_step_iter = 200;
@@ -390,7 +391,7 @@ int main(int argc, char** argv)
     const double c2 = 0.9;
     const bool verbose = true;
     const bool sqp_verbose = false;
-    const bool traversal_verbose = true;  
+    const bool traversal_verbose = false;  
     const bool write_pulled_points = true; 
     std::stringstream ss;
     ss << argv[3] << "-deaddissoc-mm" << argv[4] << "-boundary";
@@ -415,15 +416,12 @@ int main(int argc, char** argv)
     finder->setFunc(func); 
     double mutate_delta = 0.1 * getMaxDist<double>(finder->getVertices());
 
-    // Obtain the initial set of input points
-    MatrixXd init_input = finder->sampleInput(n_init);
-
     // Run the boundary-finding algorithm  
     finder->run(
-        mutate_delta, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
-        max_pull_iter, sqp_max_iter, sqp_tol, max_edges, n_keep_interior,
-        n_keep_origbound, n_mutate_origbound, n_pull_origbound, tau, delta,
-        beta, use_only_armijo, use_strong_wolfe, hessian_modify_max_iter,
+        mutate_delta, filter, ninit, max_nsample, min_step_iter, max_step_iter,
+        min_pull_iter, max_pull_iter, sqp_max_iter, sqp_tol, max_edges,
+        n_keep_interior, n_keep_origbound, n_mutate_origbound, n_pull_origbound,
+        tau, delta, beta, use_only_armijo, use_strong_wolfe, hessian_modify_max_iter,
         ss.str(), RegularizationMethod::NOREG, 0, c1, c2, verbose, sqp_verbose,
         traversal_verbose, write_pulled_points 
     );
