@@ -222,7 +222,14 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
             // The second entry is the cleavage rate
             std::string token; 
             std::getline(ss, token, '\t'); 
-            cleave_data(n_cleave_data - 1) = std::stod(token);
+            try
+            {
+                cleave_data(n_cleave_data - 1) = std::stod(token);
+            }
+            catch (const std::out_of_range& e)
+            {
+                cleave_data(n_cleave_data - 1) = 0; 
+            }
         }
         infile.close();
     }
@@ -256,8 +263,15 @@ void fitLineParamsAgainstMeasuredRates(const std::string cleave_infilename,
 
             // The second entry is the unbinding rate being parsed
             std::string token; 
-            std::getline(ss, token, '\t'); 
-            unbind_data(n_unbind_data - 1) = std::stod(token);
+            std::getline(ss, token, '\t');
+            try
+            {
+                unbind_data(n_unbind_data - 1) = std::stod(token);
+            }
+            catch (const std::out_of_range& e)
+            {
+                unbind_data(n_unbind_data - 1) = 0; 
+            }
         }
         infile.close();
     }
