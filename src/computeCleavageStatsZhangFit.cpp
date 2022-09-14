@@ -7,7 +7,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     7/2/2022
+ *     9/14/2022
  */
 
 #include <iostream>
@@ -104,9 +104,9 @@ Matrix<PreciseType, Dynamic, 1> computeCleavageStats(const Ref<const Matrix<Prec
             data(j) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         else if (metric == "cleave")
             data(j) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
-        else if (metric == "deadUnbind")
+        else if (metric == "dead_unbind")
             data(j) = model->getLowerExitRate(terminal_unbind_rate); 
-        else if (metric == "liveUnbind")
+        else if (metric == "live_unbind")
             data(j) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
         else 
             throw std::invalid_argument("Invalid cleavage metric specified");
@@ -157,8 +157,6 @@ int main(int argc, char** argv)
                 std::stringstream ss2; 
                 std::string subtoken, rseq, dseq, id1, id2, group_id;
                 ss2 << token; 
-                std::getline(ss2, subtoken, ':');
-                id1 = subtoken; 
                 std::getline(ss2, subtoken, ':'); 
                 rseq = subtoken; 
                 std::getline(ss2, subtoken, ':');
@@ -167,7 +165,7 @@ int main(int argc, char** argv)
                 id2 = subtoken;
 
                 // Determine the group that the current line belongs to 
-                group_id = id1 + ':' + id2;
+                group_id = rseq + ':' + id2;
                 group_indices.push_back(group_id); 
                 if (perfect_indices.find(group_id) == perfect_indices.end())
                     perfect_indices[group_id] = -1; 
@@ -210,13 +208,13 @@ int main(int argc, char** argv)
         forward_rates, reverse_rates, terminal_rates, "activity"
     );
     Matrix<PreciseType, Dynamic, 1> fit_dead_unbind_rates = computeCleavageStats(
-        forward_rates, reverse_rates, terminal_rates, "deadUnbind"
+        forward_rates, reverse_rates, terminal_rates, "dead_unbind"
     );
     Matrix<PreciseType, Dynamic, 1> fit_cleave_rates = computeCleavageStats(
         forward_rates, reverse_rates, terminal_rates, "cleave"
     );
     Matrix<PreciseType, Dynamic, 1> fit_live_unbind_rates = computeCleavageStats(
-        forward_rates, reverse_rates, terminal_rates, "liveUnbind"
+        forward_rates, reverse_rates, terminal_rates, "live_unbind"
     );
     Matrix<PreciseType, Dynamic, 1> fit_specs(nseqs);
     Matrix<PreciseType, Dynamic, 1> fit_dead_dissoc(nseqs); 
@@ -227,7 +225,7 @@ int main(int argc, char** argv)
         // Determine the group that each sequence belongs to, and locate 
         // the data associated with the corresponding perfect-match sequence
         std::string group_id = group_indices[i]; 
-        int perfect = perfect_indices[group_id]; 
+        int perfect = perfect_indices[group_id];
         fit_specs(i) = fit_probs(perfect) / fit_probs(i);
         fit_dead_dissoc(i) = fit_dead_unbind_rates(i) / fit_dead_unbind_rates(perfect); 
         fit_rapid(i) = fit_cleave_rates(perfect) / fit_cleave_rates(i); 
@@ -239,7 +237,7 @@ int main(int argc, char** argv)
 
     // Write a header line (note that each sequence ID has been modified)
     outfile << "seqid_modified\tactivity\tcleave_rate\tdead_unbind_rate\tlive_unbind_rate\t"
-            << "spec\trapid\tdead_dissoc\tlive_dissoc\n"; 
+            << "spec\trapid\tdeaddissoc\tlivedissoc\n"; 
 
     for (int i = 0; i < nseqs; ++i)
     {
