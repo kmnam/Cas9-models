@@ -7,7 +7,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     9/13/2022
+ *     9/18/2022
  */
 
 #include <iostream>
@@ -377,8 +377,8 @@ int main(int argc, char** argv)
     const std::string outfilename = argv[3];
 
     // Whether each input file specifies rates (false) or times (true)
-    const bool data_specified_as_times = !(strcmp(argv[4], "0") == 0 || strcmp(argv[4], "false") == 0); 
-
+    const bool data_specified_as_times = !(strcmp(argv[4], "0") == 0 || strcmp(argv[4], "false") == 0);
+    
     // Number of initial parameter vectors from which to run optimization 
     const int ninit = std::stoi(argv[5]);
 
