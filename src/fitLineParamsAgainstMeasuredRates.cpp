@@ -456,8 +456,6 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
-    std::cout << cleave_seq_match.transpose() << std::endl; 
-    std::cout << unbind_seq_match.transpose() << "\n::\n";
     if (mode == 1)
     {
         stats1 = computeCleavageStatsMutationSpecific(
@@ -482,8 +480,6 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
             "Invalid parametrization mode specified (should be 1 or 2)"
         ); 
     }
-    std::cout << stats1 << "\n--\n";
-    std::cout << stats2 << "\n==\n";
     PreciseType error = 0;
     if (logscale)               // Compute error function in log-scale
     {
