@@ -446,6 +446,8 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
+    std::cout << cleave_seq_match.transpose() << std::endl; 
+    std::cout << unbind_seq_match.transpose() << "\n::\n";
     if (mode == 1)
     {
         stats1 = computeCleavageStatsMutationSpecific(
@@ -658,33 +660,20 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                 ); 
             };
         }
-        else if (mode == 1)
+        else    // mode == 1 or mode == 2
         {
             func = [
                 &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-                &cleave_seq_match, &unbind_seq_match, &bind_conc, &logscale
+                &cleave_seq_match, &unbind_seq_match, &mode, &bind_conc,
+                &logscale
             ](
                 const Ref<const Matrix<PreciseType, Dynamic, 1> >& x
             )
             {
                 return errorAgainstData(
                     x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    cleave_seq_match, unbind_seq_match, 1, bind_conc, logscale
-                ); 
-            };
-        }
-        else    // mode == 2
-        {
-            func = [
-                &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-                &cleave_seq_match, &unbind_seq_match, &bind_conc, &logscale
-            ](
-                const Ref<const Matrix<PreciseType, Dynamic, 1> >& x
-            )
-            {
-                return errorAgainstData(
-                    x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    cleave_seq_match, unbind_seq_match, 2, bind_conc, logscale
+                    cleave_seq_match, unbind_seq_match, mode, bind_conc,
+                    logscale
                 ); 
             };
         }
