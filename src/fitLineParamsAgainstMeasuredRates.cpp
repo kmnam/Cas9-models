@@ -211,12 +211,12 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const
         {
             // Determine whether there is a mismatch between the i-th sequence at
             // the j-th position and the perfect-match sequence
-            std::pair<PreciseType, PreciseType> rates; 
+            std::pair<PreciseType, PreciseType> rates_j; 
             int c1 = seq_match(j);
             int c2 = seqs(i, j);
-            rates.first = rates(c1 * 4 + c2); 
-            rates.second = rates(16 + c1 * 4 + c2); 
-            model->setEdgeLabels(j, rates); 
+            rates_j.first = rates(c1 * 4 + c2); 
+            rates_j.second = rates(16 + c1 * 4 + c2); 
+            model->setEdgeLabels(j, rates_j); 
         }
         stats(i, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         stats(i, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
@@ -309,13 +309,13 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
             // Determine whether there is a match, transition, or transversion
             // between the i-th sequence at the j-th position and the perfect-
             // match sequence
-            std::pair<PreciseType, PreciseType> rates;
+            std::pair<PreciseType, PreciseType> rates_j;
             int c1 = seq_match(j);
             int c2 = seqs(i, j);
             int type = getMutationType(c1, c2); 
-            rates.first = rates(type); 
-            rates.second = rates(3 + type); 
-            model->setEdgeLabels(j, rates);
+            rates_j.first = rates(type); 
+            rates_j.second = rates(3 + type); 
+            model->setEdgeLabels(j, rates_j);
         }
         stats(i, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         stats(i, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
