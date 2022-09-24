@@ -470,6 +470,8 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
             "Invalid parametrization mode specified (should be 1 or 2)"
         ); 
     }
+    std::cout << stats1 << "\n--\n";
+    std::cout << stats2 << "\n==\n";
     PreciseType error = 0;
     if (logscale)               // Compute error function in log-scale
     {
