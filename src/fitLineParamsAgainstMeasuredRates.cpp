@@ -161,24 +161,29 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const
                                                                  const Ref<const VectorXi>& seq_match, 
                                                                  const PreciseType bind_conc)
 {
+    // Store rates in linear scale 
+    Matrix<PreciseType, Dynamic, 1> rates(logrates.size()); 
+    for (int i = 0; i < logrates.size(); ++i)
+        rates(i) = pow(ten, logrates(i)); 
+
     // Exit rates from terminal nodes 
     PreciseType terminal_unbind_rate = 1;
-    PreciseType terminal_cleave_rate = pow(ten, logrates(32));   // Penultimate entry (out of 34) in the vector
+    PreciseType terminal_cleave_rate = rates(32);   // Penultimate entry (out of 34) in the vector
 
     // Binding rate entering state 0
-    PreciseType bind_rate = pow(ten, logrates(33));              // Ultimate entry (out of 34) in the vector
+    PreciseType bind_rate = rates(33);              // Ultimate entry (out of 34) in the vector
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
-    for (int j = 0; j < length; ++j)
+    for (int i = 0; i < length; ++i)
     {
         // For each character, find the corresponding pair of forward/reverse
-        // rates for the corresponding DNA-RNA match
+        // rates for the i-th DNA-RNA match
         std::pair<PreciseType, PreciseType> match_rates; 
-        int c = seq_match(j); 
-        match_rates.first = logrates(c * 4 + c); 
-        match_rates.second = logrates(16 + c * 4 + c); 
-        model->setEdgeLabels(j, match_rates);
+        int c = seq_match(i); 
+        match_rates.first = rates(c * 4 + c); 
+        match_rates.second = rates(16 + c * 4 + c); 
+        model->setEdgeLabels(i, match_rates);
     } 
     
     // Compute cleavage probability, cleavage rate, dead unbinding rate, and 
@@ -200,42 +205,42 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const
     // live unbinding rate, and composite cleavage time against each given
     // mismatched substrate
     Matrix<PreciseType, Dynamic, 4> stats(seqs.rows(), 4);  
-    for (int j = 0; j < seqs.rows(); ++j)
+    for (int i = 0; i < seqs.rows(); ++i)
     {
-        for (int k = 0; k < length; ++k)
+        for (int j = 0; j < length; ++j)
         {
-            // Determine whether there is a mismatch between the j-th sequence at
-            // the k-th position and the perfect-match sequence
+            // Determine whether there is a mismatch between the i-th sequence at
+            // the j-th position and the perfect-match sequence
             std::pair<PreciseType, PreciseType> rates; 
-            int c1 = seq_match(k);
-            int c2 = seqs(j, k);
-            rates.first = logrates(c1 * 4 + c2); 
-            rates.second = logrates(16 + c1 * 4 + c2); 
-            model->setEdgeLabels(k, rates); 
+            int c1 = seq_match(j);
+            int c2 = seqs(i, j);
+            rates.first = rates(c1 * 4 + c2); 
+            rates.second = rates(16 + c1 * 4 + c2); 
+            model->setEdgeLabels(j, rates); 
         }
-        stats(j, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
-        stats(j, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
-        stats(j, 2) = model->getLowerExitRate(terminal_unbind_rate); 
+        stats(i, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+        stats(i, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
+        stats(i, 2) = model->getLowerExitRate(terminal_unbind_rate); 
         PreciseType unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        stats(j, 3) = (
+        stats(i, 3) = (
             1 / (bind_conc * bind_rate)
-            + (1 / unbind_rate + 1 / (bind_conc * bind_rate)) * (1 - stats(j, 0)) / stats(j, 0) + 1 / stats(j, 1)
+            + (1 / unbind_rate + 1 / (bind_conc * bind_rate)) * (1 - stats(i, 0)) / stats(i, 0) + 1 / stats(i, 1)
         );
 
         // Inverse specificity = cleavage probability on mismatched / cleavage probability on perfect
-        stats(j, 0) = log10(stats(j, 0)) - log10(stats_perfect(0)); 
+        stats(i, 0) = log10(stats(i, 0)) - log10(stats_perfect(0)); 
 
         // Inverse rapidity = cleavage rate on mismatched / cleavage rate on perfect
-        stats(j, 1) = log10(stats(j, 1)) - log10(stats_perfect(1));  
+        stats(i, 1) = log10(stats(i, 1)) - log10(stats_perfect(1));  
 
         // Unbinding rate on mismatched > unbinding rate on perfect, so 
         // return perfect rate / mismatched rate (inverse dissociativity) 
-        stats(j, 2) = log10(stats_perfect(2)) - log10(stats(j, 2));
+        stats(i, 2) = log10(stats_perfect(2)) - log10(stats(i, 2));
         
         // Cleavage *time* on mismatched > cleavage *time* on perfect (usually), 
         // so return perfect time / mismatched time (inverse composite cleavage
         // time ratio)
-        stats(j, 3) = log10(stats_perfect(4)) - log10(stats(j, 3));
+        stats(i, 3) = log10(stats_perfect(4)) - log10(stats(i, 3));
     }
 
     delete model;
@@ -260,18 +265,23 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
                                                                      const Ref<const VectorXi>& seq_match, 
                                                                      const PreciseType bind_conc)
 {
+    // Store rates in linear scale 
+    Matrix<PreciseType, Dynamic, 1> rates(logrates.size()); 
+    for (int i = 0; i < logrates.size(); ++i)
+        rates(i) = pow(ten, logrates(i)); 
+
     // Exit rates from terminal nodes 
     PreciseType terminal_unbind_rate = 1;
-    PreciseType terminal_cleave_rate = pow(ten, logrates(6));   // Penultimate entry (out of 8) in the vector
+    PreciseType terminal_cleave_rate = rates(6);   // Penultimate entry (out of 8) in the vector
 
     // Binding rate entering state 0
-    PreciseType bind_rate = pow(ten, logrates(7));              // Ulimate entry (out of 8) in the vector
+    PreciseType bind_rate = rates(7);              // Ulimate entry (out of 8) in the vector
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
-    std::pair<PreciseType, PreciseType> match_rates = std::make_pair(logrates(0), logrates(3)); 
-    for (int j = 0; j < length; ++j)
-        model->setEdgeLabels(j, match_rates);
+    std::pair<PreciseType, PreciseType> match_rates = std::make_pair(rates(0), rates(3)); 
+    for (int i = 0; i < length; ++i)
+        model->setEdgeLabels(i, match_rates);
     
     // Compute cleavage probability, cleavage rate, dead unbinding rate, and 
     // live unbinding rate against perfect-match substrate
@@ -292,44 +302,44 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
     // live unbinding rate, and composite cleavage time against each given
     // mismatched substrate
     Matrix<PreciseType, Dynamic, 4> stats(seqs.rows(), 4);  
-    for (int j = 0; j < seqs.rows(); ++j)
+    for (int i = 0; i < seqs.rows(); ++i)
     {
-        for (int k = 0; k < length; ++k)
+        for (int j = 0; j < length; ++j)
         {
             // Determine whether there is a match, transition, or transversion
-            // between the j-th sequence at the k-th position and the perfect-
+            // between the i-th sequence at the j-th position and the perfect-
             // match sequence
             std::pair<PreciseType, PreciseType> rates;
-            int c1 = seq_match(k);
-            int c2 = seqs(j, k);
+            int c1 = seq_match(j);
+            int c2 = seqs(i, j);
             int type = getMutationType(c1, c2); 
-            rates.first = logrates(type);
-            rates.second = logrates(3 + type);
-            model->setEdgeLabels(k, rates);
+            rates.first = rates(type); 
+            rates.second = rates(3 + type); 
+            model->setEdgeLabels(j, rates);
         }
-        stats(j, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
-        stats(j, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
-        stats(j, 2) = model->getLowerExitRate(terminal_unbind_rate); 
+        stats(i, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+        stats(i, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
+        stats(i, 2) = model->getLowerExitRate(terminal_unbind_rate); 
         PreciseType unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        stats(j, 3) = (
+        stats(i, 3) = (
             1 / (bind_conc * bind_rate)
-            + (1 / unbind_rate + 1 / (bind_conc * bind_rate)) * (1 - stats(j, 0)) / stats(j, 0) + 1 / stats(j, 1)
+            + (1 / unbind_rate + 1 / (bind_conc * bind_rate)) * (1 - stats(i, 0)) / stats(i, 0) + 1 / stats(i, 1)
         );
 
         // Inverse specificity = cleavage probability on mismatched / cleavage probability on perfect
-        stats(j, 0) = log10(stats(j, 0)) - log10(stats_perfect(0)); 
+        stats(i, 0) = log10(stats(i, 0)) - log10(stats_perfect(0)); 
 
         // Inverse rapidity = cleavage rate on mismatched / cleavage rate on perfect
-        stats(j, 1) = log10(stats(j, 1)) - log10(stats_perfect(1));  
+        stats(i, 1) = log10(stats(i, 1)) - log10(stats_perfect(1));  
 
         // Unbinding rate on mismatched > unbinding rate on perfect, so 
         // return perfect rate / mismatched rate (inverse dissociativity) 
-        stats(j, 2) = log10(stats_perfect(2)) - log10(stats(j, 2));
+        stats(i, 2) = log10(stats_perfect(2)) - log10(stats(i, 2));
         
         // Cleavage *time* on mismatched > cleavage *time* on perfect (usually), 
         // so return perfect time / mismatched time (inverse composite cleavage
         // time ratio)
-        stats(j, 3) = log10(stats_perfect(4)) - log10(stats(j, 3));
+        stats(i, 3) = log10(stats_perfect(4)) - log10(stats(i, 3));
     }
 
     delete model;
