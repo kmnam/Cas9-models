@@ -211,7 +211,7 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const
             int c2 = seqs(j, k);
             rates.first = logrates(c1 * 4 + c2); 
             rates.second = logrates(16 + c1 * 4 + c2); 
-            model->setEdgeLabels(j, rates); 
+            model->setEdgeLabels(k, rates); 
         }
         stats(j, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         stats(j, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
@@ -305,8 +305,7 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
             int type = getMutationType(c1, c2); 
             rates.first = logrates(type);
             rates.second = logrates(3 + type);
-            model->setEdgeLabels(j, rates);
-            std::cout << "done with " << j << "/" << seqs.rows() << " and " << k << "/" << length << std::endl;  
+            model->setEdgeLabels(k, rates);
         }
         stats(j, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         stats(j, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
