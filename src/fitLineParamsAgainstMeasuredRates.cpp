@@ -302,9 +302,11 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
             std::pair<PreciseType, PreciseType> rates;
             int c1 = seq_match(k);
             int c2 = seqs(j, k);
-            rates.first = logrates(getMutationType(c1, c2)); 
-            rates.second = logrates(3 + getMutationType(c1, c2)); 
-            model->setEdgeLabels(j, rates); 
+            int type = getMutationType(c1, c2); 
+            rates.first = logrates(type);
+            rates.second = logrates(3 + type);
+            model->setEdgeLabels(j, rates);
+            std::cout << "done with " << j << "/" << seqs.rows() << " and " << k << "/" << length << std::endl;  
         }
         stats(j, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         stats(j, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
