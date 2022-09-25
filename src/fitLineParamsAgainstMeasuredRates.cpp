@@ -651,7 +651,6 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         for (int i = 0; i < 4; ++i)
         {
             init_coords_per_base = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(tri, ninit, 0, rng);
-            std::cout << init_coords_per_base.rows() << " " << init_coords_per_base.cols() << std::endl;
             init_points(Eigen::all, indices.row(i)) = init_coords_per_base;
         }
 
@@ -666,8 +665,6 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             init_points(i, 33) = static_cast<PreciseType>(dist(rng));
         }
     }
-    std::cout << init_points.rows() << " " << init_points.cols() << std::endl; 
-    std::cout << init_points << std::endl; 
     delete tri; 
 
     // Collect best-fit parameter values for each of the initial parameter vectors 
