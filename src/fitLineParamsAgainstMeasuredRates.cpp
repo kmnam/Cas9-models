@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     9/22/2022
+ *     9/25/2022
  */
 
 #include <iostream>
@@ -610,8 +610,8 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
     }
     else if (mode == 2)
     {
-        poly_filename = "polytopes/line-10-unbindingunity-plusbind-mutationtype.poly"; 
-        vert_filename = "polytopes/line-5-unbindingunity-plusbind-mutationtype.vert"; 
+        poly_filename = "polytopes/line-10-unbindingunity-plusbind-dna.poly"; 
+        vert_filename = "polytopes/line-5-unbindingunity-plusbind-dna-perbase.vert"; 
     }
     else    // mode == 0
     {
@@ -628,10 +628,46 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
 
     // Sample a set of points from an initial polytope in parameter space, 
     // which constrains all parameters to lie between 1e-5 and 1e+5
-    Delaunay_triangulation* tri = new Delaunay_triangulation(D);
-    Polytopes::parseVerticesFile(vert_filename, tri); 
-    Matrix<PreciseType, Dynamic, Dynamic> init_points
-        = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(tri, ninit, 0, rng);
+    Delaunay_triangulation* tri; 
+    Matrix<PreciseType, Dynamic, Dynamic> init_points(D, ninit);
+    if (mode == 0 || mode == 1)
+    {
+        tri = new Delaunay_triangulation(D);
+        Polytopes::parseVerticesFile(vert_filename, tri);
+        init_points = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(tri, ninit, 0, rng);
+    }
+    else    // mode == 2
+    {
+        tri = new Delaunay_triangulation(8);
+        Polytopes::parseVerticesFile(vert_filename, tri);
+
+        // For each base (A, C, G, T), generate a new set of coordinates  
+        Matrix<PreciseType, Dynamic, Dynamic> init_coords_per_base;
+        MatrixXi indices(4, 8); 
+        indices <<  0,  1,  2,  3, 16, 17, 18, 19,
+                    5,  4,  6,  7, 21, 20, 22, 23,
+                   10,  8,  9, 11, 26, 24, 25, 27,
+                   15, 12, 13, 14, 31, 28, 29, 30;
+        for (int i = 0; i < 4; ++i)
+        {
+            init_coords_per_base = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(tri, ninit, 0, rng);
+            init_points(Eigen::all, indices.row(i)) = init_coords_per_base;
+        }
+
+        // Sample the last two coordinates to lie within 1e-5 and 1e+5 and 
+        // otherwise be unconstrained
+        double min = -5; 
+        double max = 5; 
+        boost::random::uniform_real_distribution<double> dist(min, max);
+        for (int i = 0; i < ninit; ++i)
+        {
+            init_points(i, 32) = static_cast<PreciseType>(dist(rng));
+            init_points(i, 33) = static_cast<PreciseType>(dist(rng));
+        }
+    }
+    std::cout << init_points.rows() << " " << init_points.cols() << std::endl; 
+    std::cout << init_points << std::endl; 
+    delete tri; 
 
     // Collect best-fit parameter values for each of the initial parameter vectors 
     // from which to begin each round of optimization 
@@ -709,6 +745,9 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                 cleave_seq_match, unbind_seq_match, 2, bind_conc, logscale
             ); 
         }
+        
+        // Normalize error by the number of data points 
+        errors(i) /= (cleave_data.rows() + unbind_data.rows());
 
         // Then compute the normalized cleavage statistics of the best-fit 
         // model against all single-mismatch substrates 
@@ -740,7 +779,6 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             }
         }
     }
-    delete tri; 
     delete opt;
 
     return std::make_tuple(best_fit, fit_single_mismatch_stats, errors);
