@@ -629,7 +629,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
     // Sample a set of points from an initial polytope in parameter space, 
     // which constrains all parameters to lie between 1e-5 and 1e+5
     Delaunay_triangulation* tri; 
-    Matrix<PreciseType, Dynamic, Dynamic> init_points(D, ninit);
+    Matrix<PreciseType, Dynamic, Dynamic> init_points(ninit, D); 
     if (mode == 0 || mode == 1)
     {
         tri = new Delaunay_triangulation(D);
