@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     9/25/2022
+ *     9/27/2022
  */
 
 #include <iostream>
@@ -1221,6 +1221,35 @@ int main(int argc, char** argv)
     std::tuple<Matrix<PreciseType, Dynamic, Dynamic>, 
                Matrix<PreciseType, Dynamic, Dynamic>, 
                Matrix<PreciseType, Dynamic, 1> > results;
+    std::stringstream header_ss; 
+    if (mode == 0)
+    {
+        header_ss << "match_forward\tmatch_reverse\tmismatch_forward\tmismatch_reverse\t"
+                  << "terminal_cleave_rate\tterminal_bind_rate\terror\t";
+    }
+    else if (mode == 1)
+    {
+        header_ss << "match_forward\ttransition_forward\ttransversion_forward\t"
+                  << "match_reverse\ttransition_reverse\ttransversion_reverse\t";
+    }
+    else    // mode == 2
+    {
+        std::string nucleotides = "ACGT";
+        for (int i = 0; i < 4; ++i)
+        {
+            for (int j = 0; j < 4; ++j)
+            {
+                header_ss << nucleotides[i] << nucleotides[j] << "_forward\t";
+            }
+        }
+        for (int i = 0; i < 4; ++i)
+        {
+            for (int j = 0; j < 4; ++j)
+            {
+                header_ss << nucleotides[i] << nucleotides[j] << "_reverse\t";
+            }
+        }
+    }
     if (nfolds == 1)
     {
         results = fitLineParamsAgainstMeasuredRates(
@@ -1237,8 +1266,7 @@ int main(int argc, char** argv)
         // Output the fits to file 
         std::ofstream outfile(outfilename); 
         outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-        outfile << "fit_attempt\t"; 
-        outfile << "forward_match\treverse_match\tforward_mismatch\treverse_mismatch\t"
+        outfile << "fit_attempt\t" << header_ss.str()
                 << "terminal_cleave_rate\tterminal_bind_rate\terror\t";
         for (int i = 0; i < length; ++i)
         {
@@ -1326,8 +1354,7 @@ int main(int argc, char** argv)
         // Output the fits to file 
         std::ofstream outfile(outfilename); 
         outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-        outfile << "fold\t";
-        outfile << "forward_match\treverse_match\tforward_mismatch\treverse_mismatch\t"
+        outfile << "fold\t" << header_ss.str()
                 << "terminal_cleave_rate\tterminal_bind_rate\ttest_error\t";
         for (int i = 0; i < length; ++i)
         {
