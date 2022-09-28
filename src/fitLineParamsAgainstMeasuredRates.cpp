@@ -1224,8 +1224,7 @@ int main(int argc, char** argv)
     std::stringstream header_ss; 
     if (mode == 0)
     {
-        header_ss << "match_forward\tmatch_reverse\tmismatch_forward\tmismatch_reverse\t"
-                  << "terminal_cleave_rate\tterminal_bind_rate\terror\t";
+        header_ss << "match_forward\tmatch_reverse\tmismatch_forward\tmismatch_reverse\t";
     }
     else if (mode == 1)
     {
