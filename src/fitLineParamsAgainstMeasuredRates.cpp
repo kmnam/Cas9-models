@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     9/27/2022
+ *     9/29/2022
  */
 
 #include <iostream>
@@ -1202,13 +1202,15 @@ int main(int argc, char** argv)
     Matrix<PreciseType, Dynamic, 1> cleave_data_norm(cleave_data.size());
     if (data_specified_as_times)    // Data specified as times 
     {
+        // The normalized data are *inverse* specific dissociativities and rapidities
         for (int i = 0; i < unbind_data_norm.size(); ++i)
             unbind_data_norm(i) = unbind_data(i) / unbind_data(unbind_match_index);   // rate on perfect / rate on mismatched
         for (int i = 0; i < cleave_data_norm.size(); ++i)
             cleave_data_norm(i) = cleave_data(cleave_match_index) / cleave_data(i);   // time on perfect / time on mismatched
     }
     else                            // Data specified as rates 
-    { 
+    {
+        // The normalized data are *inverse* specific dissociativities and rapidities
         for (int i = 0; i < unbind_data_norm.size(); ++i)
             unbind_data_norm(i) = unbind_data(unbind_match_index) / unbind_data(i);   // rate on perfect / rate on mismatched
         for (int i = 0; i < cleave_data_norm.size(); ++i)
