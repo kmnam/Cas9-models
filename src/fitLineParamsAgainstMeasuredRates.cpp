@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     9/29/2022
+ *     10/1/2022
  */
 
 #include <iostream>
@@ -47,13 +47,23 @@ const unsigned length = 20;
 const PreciseType ten("10");
 
 /**
- * Return a collection of index-sets for the given number of folds into which
- * to divide a dataset of the given size. 
+ * Return a division of the range `0, ..., n - 1` to the given number of folds.
+ *
+ * For instance, if `n == 6` and `nfolds == 3`, then the returned `std::vector`
+ * contains the following: 
+ *
+ * ```
+ * {
+ *     {{2, 3, 4, 5}, {0, 1}},
+ *     {{0, 1, 4, 5}, {2, 3}},
+ *     {{0, 1, 2, 3}, {4, 5}}
+ * }
+ * ```
  *
  * @param n      Number of data points. 
  * @param nfolds Number of folds into which to divide the dataset. 
- * @returns      Collection of index-sets, each corresponding to the training
- *               and test subset corresponding to each fold. 
+ * @returns      Collection of `nfolds` pairs of index-sets, each corresponding
+ *               to the training and test subset for each fold.
  */
 std::vector<std::pair<std::vector<int>, std::vector<int> > > getFolds(const int n,
                                                                       const int nfolds)
@@ -88,12 +98,12 @@ std::vector<std::pair<std::vector<int>, std::vector<int> > > getFolds(const int 
 }
 
 /**
- * Return a randomly generated permutation of the range [0, 1, ..., n - 1],
+ * Return a randomly generated permutation of the range `0, ..., n - 1`,
  * using the Fisher-Yates shuffle.
  *
  * @param n   Size of input range.
  * @param rng Random number generator instance.
- * @returns Permutation of the range [0, 1, ..., n - 1], as a permutation matrix.
+ * @returns Permutation of the range `0, ..., n - 1`, as a permutation matrix.
  */
 PermutationMatrix<Dynamic, Dynamic> getPermutation(const int n, boost::random::mt19937& rng)
 {
@@ -150,11 +160,18 @@ int getMutationType(const int c1, const int c2)
  *
  * Here, `logrates` is assumed to contain 34 entries:
  * - the first 16 entries are the forward rates at DNA-RNA (mis)matches of the
- *   form A/A, A/C, A/G, ...
+ *   form A/A, A/C, A/G, A/T, ..., T/G, T/T;
  * - the second 16 entries are the reverse rates at DNA-RNA (mis)matches of the
- *   form A/A, A/C, A/G, ... 
+ *   form A/A, A/C, A/G, A/T, ..., T/G, T/T;
  * - the last two entries are the terminal cleavage rate and binding rate, 
- *   respectively.  
+ *   respectively.
+ *
+ * @param logrates  Input vector of 34 LGPs.
+ * @param seqs      Matrix of input sequences, with entries of 0 (A), 1 (C),
+ *                  2 (G), or 3 (T).
+ * @param seq_match Input perfect-match sequence, as a vector with entries of 
+ *                  0 (A), 1 (C), 2 (G), or 3 (T).
+ * @param bind_conc Input binding concentration.
  */
 Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
                                                                  const Ref<const MatrixXi>& seqs,
@@ -258,7 +275,15 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const
  * - the second 3 entries are the reverse rates at DNA-RNA matches, transitions,
  *   and transversions, respectively; and
  * - the last two entries are the terminal cleavage rate and binding rate, 
- *   respectively.  
+ *   respectively.
+ *
+ * @param logrates  Input vector of 8 LGPs.
+ * @param seqs      Matrix of input sequences, with entries of 0 (match w.r.t.
+ *                  perfect-match sequence), 1 (transition w.r.t. perfect-match
+ *                  sequence), or 2 (transversion w.r.t. perfect-match sequence).
+ * @param seq_match Input perfect-match sequence, as a vector with entries of
+ *                  0 (A), 1 (C), 2 (G), or 3 (T).
+ * @param bind_conc Input binding concentration.
  */
 Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
                                                                      const Ref<const MatrixXi>& seqs,
@@ -350,6 +375,20 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
  * Compute cleavage statistics on the perfect-match sequence, as well as all
  * mismatched sequences specified in the given matrix of complementarity
  * patterns, for the given LG.
+ *
+ * Here, `logrates` is assumed to contain 6 entries:
+ * 1) forward rate at DNA-RNA matches,
+ * 2) reverse rate at DNA-RNA matches,
+ * 3) forward rate at DNA-RNA mismatches,
+ * 4) reverse rate at DNA-RNA mismatches,
+ * 5) terminal cleavage rate, and
+ * 6) terminal binding rate.
+ *
+ * @param logrates  Input vector of 6 LGPs.
+ * @param seqs      Matrix of input sequences, with entries of 0 (match w.r.t.
+ *                  perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
+ *                  sequence).
+ * @param bind_conc Input binding concentration.
  */
 Matrix<PreciseType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
                                                      const Ref<const MatrixXi>& seqs, 
@@ -451,11 +490,14 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
                              const Ref<const VectorXi>& cleave_seq_match, 
                              const Ref<const VectorXi>& unbind_seq_match,
                              const int mode, const PreciseType bind_conc,
+                             PreciseType cleave_error_weight = 1.0,
+                             PreciseType unbind_error_weight = 1.0,
                              const bool logscale = false)
 {
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
-    // Compute *normalized* cleavage metrics and corresponding error against data
+    // Compute *normalized* *inverse* cleavage metrics and corresponding error
+    // against data
     if (mode == 1)
     {
         stats1 = computeCleavageStatsMutationSpecific(
@@ -480,11 +522,18 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
             "Invalid parametrization mode specified (should be 1 or 2)"
         ); 
     }
+   
+    // Normalize error weights to sum to *two* (so that both weights equaling 
+    // one means that the weights can be effectively ignored)
+    PreciseType weight_mean = (cleave_error_weight + unbind_error_weight) / 2; 
+    cleave_error_weight /= weight_mean;
+    unbind_error_weight /= weight_mean;
+
     PreciseType error = 0;
     if (logscale)               // Compute error function in log-scale
     {
-        error += (stats1.col(3) - cleave_data.array().log10().matrix()).squaredNorm();
-        error += (stats2.col(2) - unbind_data.array().log10().matrix()).squaredNorm();
+        error += cleave_error_weight * (stats1.col(3) - cleave_data.array().log10().matrix()).squaredNorm();
+        error += unbind_error_weight * (stats2.col(2) - unbind_data.array().log10().matrix()).squaredNorm();
     }
     else                        // Compute error function in linear scale  
     {
@@ -497,8 +546,8 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
             for (int i = 0; i < stats2.rows(); ++i)
                 stats2_transformed(i, j) = pow(ten, stats2(i, j));
         }
-        error += (stats1_transformed.col(3) - cleave_data).squaredNorm(); 
-        error += (stats2_transformed.col(2) - unbind_data).squaredNorm(); 
+        error += cleave_error_weight * (stats1_transformed.col(3) - cleave_data).squaredNorm(); 
+        error += unbind_error_weight * (stats2_transformed.col(2) - unbind_data).squaredNorm(); 
     }
 
     return error;
@@ -518,18 +567,28 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
                              const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
                              const Ref<const MatrixXi>& unbind_seqs,
                              const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-                             const PreciseType bind_conc, const bool logscale = false)
+                             const PreciseType bind_conc,
+                             PreciseType cleave_error_weight = 1.0,
+                             PreciseType unbind_error_weight = 1.0,
+                             const bool logscale = false)
 {
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
     stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
     stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+
+    // Normalize error weights to sum to *two* (so that both weights equaling 
+    // one means that the weights can be effectively ignored)
+    PreciseType weight_mean = (cleave_error_weight + unbind_error_weight) / 2; 
+    cleave_error_weight /= weight_mean;
+    unbind_error_weight /= weight_mean;
+
     PreciseType error = 0;
     if (logscale)               // Compute error function in log-scale
     {
-        error += (stats1.col(3) - cleave_data.array().log10().matrix()).squaredNorm();
-        error += (stats2.col(2) - unbind_data.array().log10().matrix()).squaredNorm();
+        error += cleave_error_weight * (stats1.col(3) - cleave_data.array().log10().matrix()).squaredNorm();
+        error += unbind_error_weight * (stats2.col(2) - unbind_data.array().log10().matrix()).squaredNorm();
     }
     else                        // Compute error function in linear scale  
     {
@@ -542,8 +601,8 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
             for (int i = 0; i < stats2.rows(); ++i)
                 stats2_transformed(i, j) = pow(ten, stats2(i, j));
         }
-        error += (stats1_transformed.col(3) - cleave_data).squaredNorm(); 
-        error += (stats2_transformed.col(2) - unbind_data).squaredNorm(); 
+        error += cleave_error_weight * (stats1_transformed.col(3) - cleave_data).squaredNorm(); 
+        error += unbind_error_weight * (stats2_transformed.col(2) - unbind_data).squaredNorm(); 
     }
 
     return error;
@@ -557,6 +616,8 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
  * @param mode
  * @param cleave_seq_match
  * @param unbind_seq_match
+ * @param cleave_error_weight
+ * @param unbind_error_weight
  * @param ninit
  * @param bind_conc
  * @param logscale
@@ -587,6 +648,8 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                                       const int mode,
                                       const Ref<const VectorXi>& cleave_seq_match,
                                       const Ref<const VectorXi>& unbind_seq_match,
+                                      const PreciseType cleave_error_weight,
+                                      const PreciseType unbind_error_weight,
                                       const int ninit, const PreciseType bind_conc,
                                       const bool logscale, boost::random::mt19937& rng,
                                       const PreciseType tau, const PreciseType delta,
@@ -667,13 +730,63 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
     }
     delete tri; 
 
+    // Define matrix of single-mismatch DNA sequences relative to the 
+    // perfect-match sequence for cleavage rates
+    MatrixXi single_mismatch_seqs;
+    if (mode == 0)
+    {
+        single_mismatch_seqs = MatrixXi::Ones(length, length) - MatrixXi::Identity(length, length); 
+    }
+    else    // mode == 1 or 2
+    {
+        // Three possible single-mismatch substrates per mismatch position
+        single_mismatch_seqs.resize(3 * length, length);
+        for (int j = 0; j < length; ++j)
+        {
+            for (int k = 0; k < length; ++k)
+            {
+                single_mismatch_seqs(3 * j, k) = cleave_seq_match(k); 
+                single_mismatch_seqs(3 * j + 1, k) = cleave_seq_match(k); 
+                single_mismatch_seqs(3 * j + 2, k) = cleave_seq_match(k);
+            }
+            int seq_j = cleave_seq_match(j); 
+            if (seq_j == 0)
+            {
+                single_mismatch_seqs(3 * j, j) = 1; 
+                single_mismatch_seqs(3 * j + 1, j) = 2; 
+                single_mismatch_seqs(3 * j + 2, j) = 3;
+            }
+            else if (seq_j == 1)
+            {
+                single_mismatch_seqs(3 * j, j) = 0;
+                single_mismatch_seqs(3 * j + 1, j) = 2; 
+                single_mismatch_seqs(3 * j + 2, j) = 3;
+            }
+            else if (seq_j == 2)
+            {
+                single_mismatch_seqs(3 * j, j) = 0;
+                single_mismatch_seqs(3 * j + 1, j) = 1; 
+                single_mismatch_seqs(3 * j + 2, j) = 3;
+            }
+            else    // seq_j == 3
+            {
+                single_mismatch_seqs(3 * j, j) = 0;
+                single_mismatch_seqs(3 * j + 1, j) = 1; 
+                single_mismatch_seqs(3 * j + 2, j) = 2;
+            }
+        }
+    }
+
     // Collect best-fit parameter values for each of the initial parameter vectors 
     // from which to begin each round of optimization 
     Matrix<PreciseType, Dynamic, Dynamic> best_fit(ninit, D); 
     Matrix<PreciseType, Dynamic, 1> x_init, l_init;
-    Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats(ninit, 4 * length);
+    Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats;
+    if (mode == 0)
+        fit_single_mismatch_stats.resize(ninit, 4 * length);
+    else    // mode == 1 or 2 
+        fit_single_mismatch_stats.resize(ninit, 12 * length);
     Matrix<PreciseType, Dynamic, 1> errors(ninit);
-    MatrixXi single_mismatch_seqs = MatrixXi::Ones(length, length) - MatrixXi::Identity(length, length); 
     for (int i = 0; i < ninit; ++i)
     {
         // Assemble initial parameter values
@@ -689,14 +802,15 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         {
             func = [
                 &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-                &bind_conc, &logscale
+                &bind_conc, &cleave_error_weight, &unbind_error_weight,
+                &logscale
             ](
                 const Ref<const Matrix<PreciseType, Dynamic, 1> >& x
             )
             {
                 return errorAgainstData(
                     x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    bind_conc, logscale
+                    bind_conc, cleave_error_weight, unbind_error_weight, logscale
                 ); 
             };
         }
@@ -705,7 +819,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             func = [
                 &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
                 &cleave_seq_match, &unbind_seq_match, &mode, &bind_conc,
-                &logscale
+                &cleave_error_weight, &unbind_error_weight, &logscale
             ](
                 const Ref<const Matrix<PreciseType, Dynamic, 1> >& x
             )
@@ -713,7 +827,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                 return errorAgainstData(
                     x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
                     cleave_seq_match, unbind_seq_match, mode, bind_conc,
-                    logscale
+                    cleave_error_weight, unbind_error_weight, logscale
                 ); 
             };
         }
@@ -726,21 +840,23 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         {
             errors(i) = errorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                bind_conc, logscale
+                bind_conc, cleave_error_weight, unbind_error_weight, logscale
             );
         }
         else if (mode == 1)
         {
             errors(i) = errorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_seq_match, unbind_seq_match, 1, bind_conc, logscale
+                cleave_seq_match, unbind_seq_match, 1, bind_conc, cleave_error_weight,
+                unbind_error_weight, logscale
             ); 
         }
         else    // mode == 2
         {
             errors(i) = errorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_seq_match, unbind_seq_match, 2, bind_conc, logscale
+                cleave_seq_match, unbind_seq_match, 2, bind_conc, cleave_error_weight,
+                unbind_error_weight, logscale
             ); 
         }
         
@@ -752,9 +868,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         Matrix<PreciseType, Dynamic, 4> fit_stats;
         if (mode == 0)
         {
-            fit_stats = computeCleavageStats(
-                best_fit.row(i), single_mismatch_seqs, bind_conc
-            );
+            fit_stats = computeCleavageStats(best_fit.row(i), single_mismatch_seqs, bind_conc);
         }
         else if (mode == 1)
         {
@@ -770,10 +884,26 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         }
         for (int j = 0; j < length; ++j)
         {
-            for (int k = 0; k < 4; ++k)
+            if (mode == 0)
             {
-                // Invert all returned statistics  
-                fit_single_mismatch_stats(i, 4 * j + k) = -fit_stats(j, k); 
+                for (int k = 0; k < 4; ++k)
+                {
+                    // Invert all returned statistics  
+                    fit_single_mismatch_stats(i, 4 * j + k) = -fit_stats(j, k); 
+                }
+            }
+            else    // mode == 1 or 2
+            {
+                // For each mismatched sequence, write all four output metrics
+                // as a group of entries
+                for (int m = 0; m < 3; ++m)
+                {
+                    for (int k = 0; k < 4; ++k)
+                    {
+                        // Invert all returned statistics
+                        fit_single_mismatch_stats(i, 12 * j + 4 * m + k) = -fit_stats(3 * j + m, k);
+                    }
+                }
             }
         }
     }
@@ -815,7 +945,9 @@ int main(int argc, char** argv)
     bool data_specified_as_times = false;
     int ninit = 100; 
     int nfolds = 10;
-    PreciseType bind_conc = 1e-9; 
+    PreciseType bind_conc = 1e-9;
+    PreciseType cleave_error_weight = 1;
+    PreciseType unbind_error_weight = 1; 
     if (json_data.if_contains("data_specified_as_times"))
     {
         data_specified_as_times = json_data["data_specified_as_times"].as_bool();
@@ -837,6 +969,18 @@ int main(int argc, char** argv)
         bind_conc = static_cast<PreciseType>(json_data["bind_conc"].as_double());
         if (bind_conc <= 0)
             throw std::runtime_error("Invalid binding concentration specified"); 
+    }
+    if (json_data.if_contains("cleave_error_weight"))
+    {
+        cleave_error_weight = static_cast<PreciseType>(json_data["cleave_error_weight"].as_double()); 
+        if (cleave_error_weight <= 0)
+            throw std::runtime_error("Invalid cleavage rate error weight specified"); 
+    }
+    if (json_data.if_contains("unbind_error_weight"))
+    {
+        unbind_error_weight = static_cast<PreciseType>(json_data["unbind_error_weight"].as_double());
+        if (unbind_error_weight <= 0)
+            throw std::runtime_error("Invalid unbinding rate error weight specified");
     }
     
     // Parse SQP configurations
@@ -1255,10 +1399,11 @@ int main(int argc, char** argv)
     {
         results = fitLineParamsAgainstMeasuredRates(
             cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, mode, 
-            cleave_seq_match_arr, unbind_seq_match_arr, ninit, bind_conc,
-            logscale, rng, tau, delta, beta, max_iter, tol, method, regularize,
-            regularize_weight, use_only_armijo, use_strong_wolfe,
-            hessian_modify_max_iter, c1, c2, x_tol, verbose
+            cleave_seq_match_arr, unbind_seq_match_arr, cleave_error_weight,
+            unbind_error_weight, ninit, bind_conc, logscale, rng, tau, delta,
+            beta, max_iter, tol, method, regularize, regularize_weight,
+            use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, c1,
+            c2, x_tol, verbose
         );
         Matrix<PreciseType, Dynamic, Dynamic> best_fit = std::get<0>(results); 
         Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats = std::get<1>(results); 
@@ -1269,17 +1414,38 @@ int main(int argc, char** argv)
         outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         outfile << "fit_attempt\t" << header_ss.str()
                 << "terminal_cleave_rate\tterminal_bind_rate\terror\t";
-        for (int i = 0; i < length; ++i)
+        if (mode == 0)
         {
-            outfile << "mm" << i << "_log_spec\t"
-                    << "mm" << i << "_log_rapid\t"
-                    << "mm" << i << "_log_deaddissoc\t"
-                    << "mm" << i << "_log_composite_rapid";
-            if (i == length - 1)
-                outfile << std::endl;
-            else 
-                outfile << '\t';
+            for (int i = 0; i < length; ++i)
+            {
+                outfile << "mm" << i << "_log_spec\t"
+                        << "mm" << i << "_log_rapid\t"
+                        << "mm" << i << "_log_deaddissoc\t"
+                        << "mm" << i << "_log_composite_rapid\t";
+            }
         }
+        else    // mode == 1 or 2
+        {
+            for (int i = 0; i < length; ++i)
+            {
+                char seq_match_i = cleave_seq_match[i];
+                std::string mismatch_bases;
+                if (seq_match_i == 'A')      mismatch_bases = "CGT";
+                else if (seq_match_i == 'C') mismatch_bases = "AGT";
+                else if (seq_match_i == 'G') mismatch_bases = "ACT";
+                else                         mismatch_bases = "ACG";
+                for (int j = 0; j < 3; ++j)
+                {
+                    outfile << "mm" << i << "_" << seq_match_i << mismatch_bases[j] << "_log_spec\t"
+                            << "mm" << i << "_" << seq_match_i << mismatch_bases[j] << "_log_rapid\t"
+                            << "mm" << i << "_" << seq_match_i << mismatch_bases[j] << "_log_deaddissoc\t"
+                            << "mm" << i << "_" << seq_match_i << mismatch_bases[j] << "_log_composite_rapid\t";
+                }
+            }
+        }
+        int pos = outfile.tellp();
+        outfile.seekp(pos - 1);
+        outfile << std::endl;  
         for (int i = 0; i < ninit; ++i)
         {
             outfile << i << '\t'; 
@@ -1292,9 +1458,9 @@ int main(int argc, char** argv)
             outfile << errors(i) << '\t';
 
             // ... along with the associated single-mismatch cleavage statistics
-            for (int j = 0; j < 4 * length - 1; ++j)
+            for (int j = 0; j < fit_single_mismatch_stats.cols() - 1; ++j)
                 outfile << fit_single_mismatch_stats(i, j) << '\t';
-            outfile << fit_single_mismatch_stats(i, 4 * length - 1) << std::endl;  
+            outfile << fit_single_mismatch_stats(i, fit_single_mismatch_stats.cols() - 1) << std::endl;  
         }
         outfile.close();
     }
@@ -1309,7 +1475,7 @@ int main(int argc, char** argv)
                                         cleave_data_train, cleave_data_test;
         MatrixXi unbind_seqs_train, unbind_seqs_test, cleave_seqs_train, cleave_seqs_test;
         Matrix<PreciseType, Dynamic, Dynamic> best_fit_total(nfolds, 0); 
-        Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats_total(nfolds, 4 * length); 
+        Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats_total(nfolds, 0);
         Matrix<PreciseType, Dynamic, 1> errors_against_test(nfolds); 
         for (int fi = 0; fi < nfolds; ++fi)
         {
@@ -1326,15 +1492,19 @@ int main(int argc, char** argv)
             results = fitLineParamsAgainstMeasuredRates(
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
                 unbind_seqs_train, mode, cleave_seq_match_arr, unbind_seq_match_arr,
-                ninit, bind_conc, logscale, rng, tau, delta, beta, max_iter, tol,
-                method, regularize, regularize_weight, use_only_armijo,
-                use_strong_wolfe, hessian_modify_max_iter, c1, c2, x_tol, verbose
+                cleave_error_weight, unbind_error_weight, ninit, bind_conc,
+                logscale, rng, tau, delta, beta, max_iter, tol, method,
+                regularize, regularize_weight, use_only_armijo, use_strong_wolfe,
+                hessian_modify_max_iter, c1, c2, x_tol, verbose
             );
             Matrix<PreciseType, Dynamic, Dynamic> best_fit_per_fold = std::get<0>(results); 
             Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats_per_fold = std::get<1>(results); 
             Matrix<PreciseType, Dynamic, 1> errors_per_fold = std::get<2>(results);
-            if (fi == 0) 
-                best_fit_total.resize(nfolds, best_fit_per_fold.cols()); 
+            if (fi == 0)
+            {
+                best_fit_total.resize(nfolds, best_fit_per_fold.cols());
+                fit_single_mismatch_stats_total.resize(nfolds, fit_single_mismatch_stats_per_fold.cols());
+            } 
 
             // Find the parameter vector corresponding to the least error
             Eigen::Index minidx; 
@@ -1345,7 +1515,8 @@ int main(int argc, char** argv)
             // Evaluate error against the test subset 
             PreciseType error_against_test = errorAgainstData(
                 best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
-                unbind_data_test, bind_conc, logscale
+                unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight,
+                logscale
             );
             best_fit_total.row(fi) = best_fit; 
             fit_single_mismatch_stats_total.row(fi) = fit_single_mismatch_stats; 
@@ -1357,17 +1528,38 @@ int main(int argc, char** argv)
         outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         outfile << "fold\t" << header_ss.str()
                 << "terminal_cleave_rate\tterminal_bind_rate\ttest_error\t";
-        for (int i = 0; i < length; ++i)
+        if (mode == 0)
         {
-            outfile << "mm" << i << "_log_spec\t"
-                    << "mm" << i << "_log_rapid\t"
-                    << "mm" << i << "_log_deaddissoc\t"
-                    << "mm" << i << "_log_composite_rapid";
-            if (i == length - 1)
-                outfile << std::endl;
-            else 
-                outfile << '\t';
+            for (int i = 0; i < length; ++i)
+            {
+                outfile << "mm" << i << "_log_spec\t"
+                        << "mm" << i << "_log_rapid\t"
+                        << "mm" << i << "_log_deaddissoc\t"
+                        << "mm" << i << "_log_composite_rapid\t";
+            }
         }
+        else    // mode == 1 or 2
+        {
+            for (int i = 0; i < length; ++i)
+            {
+                char seq_match_i = cleave_seq_match[i];
+                std::string mismatch_bases;
+                if (seq_match_i == 'A')      mismatch_bases = "CGT";
+                else if (seq_match_i == 'C') mismatch_bases = "AGT";
+                else if (seq_match_i == 'G') mismatch_bases = "ACT";
+                else                         mismatch_bases = "ACG";
+                for (int j = 0; j < 3; ++j)
+                {
+                    outfile << "mm" << i << "_" << seq_match_i << mismatch_bases[j] << "_log_spec\t"
+                            << "mm" << i << "_" << seq_match_i << mismatch_bases[j] << "_log_rapid\t"
+                            << "mm" << i << "_" << seq_match_i << mismatch_bases[j] << "_log_deaddissoc\t"
+                            << "mm" << i << "_" << seq_match_i << mismatch_bases[j] << "_log_composite_rapid\t";
+                }
+            }
+        }
+        int pos = outfile.tellp();
+        outfile.seekp(pos - 1);
+        outfile << std::endl;  
         for (int fi = 0; fi < nfolds; ++fi)
         {
             outfile << fi << '\t'; 
@@ -1380,9 +1572,9 @@ int main(int argc, char** argv)
             outfile << errors_against_test(fi) << '\t';
 
             // ... along with the associated single-mismatch cleavage statistics
-            for (int j = 0; j < 4 * length - 1; ++j)
+            for (int j = 0; j < fit_single_mismatch_stats_total.cols() - 1; ++j)
                 outfile << fit_single_mismatch_stats_total(fi, j) << '\t';
-            outfile << fit_single_mismatch_stats_total(fi, 4 * length - 1) << std::endl;  
+            outfile << fit_single_mismatch_stats_total(fi, fit_single_mismatch_stats_total.cols() - 1) << std::endl;
         }
         outfile.close();
     }
