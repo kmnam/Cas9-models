@@ -482,17 +482,16 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<Prec
  * Note that regularization, if desired, should be built into the optimizer
  * function/class with which this function will be used.  
  */
-PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
-                             const Ref<const MatrixXi>& cleave_seqs,
-                             const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
-                             const Ref<const MatrixXi>& unbind_seqs,
-                             const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-                             const Ref<const VectorXi>& cleave_seq_match, 
-                             const Ref<const VectorXi>& unbind_seq_match,
-                             const int mode, const PreciseType bind_conc,
-                             PreciseType cleave_error_weight = 1.0,
-                             PreciseType unbind_error_weight = 1.0,
-                             const bool logscale = false)
+std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
+                                                     const Ref<const MatrixXi>& cleave_seqs,
+                                                     const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
+                                                     const Ref<const MatrixXi>& unbind_seqs,
+                                                     const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
+                                                     const Ref<const VectorXi>& cleave_seq_match, 
+                                                     const Ref<const VectorXi>& unbind_seq_match,
+                                                     const int mode, const PreciseType bind_conc,
+                                                     PreciseType cleave_error_weight = 1.0,
+                                                     PreciseType unbind_error_weight = 1.0)
 {
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
@@ -528,29 +527,27 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
     PreciseType weight_mean = (cleave_error_weight + unbind_error_weight) / 2; 
     cleave_error_weight /= weight_mean;
     unbind_error_weight /= weight_mean;
-
-    PreciseType error = 0;
-    if (logscale)               // Compute error function in log-scale
+    Matrix<PreciseType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
+    Matrix<PreciseType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
+    for (int j = 0; j < 4; ++j)
     {
-        error += cleave_error_weight * (stats1.col(3) - cleave_data.array().log10().matrix()).squaredNorm();
-        error += unbind_error_weight * (stats2.col(2) - unbind_data.array().log10().matrix()).squaredNorm();
+        for (int i = 0; i < stats1.rows(); ++i)
+            stats1_transformed(i, j) = pow(ten, stats1(i, j)); 
+        for (int i = 0; i < stats2.rows(); ++i)
+            stats2_transformed(i, j) = pow(ten, stats2(i, j));
     }
-    else                        // Compute error function in linear scale  
-    {
-        Matrix<PreciseType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
-        Matrix<PreciseType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
-        for (int j = 0; j < 4; ++j)
-        {
-            for (int i = 0; i < stats1.rows(); ++i)
-                stats1_transformed(i, j) = pow(ten, stats1(i, j)); 
-            for (int i = 0; i < stats2.rows(); ++i)
-                stats2_transformed(i, j) = pow(ten, stats2(i, j));
-        }
-        error += cleave_error_weight * (stats1_transformed.col(3) - cleave_data).squaredNorm(); 
-        error += unbind_error_weight * (stats2_transformed.col(2) - unbind_data).squaredNorm(); 
-    }
+    Array<PreciseType, Dynamic, 1> cleave_denom = (cleave_data.array().abs() + stats1_transformed.col(3).array().abs()) / 2;
+    Array<PreciseType, Dynamic, 1> unbind_denom = (unbind_data.array().abs() + stats2_transformed.col(2).array().abs()) / 2;
+    const int cleave_n_data = cleave_data.size(); 
+    const int unbind_n_data = unbind_data.size();
+    PreciseType cleave_error = cleave_error_weight * (
+        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / cleave_n_data
+    );
+    PreciseType unbind_error = unbind_error_weight * (
+        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).sum() / unbind_n_data
+    );
 
-    return error;
+    return std::make_pair(cleave_error, unbind_error);
 }
 
 /**
@@ -562,15 +559,14 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
  * Note that regularization, if desired, should be built into the optimizer
  * function/class with which this function will be used.  
  */
-PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
-                             const Ref<const MatrixXi>& cleave_seqs,
-                             const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
-                             const Ref<const MatrixXi>& unbind_seqs,
-                             const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-                             const PreciseType bind_conc,
-                             PreciseType cleave_error_weight = 1.0,
-                             PreciseType unbind_error_weight = 1.0,
-                             const bool logscale = false)
+std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
+                                                     const Ref<const MatrixXi>& cleave_seqs,
+                                                     const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
+                                                     const Ref<const MatrixXi>& unbind_seqs,
+                                                     const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
+                                                     const PreciseType bind_conc,
+                                                     PreciseType cleave_error_weight = 1.0,
+                                                     PreciseType unbind_error_weight = 1.0)
 {
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
@@ -583,29 +579,27 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
     PreciseType weight_mean = (cleave_error_weight + unbind_error_weight) / 2; 
     cleave_error_weight /= weight_mean;
     unbind_error_weight /= weight_mean;
-
-    PreciseType error = 0;
-    if (logscale)               // Compute error function in log-scale
+    Matrix<PreciseType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
+    Matrix<PreciseType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
+    for (int j = 0; j < 4; ++j)
     {
-        error += cleave_error_weight * (stats1.col(3) - cleave_data.array().log10().matrix()).squaredNorm();
-        error += unbind_error_weight * (stats2.col(2) - unbind_data.array().log10().matrix()).squaredNorm();
+        for (int i = 0; i < stats1.rows(); ++i)
+            stats1_transformed(i, j) = pow(ten, stats1(i, j)); 
+        for (int i = 0; i < stats2.rows(); ++i)
+            stats2_transformed(i, j) = pow(ten, stats2(i, j));
     }
-    else                        // Compute error function in linear scale  
-    {
-        Matrix<PreciseType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
-        Matrix<PreciseType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
-        for (int j = 0; j < 4; ++j)
-        {
-            for (int i = 0; i < stats1.rows(); ++i)
-                stats1_transformed(i, j) = pow(ten, stats1(i, j)); 
-            for (int i = 0; i < stats2.rows(); ++i)
-                stats2_transformed(i, j) = pow(ten, stats2(i, j));
-        }
-        error += cleave_error_weight * (stats1_transformed.col(3) - cleave_data).squaredNorm(); 
-        error += unbind_error_weight * (stats2_transformed.col(2) - unbind_data).squaredNorm(); 
-    }
+    Array<PreciseType, Dynamic, 1> cleave_denom = (cleave_data.array().abs() + stats1_transformed.col(3).array().abs()) / 2;
+    Array<PreciseType, Dynamic, 1> unbind_denom = (unbind_data.array().abs() + stats2_transformed.col(2).array().abs()) / 2;
+    const int cleave_n_data = cleave_data.size(); 
+    const int unbind_n_data = unbind_data.size();
+    PreciseType cleave_error = cleave_error_weight * (
+        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / cleave_n_data
+    );
+    PreciseType unbind_error = unbind_error_weight * (
+        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).sum() / unbind_n_data
+    );
 
-    return error;
+    return std::make_pair(cleave_error, unbind_error);
 }
 
 /**
@@ -620,7 +614,6 @@ PreciseType errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& 
  * @param unbind_error_weight
  * @param ninit
  * @param bind_conc
- * @param logscale
  * @param rng
  * @param tau
  * @param delta
@@ -651,7 +644,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                                       const PreciseType cleave_error_weight,
                                       const PreciseType unbind_error_weight,
                                       const int ninit, const PreciseType bind_conc,
-                                      const bool logscale, boost::random::mt19937& rng,
+                                      boost::random::mt19937& rng,
                                       const PreciseType tau, const PreciseType delta,
                                       const PreciseType beta, const int max_iter,
                                       const PreciseType tol, const QuasiNewtonMethod method, 
@@ -728,7 +721,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             init_points(i, 33) = static_cast<PreciseType>(dist(rng));
         }
     }
-    delete tri; 
+    delete tri;
 
     // Define matrix of single-mismatch DNA sequences relative to the 
     // perfect-match sequence for cleavage rates
@@ -802,16 +795,14 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         {
             func = [
                 &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-                &bind_conc, &cleave_error_weight, &unbind_error_weight,
-                &logscale
-            ](
-                const Ref<const Matrix<PreciseType, Dynamic, 1> >& x
-            )
+                &bind_conc, &cleave_error_weight, &unbind_error_weight
+            ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
             {
-                return errorAgainstData(
+                std::pair<PreciseType, PreciseType> error = errorAgainstData(
                     x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    bind_conc, cleave_error_weight, unbind_error_weight, logscale
-                ); 
+                    bind_conc, cleave_error_weight, unbind_error_weight
+                );
+                return error.first + error.second;
             };
         }
         else    // mode == 1 or mode == 2
@@ -819,16 +810,15 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             func = [
                 &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
                 &cleave_seq_match, &unbind_seq_match, &mode, &bind_conc,
-                &cleave_error_weight, &unbind_error_weight, &logscale
-            ](
-                const Ref<const Matrix<PreciseType, Dynamic, 1> >& x
-            )
+                &cleave_error_weight, &unbind_error_weight
+            ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
             {
-                return errorAgainstData(
+                std::pair<PreciseType, PreciseType> error = errorAgainstData(
                     x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
                     cleave_seq_match, unbind_seq_match, mode, bind_conc,
-                    cleave_error_weight, unbind_error_weight, logscale
-                ); 
+                    cleave_error_weight, unbind_error_weight
+                );
+                return error.first + error.second;
             };
         }
         best_fit.row(i) = opt->run(
@@ -838,31 +828,31 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         );
         if (mode == 0)
         {
-            errors(i) = errorAgainstData(
+            std::pair<PreciseType, PreciseType> error = errorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                bind_conc, cleave_error_weight, unbind_error_weight, logscale
+                bind_conc, cleave_error_weight, unbind_error_weight
             );
+            errors(i) = error.first + error.second;
         }
         else if (mode == 1)
         {
-            errors(i) = errorAgainstData(
+            std::pair<PreciseType, PreciseType> error = errorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
                 cleave_seq_match, unbind_seq_match, 1, bind_conc, cleave_error_weight,
-                unbind_error_weight, logscale
-            ); 
+                unbind_error_weight
+            );
+            errors(i) = error.first + error.second; 
         }
         else    // mode == 2
         {
-            errors(i) = errorAgainstData(
+            std::pair<PreciseType, PreciseType> error = errorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
                 cleave_seq_match, unbind_seq_match, 2, bind_conc, cleave_error_weight,
-                unbind_error_weight, logscale
-            ); 
+                unbind_error_weight
+            );
+            errors(i) = error.first + error.second;
         }
         
-        // Normalize error by the number of data points 
-        errors(i) /= (cleave_data.rows() + unbind_data.rows());
-
         // Then compute the normalized cleavage statistics of the best-fit 
         // model against all single-mismatch substrates 
         Matrix<PreciseType, Dynamic, 4> fit_stats;
@@ -1092,9 +1082,6 @@ int main(int argc, char** argv)
         }
     }
 
-    // Whether to evaluate the error function in log-scale 
-    const bool logscale = false;
-    
     // Parse measured cleavage rates and dead unbinding rates, along with the
     // mismatched sequences on which they were measured 
     int n_cleave_data = 0; 
@@ -1400,10 +1387,9 @@ int main(int argc, char** argv)
         results = fitLineParamsAgainstMeasuredRates(
             cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, mode, 
             cleave_seq_match_arr, unbind_seq_match_arr, cleave_error_weight,
-            unbind_error_weight, ninit, bind_conc, logscale, rng, tau, delta,
-            beta, max_iter, tol, method, regularize, regularize_weight,
-            use_only_armijo, use_strong_wolfe, hessian_modify_max_iter, c1,
-            c2, x_tol, verbose
+            unbind_error_weight, ninit, bind_conc, rng, tau, delta, beta,
+            max_iter, tol, method, regularize, regularize_weight, use_only_armijo,
+            use_strong_wolfe, hessian_modify_max_iter, c1, c2, x_tol, verbose
         );
         Matrix<PreciseType, Dynamic, Dynamic> best_fit = std::get<0>(results); 
         Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats = std::get<1>(results); 
@@ -1493,8 +1479,8 @@ int main(int argc, char** argv)
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
                 unbind_seqs_train, mode, cleave_seq_match_arr, unbind_seq_match_arr,
                 cleave_error_weight, unbind_error_weight, ninit, bind_conc,
-                logscale, rng, tau, delta, beta, max_iter, tol, method,
-                regularize, regularize_weight, use_only_armijo, use_strong_wolfe,
+                rng, tau, delta, beta, max_iter, tol, method, regularize,
+                regularize_weight, use_only_armijo, use_strong_wolfe,
                 hessian_modify_max_iter, c1, c2, x_tol, verbose
             );
             Matrix<PreciseType, Dynamic, Dynamic> best_fit_per_fold = std::get<0>(results); 
@@ -1513,14 +1499,13 @@ int main(int argc, char** argv)
             Matrix<PreciseType, Dynamic, 1> fit_single_mismatch_stats = fit_single_mismatch_stats_per_fold.row(minidx);
 
             // Evaluate error against the test subset 
-            PreciseType error_against_test = errorAgainstData(
+            std::pair<PreciseType, PreciseType> error_against_test = errorAgainstData(
                 best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
-                unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight,
-                logscale
+                unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight
             );
             best_fit_total.row(fi) = best_fit; 
             fit_single_mismatch_stats_total.row(fi) = fit_single_mismatch_stats; 
-            errors_against_test(fi) = error_against_test; 
+            errors_against_test(fi) = error_against_test.first + error_against_test.second; 
         }
 
         // Output the fits to file 
