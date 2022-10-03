@@ -2,7 +2,7 @@
     "poly_filename": "polytopes/line-4-unbindingunity.poly",
     "vert_filename": "polytopes/line-4-unbindingunity.vert",
     "mismatch_position": 0,
-    "output_prefix": "data/boundaries/line-4-unbindingunity-single/mm0/line-4-unbindingunity-single",
+    "output_prefix": "data/boundaries/line-4-unbindingunity-single/activity/mm0/line-4-unbindingunity-single",
     "n_init": 40000,
     "tol": 1e-6,
     "min_step_iter": 100,
