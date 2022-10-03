@@ -536,8 +536,8 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
         for (int i = 0; i < stats2.rows(); ++i)
             stats2_transformed(i, j) = pow(ten, stats2(i, j));
     }
-    Array<PreciseType, Dynamic, 1> cleave_denom = cleave_data.array().abs();
-    Array<PreciseType, Dynamic, 1> unbind_denom = unbind_data.array().abs();
+    Array<PreciseType, Dynamic, 1> cleave_denom = (cleave_data.array().abs() + stats1_transformed.col(3).array().abs()) / 2;
+    Array<PreciseType, Dynamic, 1> unbind_denom = (unbind_data.array().abs() + stats2_transformed.col(2).array().abs()) / 2;
     const int cleave_n_data = cleave_data.size(); 
     const int unbind_n_data = unbind_data.size();
     PreciseType cleave_error = cleave_error_weight * (
@@ -588,8 +588,8 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
         for (int i = 0; i < stats2.rows(); ++i)
             stats2_transformed(i, j) = pow(ten, stats2(i, j));
     }
-    Array<PreciseType, Dynamic, 1> cleave_denom = cleave_data.array().abs();
-    Array<PreciseType, Dynamic, 1> unbind_denom = unbind_data.array().abs();
+    Array<PreciseType, Dynamic, 1> cleave_denom = (cleave_data.array().abs() + stats1_transformed.col(3).array().abs()) / 2;
+    Array<PreciseType, Dynamic, 1> unbind_denom = (unbind_data.array().abs() + stats2_transformed.col(2).array().abs()) / 2;
     const int cleave_n_data = cleave_data.size(); 
     const int unbind_n_data = unbind_data.size();
     PreciseType cleave_error = cleave_error_weight * (
