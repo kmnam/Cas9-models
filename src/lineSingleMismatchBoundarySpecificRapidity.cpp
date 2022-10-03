@@ -28,6 +28,7 @@
 #include <boostMultiprecisionEigen.hpp>
 #include <boundaryFinder.hpp>
 #include <graphs/line.hpp>
+#include "../include/utils.hpp"
 
 using namespace Eigen;
 using boost::multiprecision::number;
