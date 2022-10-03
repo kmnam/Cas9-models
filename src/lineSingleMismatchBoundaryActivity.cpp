@@ -1,3 +1,19 @@
+/**
+ * Estimates the boundary of the cleavage activity vs. cleavage specificity
+ * region for the line graph.
+ *
+ * Abbreviations in the below comments:
+ * - LG:   line graph
+ * - LGPs: line graph parameters
+ * - SQP:  sequential quadratic programming
+ *
+ * **Authors:**
+ *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
+ * 
+ * **Last updated:**
+ *     10/3/2022
+ */
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -12,17 +28,8 @@
 #include <boostMultiprecisionEigen.hpp>
 #include <boundaryFinder.hpp>
 #include <graphs/line.hpp>
+#include "../include/utils.hpp"
 
-/**
- * Estimates the boundary of the cleavage activity vs. cleavage specificity
- * region in the line-graph Cas9 model. 
- *
- * **Authors:**
- *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
- * 
- * **Last updated:**
- *     8/22/2022
- */
 using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
@@ -58,11 +65,17 @@ T getMaxDist(const Ref<const Matrix<T, Dynamic, Dynamic> >& vertices)
 }
 
 /**
- * Compute the following quantities for the given set of parameter values:
+ * Compute the following quantities for the given set of LGPs:
  *
- * - cleavage activity on the perfect-match substrate and
- * - cleavage specificity with respect to the single-mismatch substrate
- *   with the given mismatch position for the line-graph Cas9 model. 
+ * - cleavage activity w.r.t the perfect-match substrate and
+ * - cleavage specificity w.r.t the single-mismatch substrate for the given 
+ *   mismatch position 
+ *
+ * with the terminal unbinding rate set to one.
+ *
+ * @param input Input vector of LGPs.
+ * @returns Cleavage activity and cleavage specificity w.r.t the single-mismatch
+ *          substrate for the given mismatch position.
  */
 template <typename T, int position>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& input) 
@@ -83,49 +96,6 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
         model->setEdgeLabels(j, match);
     
     // Compute cleavage probability on the perfect-match substrate
-    T terminal_unbind_rate = static_cast<T>(std::pow(10.0, input(4)));
-    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, input(5))); 
-    T prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
-
-    // Introduce one mismatch at the specified position and re-compute
-    // cleavage probability
-    model->setEdgeLabels(position, mismatch); 
-    T prob_mismatched = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
-
-    // Compile results and return 
-    VectorXd output(2);
-    output << static_cast<double>(prob_perfect),
-              static_cast<double>(log10(prob_perfect) - log10(prob_mismatched)); 
-
-    delete model;
-    return output;
-}
-
-/**
- * A version of `computeCleavageStats()` with the leftward terminal rate
- * (the unbinding rate) set to unity, and the input vector specifying values
- * for the other five parameters. 
- */
-template <typename T, int position>
-VectorXd computeCleavageStatsUnbindingUnity(const Ref<const VectorXd>& input)
-{
-    // Array of DNA/RNA match parameters
-    std::pair<T, T> match;
-    match.first = static_cast<T>(std::pow(10.0, input(0)));
-    match.second = static_cast<T>(std::pow(10.0, input(1)));
-
-    // Array of DNA/RNA mismatch parameters
-    std::pair<T, T> mismatch;
-    mismatch.first = static_cast<T>(std::pow(10.0, input(2)));
-    mismatch.second = static_cast<T>(std::pow(10.0, input(3)));
-
-    // Populate each rung with DNA/RNA match parameters
-    LineGraph<T, T>* model = new LineGraph<T, T>(length);
-    for (int j = 0; j < length; ++j)
-        model->setEdgeLabels(j, match);
-    
-    // Compute cleavage probability and cleavage rate on the perfect-match
-    // substrate
     T terminal_unbind_rate = 1;
     T terminal_cleave_rate = static_cast<T>(std::pow(10.0, input(4))); 
     T prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
@@ -145,202 +115,59 @@ VectorXd computeCleavageStatsUnbindingUnity(const Ref<const VectorXd>& input)
 }
 
 /**
- * A version of `computeCleavageStats()` with *both* terminal rates (cleavage
- * and unbinding) set to unity, and the input vector specifying values for 
- * the other four parameters.
- */
-template <typename T, int position>
-VectorXd computeCleavageStatsBothTerminalUnity(const Ref<const VectorXd>& input)
-{
-    // Array of DNA/RNA match parameters
-    std::pair<T, T> match;
-    match.first = static_cast<T>(std::pow(10.0, input(0)));
-    match.second = static_cast<T>(std::pow(10.0, input(1)));
-
-    // Array of DNA/RNA mismatch parameters
-    std::pair<T, T> mismatch;
-    mismatch.first = static_cast<T>(std::pow(10.0, input(2)));
-    mismatch.second = static_cast<T>(std::pow(10.0, input(3)));
-
-    // Populate each rung with DNA/RNA match parameters
-    LineGraph<T, T>* model = new LineGraph<T, T>(length);
-    for (int j = 0; j < length; ++j)
-        model->setEdgeLabels(j, match);
-    
-    // Compute cleavage probability and cleavage rate on the perfect-match
-    // substrate
-    T terminal_unbind_rate = 1;
-    T terminal_cleave_rate = 1;
-    T prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
-
-    // Introduce one mismatch at the specified position and re-compute
-    // cleavage probability
-    model->setEdgeLabels(position, mismatch); 
-    T prob_mismatched = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
-
-    // Compile results and return 
-    VectorXd output(2);
-    output << static_cast<double>(prob_perfect),
-              static_cast<double>(log10(prob_perfect) - log10(prob_mismatched)); 
-
-    delete model;
-    return output;
-}
-
-/**
  * Return the template specialization of `computeCleavageStats()` corresponding
- * to the given mismatch position. 
+ * to the given mismatch position.
+ *
+ * @param position Mismatch position.
+ * @returns Template specialization of `computeCleavageStats()`.
  */ 
 template <typename T>
-std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position, int dim)
+std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(const int position)
 {
-    if (dim == 6)
+    switch (position)
     {
-        switch (position)
-        {
-            case 0:
-                return computeCleavageStats<PreciseType, 0>;
-            case 1: 
-                return computeCleavageStats<PreciseType, 1>;
-            case 2:
-                return computeCleavageStats<PreciseType, 2>; 
-            case 3: 
-                return computeCleavageStats<PreciseType, 3>; 
-            case 4: 
-                return computeCleavageStats<PreciseType, 4>; 
-            case 5: 
-                return computeCleavageStats<PreciseType, 5>; 
-            case 6: 
-                return computeCleavageStats<PreciseType, 6>; 
-            case 7: 
-                return computeCleavageStats<PreciseType, 7>; 
-            case 8: 
-                return computeCleavageStats<PreciseType, 8>; 
-            case 9: 
-                return computeCleavageStats<PreciseType, 9>; 
-            case 10: 
-                return computeCleavageStats<PreciseType, 10>; 
-            case 11:
-                return computeCleavageStats<PreciseType, 11>; 
-            case 12: 
-                return computeCleavageStats<PreciseType, 12>; 
-            case 13: 
-                return computeCleavageStats<PreciseType, 13>; 
-            case 14: 
-                return computeCleavageStats<PreciseType, 14>; 
-            case 15:
-                return computeCleavageStats<PreciseType, 15>; 
-            case 16: 
-                return computeCleavageStats<PreciseType, 16>; 
-            case 17: 
-                return computeCleavageStats<PreciseType, 17>; 
-            case 18:
-                return computeCleavageStats<PreciseType, 18>; 
-            case 19:
-                return computeCleavageStats<PreciseType, 19>; 
-            default:
-                throw std::invalid_argument("Invalid mismatch position");
-        }
-    }
-    else if (dim == 5)
-    {
-        switch (position)
-        {
-            case 0:
-                return computeCleavageStatsUnbindingUnity<PreciseType, 0>;
-            case 1: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 1>;
-            case 2:
-                return computeCleavageStatsUnbindingUnity<PreciseType, 2>; 
-            case 3: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 3>; 
-            case 4: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 4>; 
-            case 5: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 5>; 
-            case 6: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 6>; 
-            case 7: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 7>; 
-            case 8: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 8>; 
-            case 9: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 9>; 
-            case 10: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 10>; 
-            case 11:
-                return computeCleavageStatsUnbindingUnity<PreciseType, 11>; 
-            case 12: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 12>; 
-            case 13: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 13>; 
-            case 14: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 14>; 
-            case 15:
-                return computeCleavageStatsUnbindingUnity<PreciseType, 15>; 
-            case 16: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 16>; 
-            case 17: 
-                return computeCleavageStatsUnbindingUnity<PreciseType, 17>; 
-            case 18:
-                return computeCleavageStatsUnbindingUnity<PreciseType, 18>; 
-            case 19:
-                return computeCleavageStatsUnbindingUnity<PreciseType, 19>; 
-            default:
-                throw std::invalid_argument("Invalid mismatch position");
-        } 
-    }
-    else if (dim == 4)
-    {
-        switch (position)
-        {
-            case 0:
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 0>;
-            case 1: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 1>;
-            case 2:
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 2>; 
-            case 3: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 3>; 
-            case 4: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 4>; 
-            case 5: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 5>; 
-            case 6: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 6>; 
-            case 7: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 7>; 
-            case 8: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 8>; 
-            case 9: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 9>; 
-            case 10: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 10>; 
-            case 11:
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 11>; 
-            case 12: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 12>; 
-            case 13: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 13>; 
-            case 14: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 14>; 
-            case 15:
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 15>; 
-            case 16: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 16>; 
-            case 17: 
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 17>; 
-            case 18:
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 18>; 
-            case 19:
-                return computeCleavageStatsBothTerminalUnity<PreciseType, 19>; 
-            default:
-                throw std::invalid_argument("Invalid mismatch position");
-        } 
-    }
-    else 
-    {
-        throw std::invalid_argument("Invalid parameter space dimension"); 
+        case 0:
+            return computeCleavageStats<PreciseType, 0>;
+        case 1: 
+            return computeCleavageStats<PreciseType, 1>;
+        case 2:
+            return computeCleavageStats<PreciseType, 2>; 
+        case 3: 
+            return computeCleavageStats<PreciseType, 3>; 
+        case 4: 
+            return computeCleavageStats<PreciseType, 4>; 
+        case 5: 
+            return computeCleavageStats<PreciseType, 5>; 
+        case 6: 
+            return computeCleavageStats<PreciseType, 6>; 
+        case 7: 
+            return computeCleavageStats<PreciseType, 7>; 
+        case 8: 
+            return computeCleavageStats<PreciseType, 8>; 
+        case 9: 
+            return computeCleavageStats<PreciseType, 9>; 
+        case 10: 
+            return computeCleavageStats<PreciseType, 10>; 
+        case 11:
+            return computeCleavageStats<PreciseType, 11>; 
+        case 12: 
+            return computeCleavageStats<PreciseType, 12>; 
+        case 13: 
+            return computeCleavageStats<PreciseType, 13>; 
+        case 14: 
+            return computeCleavageStats<PreciseType, 14>; 
+        case 15:
+            return computeCleavageStats<PreciseType, 15>; 
+        case 16: 
+            return computeCleavageStats<PreciseType, 16>; 
+        case 17: 
+            return computeCleavageStats<PreciseType, 17>; 
+        case 18:
+            return computeCleavageStats<PreciseType, 18>; 
+        case 19:
+            return computeCleavageStats<PreciseType, 19>; 
+        default:
+            throw std::invalid_argument("Invalid mismatch position");
     }
 }
 
@@ -353,52 +180,236 @@ int main(int argc, char** argv)
             return false;
         };
 
-    // Boundary-finding algorithm settings
-    const int n_init = 40000; 
-    const double tol = 1e-6;
-    const int min_step_iter = 100;
-    const int max_step_iter = 200;
-    const int min_pull_iter = 100;
-    const int max_pull_iter = 1000;
-    const int sqp_max_iter = 100;
-    const double sqp_tol = 1e-6;
-    const int max_edges = 2000;
-    int n_keep_interior = 10000; 
+    /** ------------------------------------------------------- //
+     *                    PARSE CONFIGURATIONS                  //
+     *  --------------------------------------------------------*/ 
+    boost::json::object json_data = parseConfigFile(argv[1]).as_object();
+
+    // Check that input/output file paths were specified 
+    if (!json_data.if_contains("poly_filename"))
+        throw std::runtime_error("Polytope constraints file (.poly) must be specified");
+    if (!json_data.if_contains("vert_filename"))
+        throw std::runtime_error("Polytope vertices file (.vert) must be specified");
+    if (!json_data.if_contains("output_prefix"))
+        throw std::runtime_error("Output file path prefix must be specified"); 
+    std::string poly_filename = json_data["poly_filename"].as_string().c_str();
+    std::string vert_filename = json_data["vert_filename"].as_string().c_str();
+    std::string outprefix = json_data["output_prefix"].as_string().c_str();
+
+    // Check that required boundary-finding algorithm settings were specified
+    if (!json_data.if_contains("n_init"))
+        throw std::runtime_error("Initial sample size (n_init) must be specified");
+    if (!json_data.if_contains("max_step_iter"))
+        throw std::runtime_error("Maximum number of step iterations (max_step_iter) must be specified"); 
+    if (!json_data.if_contains("max_pull_iter"))
+        throw std::runtime_error("Maximum number of pull iterations (max_pull_iter) must be specified");
+    if (!json_data.if_contains("tol"))
+        throw std::runtime_error("Boundary-finding tolerance (tol) must be specified");
+    if (!json_data.if_contains("mismatch_position"))
+        throw std::runtime_error("Mismatch position (mismatch_position) must be specified");
+
+    // Parse boundary-finding algorithm settings 
+    int n_init, max_step_iter, max_pull_iter, mismatch_pos;  
+    double tol;
+    int min_step_iter = 0;
+    int min_pull_iter = 0;
+    int max_edges = 2000;
+    int n_keep_interior = 10000;
     int n_keep_origbound = 10000;
     int n_mutate_origbound = 400;
     int n_pull_origbound = 400;
-    const double tau = 0.5;
-    const double delta = 1e-8; 
-    const double beta = 1e-4;
-    const bool use_only_armijo = false; 
-    const bool use_strong_wolfe = false;
-    const int hessian_modify_max_iter = 10000;
-    const double c1 = 1e-4; 
-    const double c2 = 0.9; 
-    const bool verbose = true;
-    const bool sqp_verbose = false;
-    const bool traversal_verbose = true;  
-    const bool write_pulled_points = true; 
+    bool verbose = true;
+    bool traversal_verbose = true;  
+    bool write_pulled_points = true;
+    n_init = json_data["n_init"].as_int64(); 
+    if (n_init <= 0)
+    {
+        throw std::runtime_error("Invalid initial sample size (n_init) specified");
+    }
+    max_step_iter = json_data["max_step_iter"].as_int64(); 
+    if (max_step_iter <= 0)
+    {
+        throw std::runtime_error("Invalid maximum number of step iterations (max_step_iter) specified");
+    } 
+    max_pull_iter = json_data["max_pull_iter"].as_int64(); 
+    if (max_pull_iter <= 0)
+    {
+        throw std::runtime_error("Invalid maximum number of pull iterations (max_pull_iter) specified");
+    }
+    tol = json_data["tol"].as_double();
+    if (tol <= 0)
+    {
+        throw std::runtime_error("Invalid boundary-finding tolerance (tol) specified");
+    }
+    mismatch_pos = json_data["mismatch_position"].as_int64(); 
+    if (mismatch_pos < 0 || mismatch_pos > 19)
+    {
+        throw std::runtime_error("Invalid mismatch position (mismatch_position) specified");
+    }
+    if (json_data.if_contains("min_step_iter"))
+    {
+        min_step_iter = json_data["min_step_iter"].as_int64(); 
+        if (min_step_iter <= 0)
+            throw std::runtime_error("Invalid minimum number of step iterations (min_step_iter) specified"); 
+    }
+    if (json_data.if_contains("min_pull_iter"))
+    {
+        min_pull_iter = json_data["min_pull_iter"].as_int64(); 
+        if (min_pull_iter <= 0)
+            throw std::runtime_error("Invalid minimum number of pull iterations (min_pull_iter) specified"); 
+    }
+    if (json_data.if_contains("max_edges"))
+    {
+        max_edges = json_data["max_edges"].as_int64(); 
+        if (max_edges <= 0)
+            throw std::runtime_error("Invalid maximum number of edges (max_edges) specified"); 
+    }
+    if (json_data.if_contains("n_keep_interior"))
+    {
+        n_keep_interior = json_data["n_keep_interior"].as_int64(); 
+        if (n_keep_interior <= 0)
+            throw std::runtime_error(
+                "Invalid number of interior points to keep per iteration (n_keep_interior) specified"
+            );
+    }
+    if (json_data.if_contains("n_keep_origbound"))
+    {
+        n_keep_origbound = json_data["n_keep_origbound"].as_int64(); 
+        if (n_keep_origbound <= 0)
+            throw std::runtime_error(
+                "Invalid number of unsimplified boundary vertices to keep per iteration (n_keep_origbound) specified"
+            );
+    }
+    if (json_data.if_contains("n_mutate_origbound"))
+    {
+        n_mutate_origbound = json_data["n_mutate_origbound"].as_int64(); 
+        if (n_mutate_origbound <= 0)
+            throw std::runtime_error(
+                "Invalid number of unsimplified boundary vertices to mutate per step iteration (n_mutate_origbound) specified"
+            );
+    }
+    if (json_data.if_contains("n_pull_origbound"))
+    {
+        n_pull_origbound = json_data["n_pull_origbound"].as_int64(); 
+        if (n_pull_origbound <= 0)
+            throw std::runtime_error(
+                "Invalid number of unsimplified boundary vertices to pull per pull iteration (n_pull_origbound) specified"
+            );
+    }
+    if (json_data.if_contains("verbose"))
+    {
+        verbose = json_data["verbose"].as_bool(); 
+    }
+    if (json_data.if_contains("traversal_verbose"))
+    {
+        traversal_verbose = json_data["traversal_verbose"].as_bool(); 
+    }
+    if (json_data.if_contains("write_pulled_points"))
+    {
+        write_pulled_points = json_data["write_pulled_points"].as_bool();
+    }
+
+    // Parse SQP configurations
+    int sqp_max_iter = 1000;   // 100? 
+    double tau = 0.5;
+    double delta = 1e-8; 
+    double beta = 1e-4; 
+    double sqp_tol = 1e-8;     // 1e-6?
+    bool use_only_armijo = false;
+    bool use_strong_wolfe = false;
+    int hessian_modify_max_iter = 10000;
+    double c1 = 1e-4;
+    double c2 = 0.9;
+    bool sqp_verbose = false;
+    if (json_data.if_contains("sqp_config"))
+    {
+        boost::json::object sqp_data = json_data["sqp_config"].as_object(); 
+        if (sqp_data.if_contains("tau"))
+        {
+            tau = sqp_data["tau"].as_double(); 
+            if (tau <= 0)
+                throw std::runtime_error("Invalid value for tau specified"); 
+        }
+        if (sqp_data.if_contains("delta"))
+        {
+            delta = sqp_data["delta"].as_double();
+            if (delta <= 0)
+                throw std::runtime_error("Invalid value for delta specified"); 
+        }
+        if (sqp_data.if_contains("beta"))
+        {
+            beta = sqp_data["beta"].as_double(); 
+            if (beta <= 0)
+                throw std::runtime_error("Invalid value for beta specified"); 
+        }
+        if (sqp_data.if_contains("max_iter"))
+        {
+            sqp_max_iter = sqp_data["max_iter"].as_int64(); 
+            if (sqp_max_iter <= 0)
+                throw std::runtime_error("Invalid value for maximum number of SQP iterations (max_iter) specified"); 
+        }
+        if (sqp_data.if_contains("tol"))
+        {
+            sqp_tol = sqp_data["tol"].as_double();
+            if (sqp_tol <= 0)
+                throw std::runtime_error("Invalid value for SQP tolerance (tol) specified"); 
+        }
+        if (sqp_data.if_contains("use_only_armijo"))
+        {
+            use_only_armijo = sqp_data["use_only_armijo"].as_bool();
+        }
+        if (sqp_data.if_contains("use_strong_wolfe"))
+        {
+            use_strong_wolfe = sqp_data["use_strong_wolfe"].as_bool(); 
+        }
+        if (sqp_data.if_contains("hessian_modify_max_iter"))
+        {
+            hessian_modify_max_iter = sqp_data["hessian_modify_max_iter"].as_int64(); 
+            if (hessian_modify_max_iter <= 0)
+            {
+                std::stringstream ss_err; 
+                ss_err << "Invalid value for maximum number of SQP Hessian modification "
+                       << "iterations (hessian_modify_max_iter) specified";
+                throw std::runtime_error(ss_err.str()); 
+            } 
+        }
+        if (sqp_data.if_contains("c1"))
+        {
+            c1 = sqp_data["c1"].as_double();
+            if (c1 <= 0)
+                throw std::runtime_error("Invalid value for c1 specified"); 
+        }
+        if (sqp_data.if_contains("c2"))
+        {
+            c2 = sqp_data["c2"].as_double();
+            if (c2 <= 0)
+                throw std::runtime_error("Invalid value for c2 specified"); 
+        }
+        if (sqp_data.if_contains("verbose"))
+        {
+            sqp_verbose = sqp_data["verbose"].as_bool();
+        }
+    }
     std::stringstream ss;
-    ss << argv[3] << "-activity-mm" << argv[4] << "-boundary";
+    ss << outprefix << "-activity-mm" << mismatch_pos << "-boundary";
 
     // Parse the given .poly file and store its contents as a string 
-    std::ifstream infile(argv[1]); 
+    std::ifstream infile(poly_filename); 
     std::stringstream ss2;
     ss2 << infile.rdbuf(); 
     infile.close();
 
     // Initialize the boundary-finding algorithm
-    const int position = std::stoi(argv[4]);
     std::size_t seed = 0; 
     boost::hash_combine(seed, 1234567890); 
-    boost::hash_combine(seed, position); 
+    boost::hash_combine(seed, mismatch_pos); 
     boost::hash_combine(seed, ss2.str()); 
     rng.seed(seed); 
     BoundaryFinder* finder = new BoundaryFinder(
-        tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo
+        tol, rng, poly_filename, vert_filename,
+        Polytopes::InequalityType::GreaterThanOrEqualTo
     );
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position, finder->getD());
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(mismatch_pos);
     finder->setFunc(func);  
     double mutate_delta = 0.1 * getMaxDist<double>(finder->getVertices());
 
