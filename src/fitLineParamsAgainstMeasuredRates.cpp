@@ -536,10 +536,20 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
         for (int i = 0; i < stats2.rows(); ++i)
             stats2_transformed(i, j) = pow(ten, stats2(i, j));
     }
-    Array<PreciseType, Dynamic, 1> cleave_denom = (cleave_data.array().abs() + stats1_transformed.col(3).array().abs()) / 2;
-    Array<PreciseType, Dynamic, 1> unbind_denom = (unbind_data.array().abs() + stats2_transformed.col(2).array().abs()) / 2;
     const int cleave_n_data = cleave_data.size(); 
     const int unbind_n_data = unbind_data.size();
+    Array<PreciseType, Dynamic, 1> cleave_denom(cleave_n_data);
+    Array<PreciseType, Dynamic, 1> unbind_denom(unbind_n_data);
+    for (int i = 0; i < cleave_n_data; ++i)
+        cleave_denom(i) = (
+            abs(cleave_data(i)) < abs(stats1_transformed(i, 3)) ?
+            abs(cleave_data(i)) : abs(stats1_transformed(i, 3))
+        );
+    for (int i = 0; i < unbind_n_data; ++i)
+        unbind_denom(i) = (
+            abs(unbind_data(i)) < abs(stats2_transformed(i, 2)) ?
+            abs(unbind_data(i)) : abs(stats2_transformed(i, 2))
+        ); 
     PreciseType cleave_error = cleave_error_weight * (
         ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / cleave_n_data
     );
@@ -588,10 +598,20 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
         for (int i = 0; i < stats2.rows(); ++i)
             stats2_transformed(i, j) = pow(ten, stats2(i, j));
     }
-    Array<PreciseType, Dynamic, 1> cleave_denom = (cleave_data.array().abs() + stats1_transformed.col(3).array().abs()) / 2;
-    Array<PreciseType, Dynamic, 1> unbind_denom = (unbind_data.array().abs() + stats2_transformed.col(2).array().abs()) / 2;
     const int cleave_n_data = cleave_data.size(); 
     const int unbind_n_data = unbind_data.size();
+    Array<PreciseType, Dynamic, 1> cleave_denom(cleave_n_data);
+    Array<PreciseType, Dynamic, 1> unbind_denom(unbind_n_data);
+    for (int i = 0; i < cleave_n_data; ++i)
+        cleave_denom(i) = (
+            abs(cleave_data(i)) < abs(stats1_transformed(i, 3)) ?
+            abs(cleave_data(i)) : abs(stats1_transformed(i, 3))
+        );
+    for (int i = 0; i < unbind_n_data; ++i)
+        unbind_denom(i) = (
+            abs(unbind_data(i)) < abs(stats2_transformed(i, 2)) ?
+            abs(unbind_data(i)) : abs(stats2_transformed(i, 2))
+        ); 
     PreciseType cleave_error = cleave_error_weight * (
         ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / cleave_n_data
     );
