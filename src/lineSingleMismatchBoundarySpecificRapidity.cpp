@@ -318,7 +318,6 @@ int main(int argc, char** argv)
     double delta = 1e-8; 
     double beta = 1e-4; 
     double sqp_tol = 1e-8;     // 1e-6?
-    QuasiNewtonMethod method = QuasiNewtonMethod::BFGS;
     bool use_only_armijo = false;
     bool use_strong_wolfe = false;
     int hessian_modify_max_iter = 10000;
@@ -357,14 +356,6 @@ int main(int argc, char** argv)
             sqp_tol = static_cast<PreciseType>(sqp_data["tol"].as_double());
             if (sqp_tol <= 0)
                 throw std::runtime_error("Invalid value for SQP tolerance (tol) specified"); 
-        }
-        if (sqp_data.if_contains("quasi_newton_method"))
-        {
-            // Check that the value is either 0, 1, 2
-            int value = sqp_data["quasi_newton_method"].as_int64(); 
-            if (value < 0 || value > 2)
-                throw std::runtime_error("Invalid value for SQP quasi-Newton method (quasi_newton_method) specified"); 
-            method = static_cast<QuasiNewtonMethod>(value); 
         }
         if (sqp_data.if_contains("use_only_armijo"))
         {
