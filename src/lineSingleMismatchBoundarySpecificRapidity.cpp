@@ -126,7 +126,7 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
  * @returns Template specialization of `computeCleavageStats()`.
  */ 
 template <typename T>
-std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(int position, int dim)
+std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(const int position)
 {
     switch (position)
     {
@@ -246,7 +246,7 @@ int main(int argc, char** argv)
         throw std::runtime_error("Invalid boundary-finding tolerance (tol) specified");
     }
     mismatch_pos = json_data["mismatch_position"].as_int64(); 
-    if (mismatch_position < 0 || mismatch_position > 19)
+    if (mismatch_pos < 0 || mismatch_pos > 19)
     {
         throw std::runtime_error("Invalid mismatch position (mismatch_position) specified");
     }
