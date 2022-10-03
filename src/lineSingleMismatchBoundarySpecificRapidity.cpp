@@ -183,52 +183,245 @@ int main(int argc, char** argv)
             return false;
         };
 
-    // Boundary-finding algorithm settings
-    const int n_init = 40000; 
-    const double tol = 1e-6;
-    const int min_step_iter = 100;
-    const int max_step_iter = 200;
-    const int min_pull_iter = 100;
-    const int max_pull_iter = 1000;
-    const int sqp_max_iter = 100;
-    const double sqp_tol = 1e-6;
-    const int max_edges = 2000;
-    int n_keep_interior = 10000; 
+    /** ------------------------------------------------------- //
+     *                    PARSE CONFIGURATIONS                  //
+     *  --------------------------------------------------------*/ 
+    boost::json::object json_data = parseConfigFile(argv[1]).as_object();
+
+    // Check that input/output file paths were specified 
+    if (!json_data.if_contains("poly_filename"))
+        throw std::runtime_error("Polytope constraints file (.poly) must be specified");
+    if (!json_data.if_contains("vert_filename"))
+        throw std::runtime_error("Polytope vertices file (.vert) must be specified");
+    if (!json_data.if_contains("output_prefix"))
+        throw std::runtime_error("Output file path prefix must be specified"); 
+    std::string poly_filename = json_data["poly_filename"].as_string().c_str();
+    std::string vert_filename = json_data["vert_filename"].as_string().c_str();
+    std::string outprefix = json_data["output_prefix"].as_string().c_str();
+
+    // Check that required boundary-finding algorithm settings were specified
+    if (!json_data.if_contains("n_init"))
+        throw std::runtime_error("Initial sample size (n_init) must be specified");
+    if (!json_data.if_contains("max_step_iter"))
+        throw std::runtime_error("Maximum number of step iterations (max_step_iter) must be specified"); 
+    if (!json_data.if_contains("max_pull_iter"))
+        throw std::runtime_error("Maximum number of pull iterations (max_pull_iter) must be specified");
+    if (!json_data.if_contains("tol"))
+        throw std::runtime_error("Boundary-finding tolerance (tol) must be specified");
+    if (!json_data.if_contains("mismatch_position"))
+        throw std::runtime_error("Mismatch position (mismatch_position) must be specified");
+
+    // Parse boundary-finding algorithm settings 
+    int n_init, max_step_iter, max_pull_iter, mismatch_pos;  
+    double tol;
+    int min_step_iter = 0;
+    int min_pull_iter = 0;
+    int max_edges = 2000;
+    int n_keep_interior = 10000;
     int n_keep_origbound = 10000;
     int n_mutate_origbound = 400;
     int n_pull_origbound = 400;
-    const double tau = 0.5;
-    const double delta = 1e-8; 
-    const double beta = 1e-4;
-    const bool use_only_armijo = false;  
-    const bool use_strong_wolfe = false;
-    const int hessian_modify_max_iter = 10000; 
-    const double c1 = 1e-4; 
-    const double c2 = 0.9;
-    const bool verbose = true;
-    const bool sqp_verbose = false;
-    const bool traversal_verbose = true;  
-    const bool write_pulled_points = true; 
+    bool verbose = true;
+    bool traversal_verbose = true;  
+    bool write_pulled_points = true;
+    n_init = json_data["n_init"].as_int64(); 
+    if (n_init <= 0)
+    {
+        throw std::runtime_error("Invalid initial sample size (n_init) specified");
+    }
+    max_step_iter = json_data["max_step_iter"].as_int64(); 
+    if (max_step_iter <= 0)
+    {
+        throw std::runtime_error("Invalid maximum number of step iterations (max_step_iter) specified");
+    } 
+    max_pull_iter = json_data["max_pull_iter"].as_int64(); 
+    if (max_pull_iter <= 0)
+    {
+        throw std::runtime_error("Invalid maximum number of pull iterations (max_pull_iter) specified");
+    }
+    tol = json_data["tol"].as_int64();
+    if (tol <= 0)
+    {
+        throw std::runtime_error("Invalid boundary-finding tolerance (tol) specified");
+    }
+    mismatch_pos = json_data["mismatch_position"].as_int64(); 
+    if (mismatch_position < 0 || mismatch_position > 19)
+    {
+        throw std::runtime_error("Invalid mismatch position (mismatch_position) specified");
+    }
+    if (json_data.if_contains("min_step_iter"))
+    {
+        min_step_iter = json_data["min_step_iter"].as_int64(); 
+        if (min_step_iter <= 0)
+            throw std::runtime_error("Invalid minimum number of step iterations (min_step_iter) specified"); 
+    }
+    if (json_data.if_contains("min_pull_iter"))
+    {
+        min_pull_iter = json_data["min_pull_iter"].as_int64(); 
+        if (min_pull_iter <= 0)
+            throw std::runtime_error("Invalid minimum number of pull iterations (min_pull_iter) specified"); 
+    }
+    if (json_data.if_contains("max_edges"))
+    {
+        max_edges = json_data["max_edges"].as_int64(); 
+        if (max_edges <= 0)
+            throw std::runtime_error("Invalid maximum number of edges (max_edges) specified"); 
+    }
+    if (json_data.if_contains("n_keep_interior"))
+    {
+        n_keep_interior = json_data["n_keep_interior"].as_int64(); 
+        if (n_keep_interior <= 0)
+            throw std::runtime_error(
+                "Invalid number of interior points to keep per iteration (n_keep_interior) specified"
+            );
+    }
+    if (json_data.if_contains("n_keep_origbound"))
+    {
+        n_keep_origbound = json_data["n_keep_origbound"].as_int64(); 
+        if (n_keep_origbound <= 0)
+            throw std::runtime_error(
+                "Invalid number of unsimplified boundary vertices to keep per iteration (n_keep_origbound) specified"
+            );
+    }
+    if (json_data.if_contains("n_mutate_origbound"))
+    {
+        n_mutate_origbound = json_data["n_mutate_origbound"].as_int64(); 
+        if (n_mutate_origbound <= 0)
+            throw std::runtime_error(
+                "Invalid number of unsimplified boundary vertices to mutate per step iteration (n_mutate_origbound) specified"
+            );
+    }
+    if (json_data.if_contains("n_pull_origbound"))
+    {
+        n_pull_origbound = json_data["n_pull_origbound"].as_int64(); 
+        if (n_pull_origbound <= 0)
+            throw std::runtime_error(
+                "Invalid number of unsimplified boundary vertices to pull per pull iteration (n_pull_origbound) specified"
+            );
+    }
+    if (json_data.if_contains("verbose"))
+    {
+        verbose = json_data["verbose"].as_bool(); 
+    }
+    if (json_data.if_contains("traversal_verbose"))
+    {
+        traversal_verbose = json_data["traversal_verbose"].as_bool(); 
+    }
+    if (json_data.if_contains("write_pulled_points"))
+    {
+        write_pulled_points = json_data["write_pulled_points"].as_bool();
+    }
+
+    // Parse SQP configurations
+    int sqp_max_iter = 1000;   // 100? 
+    double tau = 0.5;
+    double delta = 1e-8; 
+    double beta = 1e-4; 
+    double sqp_tol = 1e-8;     // 1e-6?
+    QuasiNewtonMethod method = QuasiNewtonMethod::BFGS;
+    bool use_only_armijo = false;
+    bool use_strong_wolfe = false;
+    int hessian_modify_max_iter = 10000;
+    double c1 = 1e-4;
+    double c2 = 0.9;
+    bool sqp_verbose = false;
+    if (json_data.if_contains("sqp_config"))
+    {
+        boost::json::object sqp_data = json_data["sqp_config"].as_object(); 
+        if (sqp_data.if_contains("tau"))
+        {
+            tau = static_cast<PreciseType>(sqp_data["tau"].as_double()); 
+            if (tau <= 0)
+                throw std::runtime_error("Invalid value for tau specified"); 
+        }
+        if (sqp_data.if_contains("delta"))
+        {
+            delta = static_cast<PreciseType>(sqp_data["delta"].as_double());
+            if (delta <= 0)
+                throw std::runtime_error("Invalid value for delta specified"); 
+        }
+        if (sqp_data.if_contains("beta"))
+        {
+            beta = static_cast<PreciseType>(sqp_data["beta"].as_double()); 
+            if (beta <= 0)
+                throw std::runtime_error("Invalid value for beta specified"); 
+        }
+        if (sqp_data.if_contains("max_iter"))
+        {
+            sqp_max_iter = sqp_data["max_iter"].as_int64(); 
+            if (sqp_max_iter <= 0)
+                throw std::runtime_error("Invalid value for maximum number of SQP iterations (max_iter) specified"); 
+        }
+        if (sqp_data.if_contains("tol"))
+        {
+            sqp_tol = static_cast<PreciseType>(sqp_data["tol"].as_double());
+            if (sqp_tol <= 0)
+                throw std::runtime_error("Invalid value for SQP tolerance (tol) specified"); 
+        }
+        if (sqp_data.if_contains("quasi_newton_method"))
+        {
+            // Check that the value is either 0, 1, 2
+            int value = sqp_data["quasi_newton_method"].as_int64(); 
+            if (value < 0 || value > 2)
+                throw std::runtime_error("Invalid value for SQP quasi-Newton method (quasi_newton_method) specified"); 
+            method = static_cast<QuasiNewtonMethod>(value); 
+        }
+        if (sqp_data.if_contains("use_only_armijo"))
+        {
+            use_only_armijo = sqp_data["use_only_armijo"].as_bool();
+        }
+        if (sqp_data.if_contains("use_strong_wolfe"))
+        {
+            use_strong_wolfe = sqp_data["use_strong_wolfe"].as_bool(); 
+        }
+        if (sqp_data.if_contains("hessian_modify_max_iter"))
+        {
+            hessian_modify_max_iter = sqp_data["hessian_modify_max_iter"].as_int64(); 
+            if (hessian_modify_max_iter <= 0)
+            {
+                std::stringstream ss_err; 
+                ss_err << "Invalid value for maximum number of SQP Hessian modification "
+                       << "iterations (hessian_modify_max_iter) specified";
+                throw std::runtime_error(ss_err.str()); 
+            } 
+        }
+        if (sqp_data.if_contains("c1"))
+        {
+            c1 = static_cast<PreciseType>(sqp_data["c1"].as_double());
+            if (c1 <= 0)
+                throw std::runtime_error("Invalid value for c1 specified"); 
+        }
+        if (sqp_data.if_contains("c2"))
+        {
+            c2 = static_cast<PreciseType>(sqp_data["c2"].as_double());
+            if (c2 <= 0)
+                throw std::runtime_error("Invalid value for c2 specified"); 
+        }
+        if (sqp_data.if_contains("verbose"))
+        {
+            sqp_verbose = sqp_data["verbose"].as_bool();
+        }
+    }
     std::stringstream ss;
-    ss << argv[3] << "-rapid-mm" << argv[4] << "-boundary";
+    ss << outprefix << "-rapid-mm" << mismatch_pos << "-boundary";
 
     // Parse the given .poly file and store its contents as a string 
-    std::ifstream infile(argv[1]); 
+    std::ifstream infile(poly_filename);
     std::stringstream ss2;
     ss2 << infile.rdbuf(); 
     infile.close();
 
     // Initialize the boundary-finding algorithm
-    const int position = std::stoi(argv[4]);
     std::size_t seed = 0; 
     boost::hash_combine(seed, 1234567890); 
-    boost::hash_combine(seed, position); 
+    boost::hash_combine(seed, mismatch_pos);
     boost::hash_combine(seed, ss2.str()); 
     rng.seed(seed); 
     BoundaryFinder* finder = new BoundaryFinder(
-        tol, rng, argv[1], argv[2], Polytopes::InequalityType::GreaterThanOrEqualTo
+        tol, rng, poly_filename, vert_filename,
+        Polytopes::InequalityType::GreaterThanOrEqualTo
     );
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(position);
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(mismatch_pos);
     finder->setFunc(func);  
     double mutate_delta = 0.1 * getMaxDist<double>(finder->getVertices());
 
