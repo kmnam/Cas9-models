@@ -330,19 +330,19 @@ int main(int argc, char** argv)
         boost::json::object sqp_data = json_data["sqp_config"].as_object(); 
         if (sqp_data.if_contains("tau"))
         {
-            tau = static_cast<PreciseType>(sqp_data["tau"].as_double()); 
+            tau = sqp_data["tau"].as_double(); 
             if (tau <= 0)
                 throw std::runtime_error("Invalid value for tau specified"); 
         }
         if (sqp_data.if_contains("delta"))
         {
-            delta = static_cast<PreciseType>(sqp_data["delta"].as_double());
+            delta = sqp_data["delta"].as_double();
             if (delta <= 0)
                 throw std::runtime_error("Invalid value for delta specified"); 
         }
         if (sqp_data.if_contains("beta"))
         {
-            beta = static_cast<PreciseType>(sqp_data["beta"].as_double()); 
+            beta = sqp_data["beta"].as_double(); 
             if (beta <= 0)
                 throw std::runtime_error("Invalid value for beta specified"); 
         }
@@ -354,7 +354,7 @@ int main(int argc, char** argv)
         }
         if (sqp_data.if_contains("tol"))
         {
-            sqp_tol = static_cast<PreciseType>(sqp_data["tol"].as_double());
+            sqp_tol = sqp_data["tol"].as_double();
             if (sqp_tol <= 0)
                 throw std::runtime_error("Invalid value for SQP tolerance (tol) specified"); 
         }
@@ -379,13 +379,13 @@ int main(int argc, char** argv)
         }
         if (sqp_data.if_contains("c1"))
         {
-            c1 = static_cast<PreciseType>(sqp_data["c1"].as_double());
+            c1 = sqp_data["c1"].as_double();
             if (c1 <= 0)
                 throw std::runtime_error("Invalid value for c1 specified"); 
         }
         if (sqp_data.if_contains("c2"))
         {
-            c2 = static_cast<PreciseType>(sqp_data["c2"].as_double());
+            c2 = sqp_data["c2"].as_double();
             if (c2 <= 0)
                 throw std::runtime_error("Invalid value for c2 specified"); 
         }
