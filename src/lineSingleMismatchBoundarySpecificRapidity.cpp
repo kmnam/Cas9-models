@@ -240,7 +240,7 @@ int main(int argc, char** argv)
     {
         throw std::runtime_error("Invalid maximum number of pull iterations (max_pull_iter) specified");
     }
-    tol = json_data["tol"].as_int64();
+    tol = json_data["tol"].as_double();
     if (tol <= 0)
     {
         throw std::runtime_error("Invalid boundary-finding tolerance (tol) specified");
