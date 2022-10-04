@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     10/1/2022
+ *     10/4/2022
  */
 
 #include <iostream>
@@ -536,25 +536,25 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
         for (int i = 0; i < stats2.rows(); ++i)
             stats2_transformed(i, j) = pow(ten, stats2(i, j));
     }
-    const int cleave_n_data = cleave_data.size(); 
-    const int unbind_n_data = unbind_data.size();
-    Array<PreciseType, Dynamic, 1> cleave_denom(cleave_n_data);
-    Array<PreciseType, Dynamic, 1> unbind_denom(unbind_n_data);
-    for (int i = 0; i < cleave_n_data; ++i)
+    const int n_cleave_data = cleave_data.size(); 
+    const int n_unbind_data = unbind_data.size();
+    Array<PreciseType, Dynamic, 1> cleave_denom(n_cleave_data);
+    Array<PreciseType, Dynamic, 1> unbind_denom(n_unbind_data);
+    for (int i = 0; i < n_cleave_data; ++i)
         cleave_denom(i) = (
             abs(cleave_data(i)) < abs(stats1_transformed(i, 3)) ?
             abs(cleave_data(i)) : abs(stats1_transformed(i, 3))
         );
-    for (int i = 0; i < unbind_n_data; ++i)
+    for (int i = 0; i < n_unbind_data; ++i)
         unbind_denom(i) = (
             abs(unbind_data(i)) < abs(stats2_transformed(i, 2)) ?
             abs(unbind_data(i)) : abs(stats2_transformed(i, 2))
         ); 
     PreciseType cleave_error = cleave_error_weight * (
-        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / cleave_n_data
+        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / n_cleave_data
     );
     PreciseType unbind_error = unbind_error_weight * (
-        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).sum() / unbind_n_data
+        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).sum() / n_unbind_data
     );
 
     return std::make_pair(cleave_error, unbind_error);
@@ -598,25 +598,25 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
         for (int i = 0; i < stats2.rows(); ++i)
             stats2_transformed(i, j) = pow(ten, stats2(i, j));
     }
-    const int cleave_n_data = cleave_data.size(); 
-    const int unbind_n_data = unbind_data.size();
-    Array<PreciseType, Dynamic, 1> cleave_denom(cleave_n_data);
-    Array<PreciseType, Dynamic, 1> unbind_denom(unbind_n_data);
-    for (int i = 0; i < cleave_n_data; ++i)
+    const int n_cleave_data = cleave_data.size(); 
+    const int n_unbind_data = unbind_data.size();
+    Array<PreciseType, Dynamic, 1> cleave_denom(n_cleave_data);
+    Array<PreciseType, Dynamic, 1> unbind_denom(n_unbind_data);
+    for (int i = 0; i < n_cleave_data; ++i)
         cleave_denom(i) = (
             abs(cleave_data(i)) < abs(stats1_transformed(i, 3)) ?
             abs(cleave_data(i)) : abs(stats1_transformed(i, 3))
         );
-    for (int i = 0; i < unbind_n_data; ++i)
+    for (int i = 0; i < n_unbind_data; ++i)
         unbind_denom(i) = (
             abs(unbind_data(i)) < abs(stats2_transformed(i, 2)) ?
             abs(unbind_data(i)) : abs(stats2_transformed(i, 2))
         ); 
     PreciseType cleave_error = cleave_error_weight * (
-        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / cleave_n_data
+        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / n_cleave_data
     );
     PreciseType unbind_error = unbind_error_weight * (
-        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).sum() / unbind_n_data
+        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).sum() / n_unbind_data
     );
 
     return std::make_pair(cleave_error, unbind_error);
@@ -957,7 +957,9 @@ int main(int argc, char** argv)
     int nfolds = 10;
     PreciseType bind_conc = 1e-9;
     PreciseType cleave_error_weight = 1;
-    PreciseType unbind_error_weight = 1; 
+    PreciseType unbind_error_weight = 1;
+    PreciseType cleave_pseudocount = 0;
+    PreciseType unbind_pseudocount = 0; 
     if (json_data.if_contains("data_specified_as_times"))
     {
         data_specified_as_times = json_data["data_specified_as_times"].as_bool();
@@ -991,6 +993,18 @@ int main(int argc, char** argv)
         unbind_error_weight = static_cast<PreciseType>(json_data["unbind_error_weight"].as_double());
         if (unbind_error_weight <= 0)
             throw std::runtime_error("Invalid unbinding rate error weight specified");
+    }
+    if (json_data.if_contains("cleave_pseudocount"))
+    {
+        cleave_pseudocount = static_cast<PreciseType>(json_data["cleave_pseudocount"].as_double()); 
+        if (cleave_pseudocount < 0)
+            throw std::runtime_error("Invalid cleavage rate pseudocount specified");
+    }
+    if (json_data.if_contains("unbind_pseudocount"))
+    {
+        unbind_pseudocount = static_cast<PreciseType>(json_data["unbind_pseudocount"].as_double()); 
+        if (unbind_pseudocount < 0)
+            throw std::runtime_error("Invalid unbinding rate pseudocount specified");
     }
     
     // Parse SQP configurations
@@ -1266,6 +1280,10 @@ int main(int argc, char** argv)
     // Exit if no cleavage rates and no unbinding rates were specified 
     if (n_cleave_data == 0 && n_unbind_data == 0)
         throw std::runtime_error("Both cleavage rate and unbinding rate datasets are empty");
+
+    // Add pseudocounts to the cleavage rates and unbinding rates 
+    cleave_data += cleave_pseudocount;
+    unbind_data += unbind_pseudocount;
 
     // Define the two perfect-match sequences as integer vectors
     VectorXi cleave_seq_match_arr(length); 
