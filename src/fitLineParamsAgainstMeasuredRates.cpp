@@ -541,15 +541,9 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
     Array<PreciseType, Dynamic, 1> cleave_denom(n_cleave_data);
     Array<PreciseType, Dynamic, 1> unbind_denom(n_unbind_data);
     for (int i = 0; i < n_cleave_data; ++i)
-        cleave_denom(i) = (
-            abs(cleave_data(i)) < abs(stats1_transformed(i, 3)) ?
-            abs(cleave_data(i)) : abs(stats1_transformed(i, 3))
-        );
+        cleave_denom(i) = (abs(cleave_data(i)) + abs(stats1_transformed(i, 3))) / 2;
     for (int i = 0; i < n_unbind_data; ++i)
-        unbind_denom(i) = (
-            abs(unbind_data(i)) < abs(stats2_transformed(i, 2)) ?
-            abs(unbind_data(i)) : abs(stats2_transformed(i, 2))
-        ); 
+        unbind_denom(i) = (abs(unbind_data(i)) + abs(stats2_transformed(i, 2))) / 2;
     PreciseType cleave_error = cleave_error_weight * (
         ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / n_cleave_data
     );
@@ -603,15 +597,9 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
     Array<PreciseType, Dynamic, 1> cleave_denom(n_cleave_data);
     Array<PreciseType, Dynamic, 1> unbind_denom(n_unbind_data);
     for (int i = 0; i < n_cleave_data; ++i)
-        cleave_denom(i) = (
-            abs(cleave_data(i)) < abs(stats1_transformed(i, 3)) ?
-            abs(cleave_data(i)) : abs(stats1_transformed(i, 3))
-        );
+        cleave_denom(i) = (abs(cleave_data(i)) + abs(stats1_transformed(i, 3))) / 2;
     for (int i = 0; i < n_unbind_data; ++i)
-        unbind_denom(i) = (
-            abs(unbind_data(i)) < abs(stats2_transformed(i, 2)) ?
-            abs(unbind_data(i)) : abs(stats2_transformed(i, 2))
-        ); 
+        unbind_denom(i) = (abs(unbind_data(i)) + abs(stats2_transformed(i, 2))) / 2;
     PreciseType cleave_error = cleave_error_weight * (
         ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / n_cleave_data
     );
@@ -1282,8 +1270,8 @@ int main(int argc, char** argv)
         throw std::runtime_error("Both cleavage rate and unbinding rate datasets are empty");
 
     // Add pseudocounts to the cleavage rates and unbinding rates 
-    cleave_data += cleave_pseudocount;
-    unbind_data += unbind_pseudocount;
+    cleave_data += cleave_pseudocount * Matrix<PreciseType, Dynamic, 1>::Ones(n_cleave_data);
+    unbind_data += unbind_pseudocount * Matrix<PreciseType, Dynamic, 1>::Ones(n_unbind_data);
 
     // Define the two perfect-match sequences as integer vectors
     VectorXi cleave_seq_match_arr(length); 
