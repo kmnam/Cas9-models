@@ -12,6 +12,8 @@
     "bind_conc": 1e-9,
     "cleave_error_weight": 1.0,
     "unbind_error_weight": 1.0,
+    "cleave_pseudocount": 1e-8,
+    "unbind_pseudocount": 0.0,
     "sqp_config": {
         "tau": 0.5,
         "delta": 1e-8,
