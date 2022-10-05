@@ -1,6 +1,6 @@
 {
     "cleave_data_filename":
-	"data/Singh-2018-NatStructMolBiol-SI2-Fig4c-TimeCleavage-eSpCas9.txt",
+        "data/Singh-2018-NatStructMolBiol-SI2-Fig4c-TimeCleavage-eSpCas9.txt",
     "unbind_data_filename":
         "data/Singh-2018-NatStructMolBiol-SI2-Fig1d-TimeBoundDead-eSpCas9.txt",
     "output_filename":
@@ -23,7 +23,7 @@
         "quasi_newton_method": 1,
         "regularization_method": 2,
         "regularization_weight": 0.1,
-        "use_only_armijo": false,
+        "use_only_armijo": true,
         "use_strong_wolfe": true,
         "hessian_modify_max_iter": 10000,
         "c1": 1e-4,
