@@ -18,16 +18,16 @@
     "traversal_verbose": false,
     "write_pulled_points": true,
     "sqp_config": {
-        "tau": 0.5,
         "delta": 1e-8,
         "beta": 1e-4,
+        "stepsize_multiple": 0.2,
+        "stepsize_min": 1e-8,
         "max_iter": 100,
         "tol": 1e-6,
-        "use_only_armijo": false,
-        "use_strong_wolfe": false,
         "hessian_modify_max_iter": 10000,
         "c1": 1e-4,
         "c2": 0.9,
-        "verbose": true
+        "verbose": true,
+        "zoom_verbose": true
     }
 }
