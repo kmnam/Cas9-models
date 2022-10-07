@@ -1,6 +1,6 @@
 /**
  * Estimates the boundary of the cleavage specificity vs. specific rapidity
- * region in the line graph.
+ * region for the line graph.
  *
  * Abbreviations in the below comments:
  * - LG:   line graph
@@ -11,7 +11,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     10/3/2022
+ *     10/7/2022
  */
 
 #include <iostream>
@@ -314,26 +314,20 @@ int main(int argc, char** argv)
     }
 
     // Parse SQP configurations
-    int sqp_max_iter = 1000;   // 100? 
-    double tau = 0.5;
+    int sqp_max_iter = 1000; 
     double delta = 1e-8; 
-    double beta = 1e-4; 
-    double sqp_tol = 1e-8;     // 1e-6?
-    bool use_only_armijo = false;
-    bool use_strong_wolfe = false;
+    double beta = 1e-4;
+    double stepsize_multiple = 0.2;
+    double stepsize_min = 1e-8; 
+    double sqp_tol = 1e-8;
     int hessian_modify_max_iter = 10000;
     double c1 = 1e-4;
     double c2 = 0.9;
     bool sqp_verbose = false;
+    bool zoom_verbose = false;
     if (json_data.if_contains("sqp_config"))
     {
         boost::json::object sqp_data = json_data["sqp_config"].as_object(); 
-        if (sqp_data.if_contains("tau"))
-        {
-            tau = sqp_data["tau"].as_double(); 
-            if (tau <= 0)
-                throw std::runtime_error("Invalid value for tau specified"); 
-        }
         if (sqp_data.if_contains("delta"))
         {
             delta = sqp_data["delta"].as_double();
@@ -346,6 +340,18 @@ int main(int argc, char** argv)
             if (beta <= 0)
                 throw std::runtime_error("Invalid value for beta specified"); 
         }
+        if (sqp_data.if_contains("stepsize_multiple"))
+        {
+            stepsize_multiple = sqp_data["stepsize_multiple"].as_double(); 
+            if (stepsize_multiple <= 0 || stepsize_multiple >= 1)
+                throw std::runtime_error("Invalid value for stepsize multiple specified"); 
+        }
+        if (sqp_data.if_contains("stepsize_min"))
+        {
+            stepsize_min = sqp_data["stepsize_min"].as_double(); 
+            if (stepsize_min <= 0 || stepsize_min >= 1)
+                throw std::runtime_error("Invalid value for minimum stepsize (stepsize_min) specified");
+        }
         if (sqp_data.if_contains("max_iter"))
         {
             sqp_max_iter = sqp_data["max_iter"].as_int64(); 
@@ -357,14 +363,6 @@ int main(int argc, char** argv)
             sqp_tol = sqp_data["tol"].as_double();
             if (sqp_tol <= 0)
                 throw std::runtime_error("Invalid value for SQP tolerance (tol) specified"); 
-        }
-        if (sqp_data.if_contains("use_only_armijo"))
-        {
-            use_only_armijo = sqp_data["use_only_armijo"].as_bool();
-        }
-        if (sqp_data.if_contains("use_strong_wolfe"))
-        {
-            use_strong_wolfe = sqp_data["use_strong_wolfe"].as_bool(); 
         }
         if (sqp_data.if_contains("hessian_modify_max_iter"))
         {
@@ -392,6 +390,10 @@ int main(int argc, char** argv)
         if (sqp_data.if_contains("verbose"))
         {
             sqp_verbose = sqp_data["verbose"].as_bool();
+        }
+        if (sqp_data.if_contains("zoom_verbose"))
+        {
+            zoom_verbose = sqp_data["zoom_verbose"].as_bool();
         }
     }
     std::stringstream ss;
@@ -424,10 +426,10 @@ int main(int argc, char** argv)
     finder->run(
         mutate_delta, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, sqp_max_iter, sqp_tol, max_edges, n_keep_interior,
-        n_keep_origbound, n_mutate_origbound, n_pull_origbound, tau, delta,
-        beta, use_only_armijo, use_strong_wolfe, hessian_modify_max_iter,
-        ss.str(), RegularizationMethod::NOREG, 0, c1, c2, verbose, sqp_verbose,
-        traversal_verbose, write_pulled_points 
+        n_keep_origbound, n_mutate_origbound, n_pull_origbound, delta, beta,
+        stepsize_multiple, stepsize_min, hessian_modify_max_iter, ss.str(),
+        RegularizationMethod::NOREG, 0, c1, c2, verbose, sqp_verbose,
+        zoom_verbose, traversal_verbose, write_pulled_points 
     );
 
     delete finder;    
