@@ -15,20 +15,20 @@
     "cleave_pseudocount": 1e-8,
     "unbind_pseudocount": 0.0,
     "sqp_config": {
-        "tau": 0.5,
         "delta": 1e-8,
         "beta": 1e-4,
+        "stepsize_multiple": 0.2,
+        "stepsize_min": 1e-8,
         "max_iter": 1000,
         "tol": 1e-8,
+        "x_tol": 10000.0,
         "quasi_newton_method": 1,
         "regularization_method": 2,
         "regularization_weight": 0.1,
-        "use_only_armijo": false,
-        "use_strong_wolfe": true,
         "hessian_modify_max_iter": 10000,
         "c1": 1e-4,
         "c2": 0.9,
-        "x_tol": 10000.0,
-        "verbose": true
+        "verbose": true,
+        "zoom_verbose": true
     }
 }
