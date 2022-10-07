@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     10/4/2022
+ *     10/7/2022
  */
 
 #include <iostream>
@@ -623,21 +623,20 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
  * @param ninit
  * @param bind_conc
  * @param rng
- * @param tau
  * @param delta
  * @param beta
+ * @param stepsize_multiple
  * @param max_iter
  * @param tol
+ * @param x_tol
  * @param method
  * @param regularize
  * @param regularize_weight
- * @param use_only_armijo
- * @param use_strong_wolfe
  * @param hessian_modify_max_iter
  * @param c1
  * @param c2
- * @param x_tol
  * @param verbose
+ * @param zoom_verbose
  */
 std::tuple<Matrix<PreciseType, Dynamic, Dynamic>, 
            Matrix<PreciseType, Dynamic, Dynamic>,
@@ -653,16 +652,16 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                                       const PreciseType unbind_error_weight,
                                       const int ninit, const PreciseType bind_conc,
                                       boost::random::mt19937& rng,
-                                      const PreciseType tau, const PreciseType delta,
-                                      const PreciseType beta, const int max_iter,
-                                      const PreciseType tol, const QuasiNewtonMethod method, 
+                                      const PreciseType delta, const PreciseType beta,
+                                      const PreciseType stepsize_multiple, 
+                                      const int max_iter, const PreciseType tol,
+                                      const PreciseType x_tol, 
+                                      const QuasiNewtonMethod method, 
                                       const RegularizationMethod regularize,
                                       const PreciseType regularize_weight, 
-                                      const bool use_only_armijo,
-                                      const bool use_strong_wolfe, 
                                       const int hessian_modify_max_iter, 
                                       const PreciseType c1, const PreciseType c2,
-                                      const PreciseType x_tol, const bool verbose) 
+                                      const bool verbose, const bool zoom_verbose) 
 {
     // Set up an SQPOptimizer instance that constrains all parameters to lie 
     // between 1e-10 and 1e+10 
@@ -830,9 +829,9 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             };
         }
         best_fit.row(i) = opt->run(
-            func, x_init, l_init, tau, delta, beta, max_iter, tol, x_tol, method,
-            regularize, regularize_weight, use_only_armijo, use_strong_wolfe,
-            hessian_modify_max_iter, c1, c2, verbose
+            func, x_init, l_init, delta, beta, stepsize_multiple, max_iter, tol,
+            x_tol, method, regularize, regularize_weight, hessian_modify_max_iter,
+            c1, c2, verbose
         );
         if (mode == 0)
         {
@@ -996,30 +995,23 @@ int main(int argc, char** argv)
     }
     
     // Parse SQP configurations
-    PreciseType tau = 0.5;
     PreciseType delta = 1e-8; 
-    PreciseType beta = 1e-4; 
+    PreciseType beta = 1e-4;
+    PreciseType stepsize_multiple = 0.2; 
     int max_iter = 1000; 
-    PreciseType tol = 1e-8;       // Set the y-value tolerance to be small 
+    PreciseType tol = 1e-8;       // Set the y-value tolerance to be small
+    PreciseType x_tol = 10000;    // Set the x-value tolerance to be large 
     QuasiNewtonMethod method = QuasiNewtonMethod::BFGS;
     RegularizationMethod regularize = RegularizationMethod::L2; 
     PreciseType regularize_weight = 0.1; 
-    bool use_only_armijo = true;
-    bool use_strong_wolfe = false;
     int hessian_modify_max_iter = 10000;
     PreciseType c1 = 1e-4;
     PreciseType c2 = 0.9;
-    PreciseType x_tol = 10000;    // Set the x-value tolerance to be large 
     bool verbose = true;
+    bool zoom_verbose = false;
     if (json_data.if_contains("sqp_config"))
     {
         boost::json::object sqp_data = json_data["sqp_config"].as_object(); 
-        if (sqp_data.if_contains("tau"))
-        {
-            tau = static_cast<PreciseType>(sqp_data["tau"].as_double()); 
-            if (tau <= 0)
-                throw std::runtime_error("Invalid value for tau specified"); 
-        }
         if (sqp_data.if_contains("delta"))
         {
             delta = static_cast<PreciseType>(sqp_data["delta"].as_double());
@@ -1032,6 +1024,12 @@ int main(int argc, char** argv)
             if (beta <= 0)
                 throw std::runtime_error("Invalid value for beta specified"); 
         }
+        if (sqp_data.if_contains("stepsize_multiple"))
+        {
+            stepsize_multiple = static_cast<PreciseType>(sqp_data["stepsize_multiple"].as_double()); 
+            if (stepsize_multiple <= 0)
+                throw std::runtime_error("Invalid value for stepsize_multiple specified"); 
+        }
         if (sqp_data.if_contains("max_iter"))
         {
             max_iter = sqp_data["max_iter"].as_int64(); 
@@ -1043,6 +1041,12 @@ int main(int argc, char** argv)
             tol = static_cast<PreciseType>(sqp_data["tol"].as_double());
             if (tol <= 0)
                 throw std::runtime_error("Invalid value for tol specified"); 
+        }
+        if (sqp_data.if_contains("x_tol"))
+        {
+            x_tol = static_cast<PreciseType>(sqp_data["x_tol"].as_double());
+            if (x_tol <= 0)
+                throw std::runtime_error("Invalid value for x_tol specified"); 
         }
         if (sqp_data.if_contains("quasi_newton_method"))
         {
@@ -1066,14 +1070,6 @@ int main(int argc, char** argv)
             if (regularize_weight <= 0)
                 throw std::runtime_error("Invalid value for regularize_weight specified"); 
         }
-        if (sqp_data.if_contains("use_only_armijo"))
-        {
-            use_only_armijo = sqp_data["use_only_armijo"].as_bool();
-        }
-        if (sqp_data.if_contains("use_strong_wolfe"))
-        {
-            use_strong_wolfe = sqp_data["use_strong_wolfe"].as_bool(); 
-        }
         if (sqp_data.if_contains("hessian_modify_max_iter"))
         {
             hessian_modify_max_iter = sqp_data["hessian_modify_max_iter"].as_int64(); 
@@ -1092,15 +1088,13 @@ int main(int argc, char** argv)
             if (c2 <= 0)
                 throw std::runtime_error("Invalid value for c2 specified"); 
         }
-        if (sqp_data.if_contains("x_tol"))
-        {
-            x_tol = static_cast<PreciseType>(sqp_data["x_tol"].as_double());
-            if (x_tol <= 0)
-                throw std::runtime_error("Invalid value for x_tol specified"); 
-        }
         if (sqp_data.if_contains("verbose"))
         {
             verbose = sqp_data["verbose"].as_bool();
+        }
+        if (sqp_data.if_contains("zoom_verbose"))
+        {
+            verbose = sqp_data["zoom_verbose"].as_bool();
         }
     }
 
@@ -1413,9 +1407,9 @@ int main(int argc, char** argv)
         results = fitLineParamsAgainstMeasuredRates(
             cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, mode, 
             cleave_seq_match_arr, unbind_seq_match_arr, cleave_error_weight,
-            unbind_error_weight, ninit, bind_conc, rng, tau, delta, beta,
-            max_iter, tol, method, regularize, regularize_weight, use_only_armijo,
-            use_strong_wolfe, hessian_modify_max_iter, c1, c2, x_tol, verbose
+            unbind_error_weight, ninit, bind_conc, rng, delta, beta, stepsize_multiple,
+            max_iter, tol, x_tol, method, regularize, regularize_weight,
+            hessian_modify_max_iter, c1, c2, verbose, zoom_verbose
         );
         Matrix<PreciseType, Dynamic, Dynamic> best_fit = std::get<0>(results); 
         Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats = std::get<1>(results); 
@@ -1505,9 +1499,9 @@ int main(int argc, char** argv)
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
                 unbind_seqs_train, mode, cleave_seq_match_arr, unbind_seq_match_arr,
                 cleave_error_weight, unbind_error_weight, ninit, bind_conc,
-                rng, tau, delta, beta, max_iter, tol, method, regularize,
-                regularize_weight, use_only_armijo, use_strong_wolfe,
-                hessian_modify_max_iter, c1, c2, x_tol, verbose
+                rng, delta, beta, stepsize_multiple, max_iter, tol, x_tol, method,
+                regularize, regularize_weight, hessian_modify_max_iter, c1, c2,
+                verbose, zoom_verbose
             );
             Matrix<PreciseType, Dynamic, Dynamic> best_fit_per_fold = std::get<0>(results); 
             Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats_per_fold = std::get<1>(results); 
