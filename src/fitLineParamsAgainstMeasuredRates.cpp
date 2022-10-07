@@ -626,6 +626,7 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
  * @param delta
  * @param beta
  * @param stepsize_multiple
+ * @param stepsize_min
  * @param max_iter
  * @param tol
  * @param x_tol
@@ -653,7 +654,8 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                                       const int ninit, const PreciseType bind_conc,
                                       boost::random::mt19937& rng,
                                       const PreciseType delta, const PreciseType beta,
-                                      const PreciseType stepsize_multiple, 
+                                      const PreciseType stepsize_multiple,
+                                      const PreciseType stepsize_min,
                                       const int max_iter, const PreciseType tol,
                                       const PreciseType x_tol, 
                                       const QuasiNewtonMethod method, 
@@ -829,9 +831,9 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             };
         }
         best_fit.row(i) = opt->run(
-            func, x_init, l_init, delta, beta, stepsize_multiple, max_iter, tol,
-            x_tol, method, regularize, regularize_weight, hessian_modify_max_iter,
-            c1, c2, verbose
+            func, x_init, l_init, delta, beta, stepsize_multiple, stepsize_min,
+            max_iter, tol, x_tol, method, regularize, regularize_weight,
+            hessian_modify_max_iter, c1, c2, verbose, zoom_verbose
         );
         if (mode == 0)
         {
@@ -997,7 +999,8 @@ int main(int argc, char** argv)
     // Parse SQP configurations
     PreciseType delta = 1e-8; 
     PreciseType beta = 1e-4;
-    PreciseType stepsize_multiple = 0.2; 
+    PreciseType stepsize_multiple = 0.2;
+    PreciseType stepsize_min = 1e-8; 
     int max_iter = 1000; 
     PreciseType tol = 1e-8;       // Set the y-value tolerance to be small
     PreciseType x_tol = 10000;    // Set the x-value tolerance to be large 
@@ -1029,6 +1032,12 @@ int main(int argc, char** argv)
             stepsize_multiple = static_cast<PreciseType>(sqp_data["stepsize_multiple"].as_double()); 
             if (stepsize_multiple <= 0)
                 throw std::runtime_error("Invalid value for stepsize_multiple specified"); 
+        }
+        if (sqp_data.if_contains("stepsize_min"))
+        {
+            stepsize_min = static_cast<PreciseType>(sqp_data["stepsize_min"].as_double()); 
+            if (stepsize_min <= 0 || stepsize_min >= 1)    // Must be less than 1
+                throw std::runtime_error("Invalid value for stepsize_min specified");
         }
         if (sqp_data.if_contains("max_iter"))
         {
@@ -1094,7 +1103,7 @@ int main(int argc, char** argv)
         }
         if (sqp_data.if_contains("zoom_verbose"))
         {
-            verbose = sqp_data["zoom_verbose"].as_bool();
+            zoom_verbose = sqp_data["zoom_verbose"].as_bool();
         }
     }
 
@@ -1408,7 +1417,7 @@ int main(int argc, char** argv)
             cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, mode, 
             cleave_seq_match_arr, unbind_seq_match_arr, cleave_error_weight,
             unbind_error_weight, ninit, bind_conc, rng, delta, beta, stepsize_multiple,
-            max_iter, tol, x_tol, method, regularize, regularize_weight,
+            stepsize_min, max_iter, tol, x_tol, method, regularize, regularize_weight,
             hessian_modify_max_iter, c1, c2, verbose, zoom_verbose
         );
         Matrix<PreciseType, Dynamic, Dynamic> best_fit = std::get<0>(results); 
@@ -1498,10 +1507,10 @@ int main(int argc, char** argv)
             results = fitLineParamsAgainstMeasuredRates(
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
                 unbind_seqs_train, mode, cleave_seq_match_arr, unbind_seq_match_arr,
-                cleave_error_weight, unbind_error_weight, ninit, bind_conc,
-                rng, delta, beta, stepsize_multiple, max_iter, tol, x_tol, method,
-                regularize, regularize_weight, hessian_modify_max_iter, c1, c2,
-                verbose, zoom_verbose
+                cleave_error_weight, unbind_error_weight, ninit, bind_conc, rng,
+                delta, beta, stepsize_multiple, stepsize_min, max_iter, tol, x_tol,
+                method, regularize, regularize_weight, hessian_modify_max_iter,
+                c1, c2, verbose, zoom_verbose
             );
             Matrix<PreciseType, Dynamic, Dynamic> best_fit_per_fold = std::get<0>(results); 
             Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats_per_fold = std::get<1>(results); 
