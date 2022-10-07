@@ -422,7 +422,7 @@ int main(int argc, char** argv)
     // Obtain the initial set of input points
     MatrixXd init_input = finder->sampleInput(n_init);
 
-    // Run the boundary-finding algorithm  
+    // Run the boundary-finding algorithm
     finder->run(
         mutate_delta, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
         max_pull_iter, sqp_max_iter, sqp_tol, max_edges, n_keep_interior,
