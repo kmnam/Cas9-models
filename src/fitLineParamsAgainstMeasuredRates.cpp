@@ -1030,13 +1030,13 @@ int main(int argc, char** argv)
         if (sqp_data.if_contains("stepsize_multiple"))
         {
             stepsize_multiple = static_cast<PreciseType>(sqp_data["stepsize_multiple"].as_double()); 
-            if (stepsize_multiple <= 0)
+            if (stepsize_multiple <= 0 || stepsize_multiple >= 1)    // Must be less than 1
                 throw std::runtime_error("Invalid value for stepsize_multiple specified"); 
         }
         if (sqp_data.if_contains("stepsize_min"))
         {
             stepsize_min = static_cast<PreciseType>(sqp_data["stepsize_min"].as_double()); 
-            if (stepsize_min <= 0 || stepsize_min >= 1)    // Must be less than 1
+            if (stepsize_min <= 0 || stepsize_min >= 1)              // Must be less than 1
                 throw std::runtime_error("Invalid value for stepsize_min specified");
         }
         if (sqp_data.if_contains("max_iter"))
