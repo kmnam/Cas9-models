@@ -27,10 +27,10 @@
         "hessian_modify_max_iter": 10000,
         "c1": 1e-4,
         "c2": 0.9,
-	"line_search_max_iter": 10,
-	"zoom_max_iter": 10,
+        "line_search_max_iter": 10,
+        "zoom_max_iter": 10,
         "verbose": true,
-	"line_search_verbose": true,
+        "line_search_verbose": true,
         "zoom_verbose": true
     }
 }
