@@ -11,7 +11,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     10/7/2022
+ *     10/15/2022
  */
 
 #include <iostream>
@@ -317,13 +317,16 @@ int main(int argc, char** argv)
     int sqp_max_iter = 1000; 
     double delta = 1e-8; 
     double beta = 1e-4;
-    double stepsize_multiple = 0.2;
-    double stepsize_min = 1e-8; 
+    double min_stepsize = 1e-8; 
     double sqp_tol = 1e-8;
     int hessian_modify_max_iter = 10000;
     double c1 = 1e-4;
     double c2 = 0.9;
+    int line_search_max_iter = 10;
+    int zoom_max_iter = 10;
     bool sqp_verbose = false;
+    bool sqp_line_search_verbose = false;
+    bool sqp_zoom_verbose = false;
     bool zoom_verbose = false;
     if (json_data.if_contains("sqp_config"))
     {
@@ -340,17 +343,11 @@ int main(int argc, char** argv)
             if (beta <= 0)
                 throw std::runtime_error("Invalid value for beta specified"); 
         }
-        if (sqp_data.if_contains("stepsize_multiple"))
+        if (sqp_data.if_contains("min_stepsize"))
         {
-            stepsize_multiple = sqp_data["stepsize_multiple"].as_double(); 
-            if (stepsize_multiple <= 0 || stepsize_multiple >= 1)
-                throw std::runtime_error("Invalid value for stepsize multiple specified"); 
-        }
-        if (sqp_data.if_contains("stepsize_min"))
-        {
-            stepsize_min = sqp_data["stepsize_min"].as_double(); 
-            if (stepsize_min <= 0 || stepsize_min >= 1)
-                throw std::runtime_error("Invalid value for minimum stepsize (stepsize_min) specified");
+            min_stepsize = sqp_data["min_stepsize"].as_double(); 
+            if (min_stepsize <= 0 || min_stepsize >= 1)
+                throw std::runtime_error("Invalid value for minimum stepsize (min_stepsize) specified");
         }
         if (sqp_data.if_contains("max_iter"))
         {
@@ -387,13 +384,39 @@ int main(int argc, char** argv)
             if (c2 <= 0)
                 throw std::runtime_error("Invalid value for c2 specified"); 
         }
+        if (sqp_data.if_contains("line_search_max_iter"))
+        {
+            line_search_max_iter = sqp_data["line_search_max_iter"].as_int64();
+            if (line_search_max_iter <= 0)
+            {
+                std::stringstream ss_err;
+                ss_err << "Invalid value for maximum number of SQP line search "
+                       << "iterations (line_search_max_iter) specified";
+                throw std::runtime_error(ss_err.str());
+            }
+        }
+        if (sqp_data.if_contains("zoom_max_iter"))
+        {
+            zoom_max_iter = sqp_data["zoom_max_iter"].as_int64();
+            if (zoom_max_iter <= 0)
+            {
+                std::stringstream ss_err;
+                ss_err << "Invalid value for maximum number of SQP zoom iterations "
+                       << "(zoom_max_iter) specified";
+                throw std::runtime_error(ss_err.str());
+            }
+        }
         if (sqp_data.if_contains("verbose"))
         {
             sqp_verbose = sqp_data["verbose"].as_bool();
         }
+        if (sqp_data.if_contains("line_search_verbose"))
+        {
+            sqp_line_search_verbose = sqp_data["line_search_verbose"].as_bool();
+        }
         if (sqp_data.if_contains("zoom_verbose"))
         {
-            zoom_verbose = sqp_data["zoom_verbose"].as_bool();
+            sqp_zoom_verbose = sqp_data["zoom_verbose"].as_bool();
         }
     }
     std::stringstream ss;
@@ -424,12 +447,13 @@ int main(int argc, char** argv)
 
     // Run the boundary-finding algorithm
     finder->run(
-        mutate_delta, filter, init_input, min_step_iter, max_step_iter, min_pull_iter,
-        max_pull_iter, sqp_max_iter, sqp_tol, max_edges, n_keep_interior,
-        n_keep_origbound, n_mutate_origbound, n_pull_origbound, delta, beta,
-        stepsize_multiple, stepsize_min, hessian_modify_max_iter, ss.str(),
-        RegularizationMethod::NOREG, 0, c1, c2, verbose, sqp_verbose,
-        zoom_verbose, traversal_verbose, write_pulled_points 
+        mutate_delta, filter, init_input, min_step_iter, max_step_iter,
+        min_pull_iter, max_pull_iter, sqp_max_iter, sqp_tol, max_edges,
+        n_keep_interior, n_keep_origbound, n_mutate_origbound, n_pull_origbound,
+        delta, beta, min_stepsize, hessian_modify_max_iter, ss.str(),
+        RegularizationMethod::NOREG, 0, c1, c2, line_search_max_iter,
+        zoom_max_iter, verbose, sqp_verbose, sqp_line_search_verbose,
+        sqp_zoom_verbose, traversal_verbose, write_pulled_points 
     );
 
     delete finder;    
