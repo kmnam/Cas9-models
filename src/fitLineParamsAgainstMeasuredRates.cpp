@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     10/7/2022
+ *     10/15/2022
  */
 
 #include <iostream>
@@ -625,8 +625,7 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
  * @param rng
  * @param delta
  * @param beta
- * @param stepsize_multiple
- * @param stepsize_min
+ * @param min_stepsize
  * @param max_iter
  * @param tol
  * @param x_tol
@@ -636,7 +635,10 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
  * @param hessian_modify_max_iter
  * @param c1
  * @param c2
+ * @param line_search_max_iter
+ * @param zoom_max_iter
  * @param verbose
+ * @param search_verbose
  * @param zoom_verbose
  */
 std::tuple<Matrix<PreciseType, Dynamic, Dynamic>, 
@@ -654,16 +656,16 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                                       const int ninit, const PreciseType bind_conc,
                                       boost::random::mt19937& rng,
                                       const PreciseType delta, const PreciseType beta,
-                                      const PreciseType stepsize_multiple,
-                                      const PreciseType stepsize_min,
-                                      const int max_iter, const PreciseType tol,
-                                      const PreciseType x_tol, 
+                                      const PreciseType min_stepsize, const int max_iter,
+                                      const PreciseType tol, const PreciseType x_tol, 
                                       const QuasiNewtonMethod method, 
                                       const RegularizationMethod regularize,
                                       const PreciseType regularize_weight, 
                                       const int hessian_modify_max_iter, 
                                       const PreciseType c1, const PreciseType c2,
-                                      const bool verbose, const bool zoom_verbose) 
+                                      const int line_search_max_iter,
+                                      const int zoom_max_iter, const bool verbose,
+                                      const bool search_verbose, const bool zoom_verbose) 
 {
     // Set up an SQPOptimizer instance that constrains all parameters to lie 
     // between 1e-10 and 1e+10 
@@ -831,9 +833,10 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             };
         }
         best_fit.row(i) = opt->run(
-            func, x_init, l_init, delta, beta, stepsize_multiple, stepsize_min,
-            max_iter, tol, x_tol, method, regularize, regularize_weight,
-            hessian_modify_max_iter, c1, c2, verbose, zoom_verbose
+            func, x_init, l_init, delta, beta, min_stepsize, max_iter, tol,
+            x_tol, method, regularize, regularize_weight, hessian_modify_max_iter,
+            c1, c2, line_search_max_iter, zoom_max_iter, verbose, search_verbose,
+            zoom_verbose
         );
         if (mode == 0)
         {
@@ -997,10 +1000,9 @@ int main(int argc, char** argv)
     }
     
     // Parse SQP configurations
-    PreciseType delta = 1e-8; 
+    PreciseType delta = 1e-9; 
     PreciseType beta = 1e-4;
-    PreciseType stepsize_multiple = 0.2;
-    PreciseType stepsize_min = 1e-8; 
+    PreciseType min_stepsize = 1e-8;
     int max_iter = 1000; 
     PreciseType tol = 1e-8;       // Set the y-value tolerance to be small
     PreciseType x_tol = 10000;    // Set the x-value tolerance to be large 
@@ -1008,9 +1010,12 @@ int main(int argc, char** argv)
     RegularizationMethod regularize = RegularizationMethod::L2; 
     PreciseType regularize_weight = 0.1; 
     int hessian_modify_max_iter = 10000;
-    PreciseType c1 = 1e-4;
-    PreciseType c2 = 0.9;
+    PreciseType c1 = 1e-4;            // Default value suggested by Nocedal and Wright
+    PreciseType c2 = 0.9;             // Default value suggested by Nocedal and Wright
+    int line_search_max_iter = 10;    // Default value in scipy.optimize.line_search()
+    int zoom_max_iter = 10;           // Default value in scipy.optimize.line_search()
     bool verbose = true;
+    bool search_verbose = false;
     bool zoom_verbose = false;
     if (json_data.if_contains("sqp_config"))
     {
@@ -1027,17 +1032,11 @@ int main(int argc, char** argv)
             if (beta <= 0)
                 throw std::runtime_error("Invalid value for beta specified"); 
         }
-        if (sqp_data.if_contains("stepsize_multiple"))
+        if (sqp_data.if_contains("min_stepsize"))
         {
-            stepsize_multiple = static_cast<PreciseType>(sqp_data["stepsize_multiple"].as_double()); 
-            if (stepsize_multiple <= 0 || stepsize_multiple >= 1)    // Must be less than 1
-                throw std::runtime_error("Invalid value for stepsize_multiple specified"); 
-        }
-        if (sqp_data.if_contains("stepsize_min"))
-        {
-            stepsize_min = static_cast<PreciseType>(sqp_data["stepsize_min"].as_double()); 
-            if (stepsize_min <= 0 || stepsize_min >= 1)              // Must be less than 1
-                throw std::runtime_error("Invalid value for stepsize_min specified");
+            min_stepsize = static_cast<PreciseType>(sqp_data["min_stepsize"].as_double()); 
+            if (min_stepsize <= 0 || min_stepsize >= 1)              // Must be less than 1
+                throw std::runtime_error("Invalid value for min_stepsize specified");
         }
         if (sqp_data.if_contains("max_iter"))
         {
@@ -1085,6 +1084,18 @@ int main(int argc, char** argv)
             if (hessian_modify_max_iter <= 0)
                 throw std::runtime_error("Invalid value for hessian_modify_max_iter specified"); 
         }
+        if (sqp_data.if_contains("line_search_max_iter"))
+        {
+            line_search_max_iter = sqp_data["line_search_max_iter"].as_int64(); 
+            if (line_search_max_iter <= 0)
+                throw std::runtime_error("Invalid value of line_search_max_iter specified");
+        }
+        if (sqp_data.if_contains("zoom_max_iter"))
+        {
+            zoom_max_iter = sqp_data["zoom_max_iter"].as_int64();
+            if (zoom_max_iter <= 0)
+                throw std::runtime_error("Invalid valud of zoom_max_iter specified");
+        }
         if (sqp_data.if_contains("c1"))
         {
             c1 = static_cast<PreciseType>(sqp_data["c1"].as_double());
@@ -1100,6 +1111,10 @@ int main(int argc, char** argv)
         if (sqp_data.if_contains("verbose"))
         {
             verbose = sqp_data["verbose"].as_bool();
+        }
+        if (sqp_data.if_contains("line_search_verbose"))
+        {
+            search_verbose = sqp_data["line_search_verbose"].as_bool();
         }
         if (sqp_data.if_contains("zoom_verbose"))
         {
@@ -1416,9 +1431,10 @@ int main(int argc, char** argv)
         results = fitLineParamsAgainstMeasuredRates(
             cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, mode, 
             cleave_seq_match_arr, unbind_seq_match_arr, cleave_error_weight,
-            unbind_error_weight, ninit, bind_conc, rng, delta, beta, stepsize_multiple,
-            stepsize_min, max_iter, tol, x_tol, method, regularize, regularize_weight,
-            hessian_modify_max_iter, c1, c2, verbose, zoom_verbose
+            unbind_error_weight, ninit, bind_conc, rng, delta, beta, min_stepsize,
+            max_iter, tol, x_tol, method, regularize, regularize_weight,
+            hessian_modify_max_iter, c1, c2, line_search_max_iter, zoom_max_iter,
+            verbose, search_verbose, zoom_verbose
         );
         Matrix<PreciseType, Dynamic, Dynamic> best_fit = std::get<0>(results); 
         Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats = std::get<1>(results); 
@@ -1508,9 +1524,9 @@ int main(int argc, char** argv)
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
                 unbind_seqs_train, mode, cleave_seq_match_arr, unbind_seq_match_arr,
                 cleave_error_weight, unbind_error_weight, ninit, bind_conc, rng,
-                delta, beta, stepsize_multiple, stepsize_min, max_iter, tol, x_tol,
-                method, regularize, regularize_weight, hessian_modify_max_iter,
-                c1, c2, verbose, zoom_verbose
+                delta, beta, min_stepsize, max_iter, tol, x_tol, method, regularize,
+                regularize_weight, hessian_modify_max_iter, c1, c2, line_search_max_iter,
+                zoom_max_iter, verbose, search_verbose, zoom_verbose
             );
             Matrix<PreciseType, Dynamic, Dynamic> best_fit_per_fold = std::get<0>(results); 
             Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats_per_fold = std::get<1>(results); 
