@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     10/15/2022
+ *     10/18/2022
  */
 
 #include <iostream>
@@ -560,17 +560,98 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
  * experimentally determined cleavage rates/times and (dead) unbinding
  * rates/times, with respect to a set of binary complementarity patterns.
  *
+ * The error computed here is the mean absolute percentage error, defined as
+ * error = |(true value - fit value) / true value|.
+ *
  * Note that regularization, if desired, should be built into the optimizer
- * function/class with which this function will be used.  
+ * function/class with which this function will be used.
+ *
+ * @param logrates
+ * @param cleave_seqs
+ * @param cleave_data
+ * @param unbind_seqs
+ * @param unbind_data
+ * @param bind_conc
+ * @param cleave_error_weight
+ * @param unbind_error_weight
+ * @returns Mean absolute percentage error against cleavage rate data and
+ *          against unbinding rate data, as two separate values.  
  */
-std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
-                                                     const Ref<const MatrixXi>& cleave_seqs,
-                                                     const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
-                                                     const Ref<const MatrixXi>& unbind_seqs,
-                                                     const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-                                                     const PreciseType bind_conc,
-                                                     PreciseType cleave_error_weight = 1.0,
-                                                     PreciseType unbind_error_weight = 1.0)
+std::pair<PreciseType, PreciseType> meanAbsolutePercentageErrorAgainstData(
+    const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
+    const Ref<const MatrixXi>& cleave_seqs,
+    const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
+    const Ref<const MatrixXi>& unbind_seqs,
+    const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
+    const PreciseType bind_conc, PreciseType cleave_error_weight = 1.0,
+    PreciseType unbind_error_weight = 1.0, )
+{
+    // Check for any zero values in the measured rates 
+
+    Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
+
+    // Compute *normalized* cleavage metrics and corresponding error against data
+    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
+    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+
+    // Normalize error weights to sum to *two* (so that both weights equaling 
+    // one means that the weights can be effectively ignored)
+    PreciseType weight_mean = (cleave_error_weight + unbind_error_weight) / 2; 
+    cleave_error_weight /= weight_mean;
+    unbind_error_weight /= weight_mean;
+    Matrix<PreciseType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
+    Matrix<PreciseType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
+    for (int j = 0; j < 4; ++j)
+    {
+        for (int i = 0; i < stats1.rows(); ++i)
+            stats1_transformed(i, j) = pow(ten, stats1(i, j)); 
+        for (int i = 0; i < stats2.rows(); ++i)
+            stats2_transformed(i, j) = pow(ten, stats2(i, j));
+    }
+
+    // Compute each error as the mean absolute percentage error:
+    // |(true value - fit value) / fit value|
+    PreciseType cleave_error = cleave_error_weight * (
+        ((stats1_transformed.col(3) - cleave_data).array() / cleave_data.array()).abs().mean()
+    );
+    PreciseType unbind_error = unbind_error_weight * (
+        ((stats2_transformed.col(2) - unbind_data).array() / unbind_data.array()).abs().mean()
+    );
+
+    return std::make_pair(cleave_error, unbind_error);
+}
+
+/**
+ * Compute the *unregularized* error between a set of (composite) cleavage
+ * rates and dead unbinding rates inferred from the given LGPs and a set of
+ * experimentally determined cleavage rates/times and (dead) unbinding
+ * rates/times, with respect to a set of binary complementarity patterns.
+ *
+ * The error computed here is the symmetric mean absolute percentage error,
+ * defined as error = (|true value - fit value|) / ((|true value| + |fit value|) / 2).
+ *
+ * Note that regularization, if desired, should be built into the optimizer
+ * function/class with which this function will be used.
+ *
+ * @param logrates
+ * @param cleave_seqs
+ * @param cleave_data
+ * @param unbind_seqs
+ * @param unbind_data
+ * @param bind_conc
+ * @param cleave_error_weight
+ * @param unbind_error_weight
+ * @returns Symmetric mean absolute percentage error against cleavage rate
+ *          data and against unbinding rate data, as two separate values.  
+ */
+std::pair<PreciseType, PreciseType> symmetricMeanAbsolutePercentageErrorAgainstData(
+    const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
+    const Ref<const MatrixXi>& cleave_seqs,
+    const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
+    const Ref<const MatrixXi>& unbind_seqs,
+    const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
+    const PreciseType bind_conc, PreciseType cleave_error_weight = 1.0,
+    PreciseType unbind_error_weight = 1.0)
 {
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
@@ -592,6 +673,9 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
         for (int i = 0; i < stats2.rows(); ++i)
             stats2_transformed(i, j) = pow(ten, stats2(i, j));
     }
+
+    // Compute each error as the symmetric mean absolute percentage error:
+    // (|true value - fit value|) / ((|true value| + |fit value|) / 2)
     const int n_cleave_data = cleave_data.size(); 
     const int n_unbind_data = unbind_data.size();
     Array<PreciseType, Dynamic, 1> cleave_denom(n_cleave_data);
@@ -601,10 +685,83 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
     for (int i = 0; i < n_unbind_data; ++i)
         unbind_denom(i) = (abs(unbind_data(i)) + abs(stats2_transformed(i, 2))) / 2;
     PreciseType cleave_error = cleave_error_weight * (
-        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / n_cleave_data
+        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).mean()
     );
     PreciseType unbind_error = unbind_error_weight * (
-        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).sum() / n_unbind_data
+        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).mean()
+    );
+
+    return std::make_pair(cleave_error, unbind_error);
+}
+
+/**
+ * Compute the *unregularized* error between a set of (composite) cleavage
+ * rates and dead unbinding rates inferred from the given LGPs and a set of
+ * experimentally determined cleavage rates/times and (dead) unbinding
+ * rates/times, with respect to a set of binary complementarity patterns.
+ *
+ * The error computed here is the minimum-based mean absolute percentage error,
+ * defined as error = (|true value - fit value|) / (min(|true value|, |fit value|))
+ *
+ * Note that regularization, if desired, should be built into the optimizer
+ * function/class with which this function will be used.
+ *
+ * @param logrates
+ * @param cleave_seqs
+ * @param cleave_data
+ * @param unbind_seqs
+ * @param unbind_data
+ * @param bind_conc
+ * @param cleave_error_weight
+ * @param unbind_error_weight
+ * @returns Minimum-based mean absolute percentage error against cleavage rate
+ *          data and against unbinding rate data, as two separate values.  
+ */
+std::pair<PreciseType, PreciseType> minBasedMeanAbsolutePercentageErrorAgainstData(
+    const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
+    const Ref<const MatrixXi>& cleave_seqs,
+    const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
+    const Ref<const MatrixXi>& unbind_seqs,
+    const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
+    const PreciseType bind_conc, PreciseType cleave_error_weight = 1.0,
+    PreciseType unbind_error_weight = 1.0)
+{
+    Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
+
+    // Compute *normalized* cleavage metrics and corresponding error against data
+    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
+    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+
+    // Normalize error weights to sum to *two* (so that both weights equaling 
+    // one means that the weights can be effectively ignored)
+    PreciseType weight_mean = (cleave_error_weight + unbind_error_weight) / 2; 
+    cleave_error_weight /= weight_mean;
+    unbind_error_weight /= weight_mean;
+    Matrix<PreciseType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
+    Matrix<PreciseType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
+    for (int j = 0; j < 4; ++j)
+    {
+        for (int i = 0; i < stats1.rows(); ++i)
+            stats1_transformed(i, j) = pow(ten, stats1(i, j)); 
+        for (int i = 0; i < stats2.rows(); ++i)
+            stats2_transformed(i, j) = pow(ten, stats2(i, j));
+    }
+
+    // Compute each error as the minimum-based mean absolute percentage error:
+    // (|true value - fit value|) / (min(|true value|, |fit value|))
+    const int n_cleave_data = cleave_data.size(); 
+    const int n_unbind_data = unbind_data.size();
+    Array<PreciseType, Dynamic, 1> cleave_denom(n_cleave_data);
+    Array<PreciseType, Dynamic, 1> unbind_denom(n_unbind_data);
+    for (int i = 0; i < n_cleave_data; ++i)
+        cleave_denom(i) = min(abs(cleave_data(i)), abs(stats1_transformed(i, 3)));
+    for (int i = 0; i < n_unbind_data; ++i)
+        unbind_denom(i) = min(abs(unbind_data(i)), abs(stats2_transformed(i, 2)));
+    PreciseType cleave_error = cleave_error_weight * (
+        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).mean()
+    );
+    PreciseType unbind_error = unbind_error_weight * (
+        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).mean()
     );
 
     return std::make_pair(cleave_error, unbind_error);
