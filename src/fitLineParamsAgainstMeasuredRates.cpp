@@ -22,13 +22,10 @@
 #include <utility>
 #include <tuple>
 #include <vector>
-#include <Eigen/Dense>
-#include <boost/multiprecision/gmp.hpp>
-#include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
 #include <linearConstraints.hpp>
 #include <polytopes.hpp>
-#include <SQP.hpp>
+#include <SQP.hpp>             // Includes Eigen/Dense, CGAL/QP_*, Boost.Multiprecision, boostMultiprecisionEigen.hpp, etc. 
 #include <graphs/line.hpp>
 #include "../include/utils.hpp"
 
