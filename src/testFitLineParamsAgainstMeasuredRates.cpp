@@ -1153,7 +1153,13 @@ int main(int argc, char** argv)
     else if (json_data["param_mode"].as_int64() < 0 || json_data["param_mode"].as_int64() > 2)
         throw std::invalid_argument("Invalid parametrization mode specified");
     const int mode = json_data["param_mode"].as_int64();
-    const int error_mode = 0;    // TODO Change this later
+    
+    // Check that a valid error mode was specified
+    if (!json_data.if_contains("error_mode"))
+        throw std::runtime_error("Error mode must be specified"); 
+    else if (json_data["error_mode"].as_int64() < 0 || json_data["error_mode"].as_int64() > 2)
+        throw std::invalid_argument("Invalid error mode specified");  
+    const int error_mode = json_data["error_mode"].as_int64();
 
     // Assign default values for parameters that were not specified 
     bool data_specified_as_times = false;
