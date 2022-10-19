@@ -590,10 +590,8 @@ std::pair<PreciseType, PreciseType> meanAbsolutePercentageErrorAgainstData(
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
     const PreciseType bind_conc, PreciseType cleave_error_weight = 1.0,
-    PreciseType unbind_error_weight = 1.0, )
+    PreciseType unbind_error_weight = 1.0)
 {
-    // Check for any zero values in the measured rates 
-
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
@@ -779,6 +777,7 @@ std::pair<PreciseType, PreciseType> minBasedMeanAbsolutePercentageErrorAgainstDa
  * @param cleave_seqs
  * @param unbind_seqs
  * @param mode
+ * @param error_mode
  * @param cleave_seq_match
  * @param unbind_seq_match
  * @param cleave_error_weight
@@ -811,7 +810,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                                       const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data, 
                                       const Ref<const MatrixXi>& cleave_seqs, 
                                       const Ref<const MatrixXi>& unbind_seqs,
-                                      const int mode,
+                                      const int mode, const int error_mode,
                                       const Ref<const VectorXi>& cleave_seq_match,
                                       const Ref<const VectorXi>& unbind_seq_match,
                                       const PreciseType cleave_error_weight,
@@ -967,17 +966,48 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         std::function<PreciseType(const Ref<const Matrix<PreciseType, Dynamic, 1> >&)> func; 
         if (mode == 0)
         {
-            func = [
-                &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-                &bind_conc, &cleave_error_weight, &unbind_error_weight
-            ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
+            if (error_mode == 0)   // Mean absolute percentage error 
             {
-                std::pair<PreciseType, PreciseType> error = errorAgainstData(
-                    x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    bind_conc, cleave_error_weight, unbind_error_weight
-                );
-                return error.first + error.second;
-            };
+                func = [
+                    &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
+                    &bind_conc, &cleave_error_weight, &unbind_error_weight
+                ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
+                {
+                    std::pair<PreciseType, PreciseType> error = meanAbsolutePercentageErrorAgainstData(
+                        x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
+                        bind_conc, cleave_error_weight, unbind_error_weight
+                    );
+                    return error.first + error.second;
+                };
+            }
+            else if (error_mode == 1)   // Symmetric mean absolute percentage error
+            {
+                func = [
+                    &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
+                    &bind_conc, &cleave_error_weight, &unbind_error_weight
+                ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
+                {
+                    std::pair<PreciseType, PreciseType> error = symmetricMeanAbsolutePercentageErrorAgainstData(
+                        x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
+                        bind_conc, cleave_error_weight, unbind_error_weight
+                    );
+                    return error.first + error.second;
+                };
+            }
+            else if (error_mode == 2)   // Minimum-based mean absolute percentage error
+            {
+                func = [
+                    &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
+                    &bind_conc, &cleave_error_weight, &unbind_error_weight
+                ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
+                {
+                    std::pair<PreciseType, PreciseType> error = minBasedMeanAbsolutePercentageErrorAgainstData(
+                        x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
+                        bind_conc, cleave_error_weight, unbind_error_weight
+                    );
+                    return error.first + error.second;
+                };
+            }
         }
         else    // mode == 1 or mode == 2
         {
@@ -1003,10 +1033,28 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         );
         if (mode == 0)
         {
-            std::pair<PreciseType, PreciseType> error = errorAgainstData(
-                best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                bind_conc, cleave_error_weight, unbind_error_weight
-            );
+            std::pair<PreciseType, PreciseType> error;
+            if (error_mode == 0)         // Mean absolute percentage error
+            {
+                error = meanAbsolutePercentageErrorAgainstData(
+                    best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
+                    bind_conc, cleave_error_weight, unbind_error_weight
+                );
+            }
+            else if (error_mode == 1)    // Symmetric mean absolute percentage error
+            {
+                error = symmetricMeanAbsolutePercentageErrorAgainstData(
+                    best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
+                    bind_conc, cleave_error_weight, unbind_error_weight
+                );
+            }
+            else if (error_mode == 2)    // Minimum-based mean absolute percentage error
+            {
+                error = minBasedMeanAbsolutePercentageErrorAgainstData(
+                    best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
+                    bind_conc, cleave_error_weight, unbind_error_weight
+                );
+            }
             errors(i) = error.first + error.second;
         }
         else if (mode == 1)
@@ -1105,6 +1153,7 @@ int main(int argc, char** argv)
     else if (json_data["param_mode"].as_int64() < 0 || json_data["param_mode"].as_int64() > 2)
         throw std::invalid_argument("Invalid parametrization mode specified");
     const int mode = json_data["param_mode"].as_int64();
+    const int error_mode = 0;    // TODO Change this later
 
     // Assign default values for parameters that were not specified 
     bool data_specified_as_times = false;
@@ -1679,11 +1728,12 @@ int main(int argc, char** argv)
     {
         results = fitLineParamsAgainstMeasuredRates(
             cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, mode, 
-            cleave_seq_match_arr, unbind_seq_match_arr, cleave_error_weight,
-            unbind_error_weight, ninit, bind_conc, rng, delta, beta, min_stepsize,
-            max_iter, tol, x_tol, method, regularize, regularize_weight,
-            hessian_modify_max_iter, c1, c2, line_search_max_iter, zoom_max_iter,
-            verbose, search_verbose, zoom_verbose
+            error_mode, cleave_seq_match_arr, unbind_seq_match_arr,
+            cleave_error_weight, unbind_error_weight, ninit, bind_conc, rng,
+            delta, beta, min_stepsize, max_iter, tol, x_tol, method, regularize,
+            regularize_weight, hessian_modify_max_iter, c1, c2,
+            line_search_max_iter, zoom_max_iter, verbose, search_verbose,
+            zoom_verbose
         );
         Matrix<PreciseType, Dynamic, Dynamic> best_fit = std::get<0>(results); 
         Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats = std::get<1>(results); 
@@ -1771,11 +1821,12 @@ int main(int argc, char** argv)
             // Optimize model parameters on the training subset 
             results = fitLineParamsAgainstMeasuredRates(
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
-                unbind_seqs_train, mode, cleave_seq_match_arr, unbind_seq_match_arr,
-                cleave_error_weight, unbind_error_weight, ninit, bind_conc, rng,
-                delta, beta, min_stepsize, max_iter, tol, x_tol, method, regularize,
-                regularize_weight, hessian_modify_max_iter, c1, c2, line_search_max_iter,
-                zoom_max_iter, verbose, search_verbose, zoom_verbose
+                unbind_seqs_train, mode, error_mode, cleave_seq_match_arr,
+                unbind_seq_match_arr, cleave_error_weight, unbind_error_weight,
+                ninit, bind_conc, rng, delta, beta, min_stepsize, max_iter, tol,
+                x_tol, method, regularize, regularize_weight, hessian_modify_max_iter,
+                c1, c2, line_search_max_iter, zoom_max_iter, verbose, search_verbose,
+                zoom_verbose
             );
             Matrix<PreciseType, Dynamic, Dynamic> best_fit_per_fold = std::get<0>(results); 
             Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats_per_fold = std::get<1>(results); 
@@ -1793,10 +1844,28 @@ int main(int argc, char** argv)
             Matrix<PreciseType, Dynamic, 1> fit_single_mismatch_stats = fit_single_mismatch_stats_per_fold.row(minidx);
 
             // Evaluate error against the test subset 
-            std::pair<PreciseType, PreciseType> error_against_test = errorAgainstData(
-                best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
-                unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight
-            );
+            std::pair<PreciseType, PreciseType> error_against_test;
+            if (error_mode == 0)         // Mean absolute percentage error
+            {
+                error_against_test = meanAbsolutePercentageErrorAgainstData(
+                    best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
+                    unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight
+                );
+            }
+            else if (error_mode == 1)    // Symmetric mean absolute percentage error
+            {
+                error_against_test = symmetricMeanAbsolutePercentageErrorAgainstData(
+                    best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
+                    unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight
+                );
+            }
+            else if (error_mode == 2)    // Minimum-based mean absolute percentage error
+            {
+                error_against_test = minBasedMeanAbsolutePercentageErrorAgainstData(
+                    best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
+                    unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight
+                );
+            }
             best_fit_total.row(fi) = best_fit; 
             fit_single_mismatch_stats_total.row(fi) = fit_single_mismatch_stats; 
             errors_against_test(fi) = error_against_test.first + error_against_test.second; 
