@@ -26,7 +26,6 @@
 #include <boost/multiprecision/gmp.hpp>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
-#include <boostMultiprecisionEigen.hpp>
 #include <linearConstraints.hpp>
 #include <polytopes.hpp>
 #include <SQP.hpp>
