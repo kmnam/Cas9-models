@@ -43,6 +43,7 @@ using boost::multiprecision::mpq_rational;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::abs;
+using boost::multiprecision::min;
 using boost::multiprecision::log10;
 using boost::multiprecision::pow;
 using boost::multiprecision::sqrt;
