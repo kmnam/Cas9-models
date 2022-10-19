@@ -24,8 +24,8 @@
 #include <vector>
 #include <boost/random.hpp>
 #include <linearConstraints.hpp>
-#include <polytopes.hpp>
-#include <SQP.hpp>             // Includes Eigen/Dense, CGAL/QP_*, Boost.Multiprecision, boostMultiprecisionEigen.hpp, etc. 
+#include <SQP.hpp>             // Includes Eigen/Dense, CGAL/QP_*, Boost.Multiprecision, boostMultiprecisionEigen.hpp, etc.
+#include <polytopes.hpp>       // Must be included after SQP.hpp
 #include <graphs/line.hpp>
 #include "../include/utils.hpp"
 
