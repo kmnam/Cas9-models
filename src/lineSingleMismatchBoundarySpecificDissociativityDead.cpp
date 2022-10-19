@@ -23,9 +23,8 @@
 #include <Eigen/Dense>
 #include <boost/container_hash/hash.hpp>
 #include <boost/math/constants/constants.hpp>
-#include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
-#include <boundaryFinder.hpp>
+#include <boundaryFinder.hpp>    // Includes Eigen/Dense, CGAL, Boost.Multiprecision, boostMultiprecisionEigen.hpp, etc.
 #include <graphs/line.hpp>
 #include "../include/utils.hpp"
 
