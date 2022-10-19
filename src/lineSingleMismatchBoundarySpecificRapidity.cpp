@@ -11,7 +11,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     10/15/2022
+ *     10/19/2022
  */
 
 #include <iostream>
@@ -25,7 +25,6 @@
 #include <boost/math/constants/constants.hpp>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
-#include <boostMultiprecisionEigen.hpp>
 #include <boundaryFinder.hpp>
 #include <graphs/line.hpp>
 #include "../include/utils.hpp"
