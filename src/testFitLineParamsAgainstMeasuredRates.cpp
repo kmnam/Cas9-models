@@ -15,7 +15,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     10/18/2022
+ *     10/20/2022
  */
 
 #include <assert.h>
@@ -27,14 +27,10 @@
 #include <utility>
 #include <tuple>
 #include <vector>
-#include <Eigen/Dense>
-#include <boost/multiprecision/gmp.hpp>
-#include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
-#include <boostMultiprecisionEigen.hpp>
 #include <linearConstraints.hpp>
-#include <polytopes.hpp>
-#include <SQP.hpp>
+#include <SQP.hpp>             // Includes Eigen/Dense, CGAL/QP_*, Boost.Multiprecision, boostMultiprecisionEigen.hpp, etc.
+#include <polytopes.hpp>       // Must be included after SQP.hpp
 #include <graphs/line.hpp>
 #include "../include/utils.hpp"
 
