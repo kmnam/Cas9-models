@@ -3,7 +3,7 @@
         "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA2-wtCas9-cleave_rates.txt",
     "unbind_data_filename": "",
     "output_filename":
-        "data/Jones-2021-NatBiotechnol-fits-reg1e-1/Jones-2021-NatBiotechnol-fits-sgRNA2-wtCas9-binary-MAPE.tsv",
+        "data/Jones-2021-NatBiotechnol-fits-reg1e-1/Jones-2021-NatBiotechnol-fits-sgRNA2-wtCas9-binary-cleaveonly-MAPE.tsv",
     "param_mode": 0,
     "error_mode": 0,
     "data_specified_as_times": false,
