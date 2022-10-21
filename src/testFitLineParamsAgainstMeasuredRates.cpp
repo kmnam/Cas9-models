@@ -15,7 +15,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     10/20/2022
+ *     10/21/2022
  */
 
 #include <assert.h>
@@ -547,12 +547,20 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
         cleave_denom(i) = (abs(cleave_data(i)) + abs(stats1_transformed(i, 3))) / 2;
     for (int i = 0; i < n_unbind_data; ++i)
         unbind_denom(i) = (abs(unbind_data(i)) + abs(stats2_transformed(i, 2))) / 2;
-    PreciseType cleave_error = cleave_error_weight * (
-        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / n_cleave_data
-    );
-    PreciseType unbind_error = unbind_error_weight * (
-        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).sum() / n_unbind_data
-    );
+    PreciseType cleave_error = 0;
+    PreciseType unbind_error = 0;
+    if (n_cleave_data > 0)
+    {
+        cleave_error = cleave_error_weight * (
+            ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).sum() / n_cleave_data
+        );
+    }
+    if (n_unbind_data > 0)
+    {
+        unbind_error = unbind_error_weight * (
+            ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).sum() / n_unbind_data
+        );
+    }
 
     return std::make_pair(cleave_error, unbind_error);
 }
@@ -612,12 +620,20 @@ std::pair<PreciseType, PreciseType> meanAbsolutePercentageErrorAgainstData(
 
     // Compute each error as the mean absolute percentage error:
     // |(true value - fit value) / fit value|
-    PreciseType cleave_error = cleave_error_weight * (
-        ((stats1_transformed.col(3) - cleave_data).array() / cleave_data.array()).abs().mean()
-    );
-    PreciseType unbind_error = unbind_error_weight * (
-        ((stats2_transformed.col(2) - unbind_data).array() / unbind_data.array()).abs().mean()
-    );
+    PreciseType cleave_error = 0;
+    PreciseType unbind_error = 0;
+    if (cleave_data.size() > 0)
+    {
+        cleave_error = cleave_error_weight * (
+            ((stats1_transformed.col(3) - cleave_data).array() / cleave_data.array()).abs().mean()
+        );
+    }
+    if (unbind_data.size() > 0)
+    {
+        unbind_error = unbind_error_weight * (
+            ((stats2_transformed.col(2) - unbind_data).array() / unbind_data.array()).abs().mean()
+        );
+    }
 
     return std::make_pair(cleave_error, unbind_error);
 }
@@ -685,12 +701,20 @@ std::pair<PreciseType, PreciseType> symmetricMeanAbsolutePercentageErrorAgainstD
         cleave_denom(i) = (abs(cleave_data(i)) + abs(stats1_transformed(i, 3))) / 2;
     for (int i = 0; i < n_unbind_data; ++i)
         unbind_denom(i) = (abs(unbind_data(i)) + abs(stats2_transformed(i, 2))) / 2;
-    PreciseType cleave_error = cleave_error_weight * (
-        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).mean()
-    );
-    PreciseType unbind_error = unbind_error_weight * (
-        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).mean()
-    );
+    PreciseType cleave_error = 0; 
+    PreciseType unbind_error = 0;
+    if (n_cleave_data > 0)
+    {
+        cleave_error = cleave_error_weight * (
+            ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).mean()
+        );
+    }
+    if (n_unbind_data > 0)
+    {
+        unbind_error = unbind_error_weight * (
+            ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).mean()
+        );
+    }
 
     return std::make_pair(cleave_error, unbind_error);
 }
@@ -758,12 +782,20 @@ std::pair<PreciseType, PreciseType> minBasedMeanAbsolutePercentageErrorAgainstDa
         cleave_denom(i) = min(abs(cleave_data(i)), abs(stats1_transformed(i, 3)));
     for (int i = 0; i < n_unbind_data; ++i)
         unbind_denom(i) = min(abs(unbind_data(i)), abs(stats2_transformed(i, 2)));
-    PreciseType cleave_error = cleave_error_weight * (
-        ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).mean()
-    );
-    PreciseType unbind_error = unbind_error_weight * (
-        ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).mean()
-    );
+    PreciseType cleave_error = 0;
+    PreciseType unbind_error = 0;
+    if (n_cleave_data > 0)
+    {
+        cleave_error = cleave_error_weight * (
+            ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).mean()
+        );
+    }
+    if (n_unbind_data > 0)
+    {
+        unbind_error = unbind_error_weight * (
+            ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).mean()
+        );
+    }
 
     return std::make_pair(cleave_error, unbind_error);
 }
