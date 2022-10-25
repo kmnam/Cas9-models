@@ -10,7 +10,6 @@
     "data_specified_as_times": true,
     "n_init": 200,
     "n_folds": 1,
-    "bind_conc": 1e-9,
     "cleave_error_weight": 1.0,
     "unbind_error_weight": 1.0,
     "cleave_pseudocount": 0.0,
