@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     10/21/2022
+ *     10/25/2022
  */
 
 #include <iostream>
@@ -169,12 +169,10 @@ int getMutationType(const int c1, const int c2)
  *                  2 (G), or 3 (T).
  * @param seq_match Input perfect-match sequence, as a vector with entries of 
  *                  0 (A), 1 (C), 2 (G), or 3 (T).
- * @param bind_conc Input binding concentration.
  */
 Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
                                                                  const Ref<const MatrixXi>& seqs,
-                                                                 const Ref<const VectorXi>& seq_match, 
-                                                                 const PreciseType bind_conc)
+                                                                 const Ref<const VectorXi>& seq_match) 
 {
     // Store rates in linear scale 
     Matrix<PreciseType, Dynamic, 1> rates(logrates.size()); 
@@ -211,8 +209,8 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const
 
     // Compute the composite cleavage time 
     stats_perfect(4) = (
-        1 / (bind_conc * bind_rate)
-        + (1 / stats_perfect(3) + 1 / (bind_conc * bind_rate)) * (1 - stats_perfect(0)) / stats_perfect(0)
+        1 / bind_rate
+        + (1 / stats_perfect(3) + 1 / bind_rate) * (1 - stats_perfect(0)) / stats_perfect(0)
         + 1 / stats_perfect(1)
     );
 
@@ -238,8 +236,8 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const
         stats(i, 2) = model->getLowerExitRate(terminal_unbind_rate); 
         PreciseType unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
         stats(i, 3) = (
-            1 / (bind_conc * bind_rate)
-            + (1 / unbind_rate + 1 / (bind_conc * bind_rate)) * (1 - stats(i, 0)) / stats(i, 0) + 1 / stats(i, 1)
+            1 / bind_rate
+            + (1 / unbind_rate + 1 / bind_rate) * (1 - stats(i, 0)) / stats(i, 0) + 1 / stats(i, 1)
         );
 
         // Inverse specificity = cleavage probability on mismatched / cleavage probability on perfect
@@ -281,12 +279,10 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const
  *                  sequence), or 2 (transversion w.r.t. perfect-match sequence).
  * @param seq_match Input perfect-match sequence, as a vector with entries of
  *                  0 (A), 1 (C), 2 (G), or 3 (T).
- * @param bind_conc Input binding concentration.
  */
 Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
                                                                      const Ref<const MatrixXi>& seqs,
-                                                                     const Ref<const VectorXi>& seq_match, 
-                                                                     const PreciseType bind_conc)
+                                                                     const Ref<const VectorXi>& seq_match)
 {
     // Store rates in linear scale 
     Matrix<PreciseType, Dynamic, 1> rates(logrates.size()); 
@@ -316,8 +312,8 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
 
     // Compute the composite cleavage time 
     stats_perfect(4) = (
-        1 / (bind_conc * bind_rate)
-        + (1 / stats_perfect(3) + 1 / (bind_conc * bind_rate)) * (1 - stats_perfect(0)) / stats_perfect(0)
+        1 / bind_rate
+        + (1 / stats_perfect(3) + 1 / bind_rate) * (1 - stats_perfect(0)) / stats_perfect(0)
         + 1 / stats_perfect(1)
     );
 
@@ -345,8 +341,8 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
         stats(i, 2) = model->getLowerExitRate(terminal_unbind_rate); 
         PreciseType unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
         stats(i, 3) = (
-            1 / (bind_conc * bind_rate)
-            + (1 / unbind_rate + 1 / (bind_conc * bind_rate)) * (1 - stats(i, 0)) / stats(i, 0) + 1 / stats(i, 1)
+            1 / bind_rate
+            + (1 / unbind_rate + 1 / bind_rate) * (1 - stats(i, 0)) / stats(i, 0) + 1 / stats(i, 1)
         );
 
         // Inverse specificity = cleavage probability on mismatched / cleavage probability on perfect
@@ -386,11 +382,9 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
  * @param seqs      Matrix of input sequences, with entries of 0 (match w.r.t.
  *                  perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
  *                  sequence).
- * @param bind_conc Input binding concentration.
  */
 Matrix<PreciseType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<PreciseType, Dynamic, 1> >& logrates,
-                                                     const Ref<const MatrixXi>& seqs, 
-                                                     const PreciseType bind_conc)
+                                                     const Ref<const MatrixXi>& seqs) 
 {
     // Array of DNA/RNA match parameters
     std::pair<PreciseType, PreciseType> match_rates = std::make_pair(
@@ -424,8 +418,8 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<Prec
 
     // Compute the composite cleavage time 
     stats_perfect(4) = (
-        1 / (bind_conc * bind_rate)
-        + (1 / stats_perfect(3) + 1 / (bind_conc * bind_rate)) * (1 - stats_perfect(0)) / stats_perfect(0)
+        1 / bind_rate
+        + (1 / stats_perfect(3) + 1 / bind_rate) * (1 - stats_perfect(0)) / stats_perfect(0)
         + 1 / stats_perfect(1)
     );
 
@@ -447,8 +441,8 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<Prec
         stats(j, 2) = model->getLowerExitRate(terminal_unbind_rate); 
         PreciseType unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
         stats(j, 3) = (
-            1 / (bind_conc * bind_rate)
-            + (1 / unbind_rate + 1 / (bind_conc * bind_rate)) * (1 - stats(j, 0)) / stats(j, 0) + 1 / stats(j, 1)
+            1 / bind_rate
+            + (1 / unbind_rate + 1 / bind_rate) * (1 - stats(j, 0)) / stats(j, 0) + 1 / stats(j, 1)
         );
 
         // Inverse specificity = cleavage probability on mismatched / cleavage probability on perfect
@@ -487,8 +481,7 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
                                                      const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
                                                      const Ref<const VectorXi>& cleave_seq_match, 
                                                      const Ref<const VectorXi>& unbind_seq_match,
-                                                     const int mode, const PreciseType bind_conc,
-                                                     PreciseType cleave_error_weight = 1.0,
+                                                     const int mode, PreciseType cleave_error_weight = 1.0,
                                                      PreciseType unbind_error_weight = 1.0)
 {
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
@@ -497,21 +490,13 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
     // against data
     if (mode == 1)
     {
-        stats1 = computeCleavageStatsMutationSpecific(
-            logrates, cleave_seqs, cleave_seq_match, bind_conc
-        );
-        stats2 = computeCleavageStatsMutationSpecific(
-            logrates, unbind_seqs, unbind_seq_match, bind_conc
-        );
+        stats1 = computeCleavageStatsMutationSpecific(logrates, cleave_seqs, cleave_seq_match);
+        stats2 = computeCleavageStatsMutationSpecific(logrates, unbind_seqs, unbind_seq_match);
     }
     else if (mode == 2)
     {
-        stats1 = computeCleavageStatsBaseSpecific(
-            logrates, cleave_seqs, cleave_seq_match, bind_conc
-        );
-        stats2 = computeCleavageStatsBaseSpecific(
-            logrates, unbind_seqs, unbind_seq_match, bind_conc
-        );
+        stats1 = computeCleavageStatsBaseSpecific(logrates, cleave_seqs, cleave_seq_match);
+        stats2 = computeCleavageStatsBaseSpecific(logrates, unbind_seqs, unbind_seq_match);
     }
     else    // mode should be either 1 or 2
     {
@@ -577,7 +562,6 @@ std::pair<PreciseType, PreciseType> errorAgainstData(const Ref<const Matrix<Prec
  * @param cleave_data
  * @param unbind_seqs
  * @param unbind_data
- * @param bind_conc
  * @param cleave_error_weight
  * @param unbind_error_weight
  * @returns Mean absolute percentage error against cleavage rate data and
@@ -589,14 +573,13 @@ std::pair<PreciseType, PreciseType> meanAbsolutePercentageErrorAgainstData(
     const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-    const PreciseType bind_conc, PreciseType cleave_error_weight = 1.0,
-    PreciseType unbind_error_weight = 1.0)
+    PreciseType cleave_error_weight = 1.0, PreciseType unbind_error_weight = 1.0)
 {
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
-    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
-    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+    stats1 = computeCleavageStats(logrates, cleave_seqs);
+    stats2 = computeCleavageStats(logrates, unbind_seqs);
 
     // Normalize error weights to sum to *two* (so that both weights equaling 
     // one means that the weights can be effectively ignored)
@@ -650,7 +633,6 @@ std::pair<PreciseType, PreciseType> meanAbsolutePercentageErrorAgainstData(
  * @param cleave_data
  * @param unbind_seqs
  * @param unbind_data
- * @param bind_conc
  * @param cleave_error_weight
  * @param unbind_error_weight
  * @returns Symmetric mean absolute percentage error against cleavage rate
@@ -662,14 +644,13 @@ std::pair<PreciseType, PreciseType> symmetricMeanAbsolutePercentageErrorAgainstD
     const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-    const PreciseType bind_conc, PreciseType cleave_error_weight = 1.0,
-    PreciseType unbind_error_weight = 1.0)
+    PreciseType cleave_error_weight = 1.0, PreciseType unbind_error_weight = 1.0)
 {
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
-    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
-    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+    stats1 = computeCleavageStats(logrates, cleave_seqs);
+    stats2 = computeCleavageStats(logrates, unbind_seqs);
 
     // Normalize error weights to sum to *two* (so that both weights equaling 
     // one means that the weights can be effectively ignored)
@@ -731,7 +712,6 @@ std::pair<PreciseType, PreciseType> symmetricMeanAbsolutePercentageErrorAgainstD
  * @param cleave_data
  * @param unbind_seqs
  * @param unbind_data
- * @param bind_conc
  * @param cleave_error_weight
  * @param unbind_error_weight
  * @returns Minimum-based mean absolute percentage error against cleavage rate
@@ -743,14 +723,13 @@ std::pair<PreciseType, PreciseType> minBasedMeanAbsolutePercentageErrorAgainstDa
     const Ref<const Matrix<PreciseType, Dynamic, 1> >& cleave_data,
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<PreciseType, Dynamic, 1> >& unbind_data,
-    const PreciseType bind_conc, PreciseType cleave_error_weight = 1.0,
-    PreciseType unbind_error_weight = 1.0)
+    PreciseType cleave_error_weight = 1.0, PreciseType unbind_error_weight = 1.0)
 {
     Matrix<PreciseType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
-    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
-    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+    stats1 = computeCleavageStats(logrates, cleave_seqs);
+    stats2 = computeCleavageStats(logrates, unbind_seqs);
 
     // Normalize error weights to sum to *two* (so that both weights equaling 
     // one means that the weights can be effectively ignored)
@@ -807,7 +786,6 @@ std::pair<PreciseType, PreciseType> minBasedMeanAbsolutePercentageErrorAgainstDa
  * @param cleave_error_weight
  * @param unbind_error_weight
  * @param ninit
- * @param bind_conc
  * @param rng
  * @param delta
  * @param beta
@@ -839,8 +817,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                                       const Ref<const VectorXi>& unbind_seq_match,
                                       const PreciseType cleave_error_weight,
                                       const PreciseType unbind_error_weight,
-                                      const int ninit, const PreciseType bind_conc,
-                                      boost::random::mt19937& rng,
+                                      const int ninit, boost::random::mt19937& rng,
                                       const PreciseType delta, const PreciseType beta,
                                       const PreciseType min_stepsize, const int max_iter,
                                       const PreciseType tol, const PreciseType x_tol, 
@@ -994,12 +971,12 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             {
                 func = [
                     &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-                    &bind_conc, &cleave_error_weight, &unbind_error_weight
+                    &cleave_error_weight, &unbind_error_weight
                 ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
                 {
                     std::pair<PreciseType, PreciseType> error = meanAbsolutePercentageErrorAgainstData(
                         x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                        bind_conc, cleave_error_weight, unbind_error_weight
+                        cleave_error_weight, unbind_error_weight
                     );
                     return error.first + error.second;
                 };
@@ -1008,12 +985,12 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             {
                 func = [
                     &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-                    &bind_conc, &cleave_error_weight, &unbind_error_weight
+                    &cleave_error_weight, &unbind_error_weight
                 ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
                 {
                     std::pair<PreciseType, PreciseType> error = symmetricMeanAbsolutePercentageErrorAgainstData(
                         x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                        bind_conc, cleave_error_weight, unbind_error_weight
+                        cleave_error_weight, unbind_error_weight
                     );
                     return error.first + error.second;
                 };
@@ -1022,12 +999,12 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             {
                 func = [
                     &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-                    &bind_conc, &cleave_error_weight, &unbind_error_weight
+                    &cleave_error_weight, &unbind_error_weight
                 ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
                 {
                     std::pair<PreciseType, PreciseType> error = minBasedMeanAbsolutePercentageErrorAgainstData(
                         x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                        bind_conc, cleave_error_weight, unbind_error_weight
+                        cleave_error_weight, unbind_error_weight
                     );
                     return error.first + error.second;
                 };
@@ -1037,13 +1014,13 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         {
             func = [
                 &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-                &cleave_seq_match, &unbind_seq_match, &mode, &bind_conc,
+                &cleave_seq_match, &unbind_seq_match, &mode,
                 &cleave_error_weight, &unbind_error_weight
             ](const Ref<const Matrix<PreciseType, Dynamic, 1> >& x) -> PreciseType
             {
                 std::pair<PreciseType, PreciseType> error = errorAgainstData(
                     x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    cleave_seq_match, unbind_seq_match, mode, bind_conc,
+                    cleave_seq_match, unbind_seq_match, mode,
                     cleave_error_weight, unbind_error_weight
                 );
                 return error.first + error.second;
@@ -1062,21 +1039,21 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
             {
                 error = meanAbsolutePercentageErrorAgainstData(
                     best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    bind_conc, cleave_error_weight, unbind_error_weight
+                    cleave_error_weight, unbind_error_weight
                 );
             }
             else if (error_mode == 1)    // Symmetric mean absolute percentage error
             {
                 error = symmetricMeanAbsolutePercentageErrorAgainstData(
                     best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    bind_conc, cleave_error_weight, unbind_error_weight
+                    cleave_error_weight, unbind_error_weight
                 );
             }
             else if (error_mode == 2)    // Minimum-based mean absolute percentage error
             {
                 error = minBasedMeanAbsolutePercentageErrorAgainstData(
                     best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                    bind_conc, cleave_error_weight, unbind_error_weight
+                    cleave_error_weight, unbind_error_weight
                 );
             }
             errors(i) = error.first + error.second;
@@ -1085,7 +1062,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         {
             std::pair<PreciseType, PreciseType> error = errorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_seq_match, unbind_seq_match, 1, bind_conc, cleave_error_weight,
+                cleave_seq_match, unbind_seq_match, 1, cleave_error_weight,
                 unbind_error_weight
             );
             errors(i) = error.first + error.second; 
@@ -1094,7 +1071,7 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         {
             std::pair<PreciseType, PreciseType> error = errorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_seq_match, unbind_seq_match, 2, bind_conc, cleave_error_weight,
+                cleave_seq_match, unbind_seq_match, 2, cleave_error_weight,
                 unbind_error_weight
             );
             errors(i) = error.first + error.second;
@@ -1105,18 +1082,18 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
         Matrix<PreciseType, Dynamic, 4> fit_stats;
         if (mode == 0)
         {
-            fit_stats = computeCleavageStats(best_fit.row(i), single_mismatch_seqs, bind_conc);
+            fit_stats = computeCleavageStats(best_fit.row(i), single_mismatch_seqs);
         }
         else if (mode == 1)
         {
             fit_stats = computeCleavageStatsMutationSpecific(
-                best_fit.row(i), single_mismatch_seqs, cleave_seq_match, bind_conc
+                best_fit.row(i), single_mismatch_seqs, cleave_seq_match
             ); 
         }
         else    // mode == 2
         {
             fit_stats = computeCleavageStatsBaseSpecific(
-                best_fit.row(i), single_mismatch_seqs, cleave_seq_match, bind_conc
+                best_fit.row(i), single_mismatch_seqs, cleave_seq_match
             ); 
         }
         for (int j = 0; j < length; ++j)
@@ -1189,7 +1166,6 @@ int main(int argc, char** argv)
     bool data_specified_as_times = false;
     int ninit = 100; 
     int nfolds = 10;
-    PreciseType bind_conc = 1e-9;
     PreciseType cleave_error_weight = 1;
     PreciseType unbind_error_weight = 1;
     PreciseType cleave_pseudocount = 0;
@@ -1209,12 +1185,6 @@ int main(int argc, char** argv)
         nfolds = json_data["n_folds"].as_int64();
         if (nfolds <= 0)
             throw std::runtime_error("Invalid number of folds specified");  
-    }
-    if (json_data.if_contains("bind_conc"))
-    {
-        bind_conc = static_cast<PreciseType>(json_data["bind_conc"].as_double());
-        if (bind_conc <= 0)
-            throw std::runtime_error("Invalid binding concentration specified"); 
     }
     if (json_data.if_contains("cleave_error_weight"))
     {
@@ -1673,8 +1643,8 @@ int main(int argc, char** argv)
         results = fitLineParamsAgainstMeasuredRates(
             cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, mode, 
             error_mode, cleave_seq_match_arr, unbind_seq_match_arr,
-            cleave_error_weight, unbind_error_weight, ninit, bind_conc, rng,
-            delta, beta, min_stepsize, max_iter, tol, x_tol, method, regularize,
+            cleave_error_weight, unbind_error_weight, ninit, rng, delta,
+            beta, min_stepsize, max_iter, tol, x_tol, method, regularize,
             regularize_weight, hessian_modify_max_iter, c1, c2,
             line_search_max_iter, zoom_max_iter, verbose, search_verbose,
             zoom_verbose
@@ -1767,8 +1737,8 @@ int main(int argc, char** argv)
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
                 unbind_seqs_train, mode, error_mode, cleave_seq_match_arr,
                 unbind_seq_match_arr, cleave_error_weight, unbind_error_weight,
-                ninit, bind_conc, rng, delta, beta, min_stepsize, max_iter, tol,
-                x_tol, method, regularize, regularize_weight, hessian_modify_max_iter,
+                ninit, rng, delta, beta, min_stepsize, max_iter, tol, x_tol,
+                method, regularize, regularize_weight, hessian_modify_max_iter,
                 c1, c2, line_search_max_iter, zoom_max_iter, verbose, search_verbose,
                 zoom_verbose
             );
@@ -1793,21 +1763,21 @@ int main(int argc, char** argv)
             {
                 error_against_test = meanAbsolutePercentageErrorAgainstData(
                     best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
-                    unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight
+                    unbind_data_test, cleave_error_weight, unbind_error_weight
                 );
             }
             else if (error_mode == 1)    // Symmetric mean absolute percentage error
             {
                 error_against_test = symmetricMeanAbsolutePercentageErrorAgainstData(
                     best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
-                    unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight
+                    unbind_data_test, cleave_error_weight, unbind_error_weight
                 );
             }
             else if (error_mode == 2)    // Minimum-based mean absolute percentage error
             {
                 error_against_test = minBasedMeanAbsolutePercentageErrorAgainstData(
                     best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
-                    unbind_data_test, bind_conc, cleave_error_weight, unbind_error_weight
+                    unbind_data_test, cleave_error_weight, unbind_error_weight
                 );
             }
             best_fit_total.row(fi) = best_fit; 
