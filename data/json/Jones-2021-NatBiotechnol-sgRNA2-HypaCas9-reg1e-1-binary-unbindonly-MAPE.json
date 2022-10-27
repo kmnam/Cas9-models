@@ -3,7 +3,7 @@
     "unbind_data_filename":
         "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA2-HypaCas9-ndABAs_exp.txt",
     "output_filename":
-        "data/Jones-2021-NatBiotechnol-fits-reg1e-1/Jones-2021-NatBiotechnol-fits-sgRNA2-HypaCas9-binary-unbindonly-MAPE.tsv",
+        "data/Jones-2021-NatBiotechnol-fits-reg1e-1/Jones-2021-NatBiotechnol-fits-sgRNA2-HypaCas9-reg1e-1-binary-unbindonly-MAPE.tsv",
     "param_mode": 0,
     "error_mode": 0,
     "data_specified_as_times": false,
