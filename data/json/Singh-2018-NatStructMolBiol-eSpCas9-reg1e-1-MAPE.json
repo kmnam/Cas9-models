@@ -1,10 +1,10 @@
 {
     "cleave_data_filename":
-        "data/Singh-2018-NatStructMolBiol-SI2-Fig4c-TimeCleavage-SpCas9HF1.txt",
+        "data/Singh-2018-NatStructMolBiol-SI2-Fig4c-TimeCleavage-eSpCas9.txt",
     "unbind_data_filename":
-        "data/Singh-2018-NatStructMolBiol-SI2-Fig1d-TimeBoundDead-SpCas9HF1.txt",
+        "data/Singh-2018-NatStructMolBiol-SI2-Fig1d-TimeBoundDead-eSpCas9.txt",
     "output_filename":
-        "data/Singh-2018-NatStructMolBiol-fits-reg1e-1/Singh-2018-NatStructMolBiol-fits-SpCas9HF1-MAPE.tsv",
+        "data/Singh-2018-NatStructMolBiol-fits-reg1e-1/Singh-2018-NatStructMolBiol-fits-eSpCas9-reg1e-1-MAPE.tsv",
     "param_mode": 0,
     "error_mode": 0,
     "data_specified_as_times": true,

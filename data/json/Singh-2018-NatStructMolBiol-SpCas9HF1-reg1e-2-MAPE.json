@@ -4,9 +4,9 @@
     "unbind_data_filename":
         "data/Singh-2018-NatStructMolBiol-SI2-Fig1d-TimeBoundDead-SpCas9HF1.txt",
     "output_filename":
-        "data/Singh-2018-NatStructMolBiol-fits-reg1e-1/Singh-2018-NatStructMolBiol-fits-SpCas9HF1-SMAPE.tsv",
+        "data/Singh-2018-NatStructMolBiol-fits-reg1e-2/Singh-2018-NatStructMolBiol-fits-SpCas9HF1-reg1e-2-MAPE.tsv",
     "param_mode": 0,
-    "error_mode": 1,
+    "error_mode": 0,
     "data_specified_as_times": true,
     "n_init": 200,
     "n_folds": 1,
@@ -23,7 +23,7 @@
         "x_tol": 10000.0,
         "quasi_newton_method": 1,
         "regularization_method": 2,
-        "regularization_weight": 0.1,
+        "regularization_weight": 0.01,
         "hessian_modify_max_iter": 10000,
         "c1": 1e-4,
         "c2": 0.9,
