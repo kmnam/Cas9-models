@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     10/25/2022
+ *     10/29/2022
  */
 
 #include <iostream>
@@ -47,7 +47,7 @@ const PreciseType ten("10");
 /**
  * Return a division of the range `0, ..., n - 1` to the given number of folds.
  *
- * For instance, if `n == 6` and `nfolds == 3`, then the returned `std::vector`
+ * For instance, if `n == 6` and `nfolds == 3`, then the returned `std::vector<int>`
  * contains the following: 
  *
  * ```
@@ -129,6 +129,24 @@ PermutationMatrix<Dynamic, Dynamic> getPermutation(const int n, boost::random::m
 }
 
 /**
+ * Return a subsample of the range `0, ..., n - 1` chosen *with* replacement.
+ *
+ * @param n   Size of input range.
+ * @param k   Size of desired subsample.
+ * @param rng Random number generator instance.
+ * @returns Subsample of input range. 
+ */
+std::vector<int> sampleWithReplacement(const int n, const int k, boost::random::mt19937& rng)
+{
+    boost::random::uniform_int_distribution<> dist(0, n - 1); 
+    std::vector<int> sample; 
+    for (int i = 0; i < k; ++i)
+        sample.push_back(dist(rng)); 
+
+    return sample; 
+}
+
+/**
  * Given a pair of DNA bases as integers (0 = A, 1 = C, 2 = G, 3 = T), return
  * 0 if the pair are the same; 1 if the pair form a transition; and 2 if the 
  * pair form a transversion. 
@@ -184,7 +202,7 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsBaseSpecific(const Ref<const
     PreciseType terminal_cleave_rate = rates(32);   // Penultimate entry (out of 34) in the vector
 
     // Binding rate entering state 0
-    PreciseType bind_rate = rates(33);              // Ultimate entry (out of 34) in the vector
+    PreciseType bind_rate = rates(33);              // Final entry (out of 34) in the vector
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
@@ -294,7 +312,7 @@ Matrix<PreciseType, Dynamic, 4> computeCleavageStatsMutationSpecific(const Ref<c
     PreciseType terminal_cleave_rate = rates(6);   // Penultimate entry (out of 8) in the vector
 
     // Binding rate entering state 0
-    PreciseType bind_rate = rates(7);              // Ulimate entry (out of 8) in the vector
+    PreciseType bind_rate = rates(7);              // Final entry (out of 8) in the vector
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
@@ -1284,7 +1302,7 @@ int main(int argc, char** argv)
                 throw std::runtime_error("Invalid value for regularization_method specified"); 
             regularize = static_cast<RegularizationMethod>(value); 
         }
-        if (sqp_data.if_contains("regularization_weight"))
+        if (regularize != 0 && sqp_data.if_contains("regularization_weight"))   // Only check if regularize != 0
         {
             regularize_weight = static_cast<PreciseType>(sqp_data["regularization_weight"].as_double());
             if (regularize_weight <= 0)
