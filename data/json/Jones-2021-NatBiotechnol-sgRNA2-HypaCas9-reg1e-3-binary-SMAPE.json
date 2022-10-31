@@ -1,10 +1,10 @@
 {
     "cleave_data_filename":
-        "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA2-eCas9-cleave_rates.txt",
+        "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA2-HypaCas9-cleave_rates.txt",
     "unbind_data_filename":
-        "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA2-eCas9-ndABAs_exp.txt",
+        "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA2-HypaCas9-ndABAs_exp.txt",
     "output_filename":
-        "data/Jones-2021-NatBiotechnol-fits-reg1e-2/Jones-2021-NatBiotechnol-fits-sgRNA2-eCas9-reg1e-2-binary-SMAPE.tsv",
+        "data/Jones-2021-NatBiotechnol-fits-reg1e-3/Jones-2021-NatBiotechnol-fits-sgRNA2-HypaCas9-reg1e-3-binary-SMAPE.tsv",
     "param_mode": 0,
     "error_mode": 1,
     "data_specified_as_times": false,
@@ -23,7 +23,7 @@
         "x_tol": 10000.0,
         "quasi_newton_method": 1,
         "regularization_method": 2,
-        "regularization_weight": 1e-2,
+        "regularization_weight": 1e-3,
         "hessian_modify_max_iter": 10000,
         "c1": 1e-4,
         "c2": 0.9,

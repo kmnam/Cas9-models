@@ -23,7 +23,7 @@
         "x_tol": 1e-8,
         "quasi_newton_method": 1,
         "regularization_method": 2,
-        "regularization_weight": 0.01,
+        "regularization_weight": 1e-2,
         "hessian_modify_max_iter": 10000,
         "c1": 1e-4,
         "c2": 0.9,
