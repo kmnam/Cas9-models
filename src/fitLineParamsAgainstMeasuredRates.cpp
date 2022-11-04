@@ -6,13 +6,14 @@
  * Abbreviations in the below comments:
  * - LG:   line graph
  * - LGPs: line graph parameters
+ * - QP:   quadratic programming
  * - SQP:  sequential quadratic programming
  *
  * **Author:**
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     11/1/2022
+ *     11/4/2022
  */
 
 #include <iostream>
@@ -23,9 +24,9 @@
 #include <tuple>
 #include <vector>
 #include <boost/random.hpp>
-#include <linearConstraints.hpp>
-#include <SQP.hpp>             // Includes Eigen/Dense, CGAL/QP_*, Boost.Multiprecision, boostMultiprecisionEigen.hpp, etc.
-#include <polytopes.hpp>       // Must be included after SQP.hpp
+#include <linearConstraints.hpp>   // Includes quadraticProgram.hpp from convex-polytopes
+#include <SQP.hpp>                 // Includes Eigen/Dense, CGAL/QP_*, Boost.Multiprecision, boostMultiprecisionEigen.hpp, etc.
+#include <polytopes.hpp>           // Must be included after SQP.hpp
 #include <graphs/line.hpp>
 #include "../include/utils.hpp"
 
@@ -792,10 +793,11 @@ std::pair<PreciseType, PreciseType> minBasedMeanAbsolutePercentageErrorAgainstDa
  * @param rng
  * @param delta
  * @param beta
- * @param min_stepsize
+ * @param sqp_min_stepsize
  * @param max_iter
  * @param tol
  * @param x_tol
+ * @param qp_stepsize_tol
  * @param method
  * @param regularize
  * @param regularize_weight
@@ -804,6 +806,7 @@ std::pair<PreciseType, PreciseType> minBasedMeanAbsolutePercentageErrorAgainstDa
  * @param c2
  * @param line_search_max_iter
  * @param zoom_max_iter
+ * @param qp_max_iter
  * @param verbose
  * @param search_verbose
  * @param zoom_verbose
@@ -822,16 +825,19 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
                                       const PreciseType unbind_error_weight,
                                       const int ninit, boost::random::mt19937& rng,
                                       const PreciseType delta, const PreciseType beta,
-                                      const PreciseType min_stepsize, const int max_iter,
-                                      const PreciseType tol, const PreciseType x_tol, 
+                                      const PreciseType sqp_min_stepsize,
+                                      const int max_iter, const PreciseType tol,
+                                      const PreciseType x_tol,
+                                      const PreciseType qp_stepsize_tol, 
                                       const QuasiNewtonMethod method, 
                                       const RegularizationMethod regularize,
                                       const PreciseType regularize_weight, 
                                       const int hessian_modify_max_iter, 
                                       const PreciseType c1, const PreciseType c2,
                                       const int line_search_max_iter,
-                                      const int zoom_max_iter, const bool verbose,
-                                      const bool search_verbose, const bool zoom_verbose) 
+                                      const int zoom_max_iter, const int qp_max_iter,
+                                      const bool verbose, const bool search_verbose,
+                                      const bool zoom_verbose) 
 {
     // Set up an SQPOptimizer instance that constrains all parameters to lie 
     // between 1e-10 and 1e+10 
@@ -1035,10 +1041,10 @@ std::tuple<Matrix<PreciseType, Dynamic, Dynamic>,
 
         // Obtain best-fit parameter values from the initial parameters
         best_fit.row(i) = opt->run(
-            func, x_init, l_init, delta, beta, min_stepsize, max_iter, tol,
-            x_tol, method, regularize, regularize_weights, hessian_modify_max_iter,
-            c1, c2, line_search_max_iter, zoom_max_iter, verbose, search_verbose,
-            zoom_verbose
+            func, x_init, l_init, delta, beta, sqp_min_stepsize, max_iter, tol,
+            x_tol, qp_stepsize_tol, method, regularize, regularize_weights,
+            hessian_modify_max_iter, c1, c2, line_search_max_iter, zoom_max_iter,
+            qp_max_iter, verbose, search_verbose, zoom_verbose
         );
         if (mode == 0)
         {
@@ -1220,12 +1226,13 @@ int main(int argc, char** argv)
     }
     
     // Parse SQP configurations
-    PreciseType delta = 1e-9; 
+    PreciseType delta = 1e-12; 
     PreciseType beta = 1e-4;
-    PreciseType min_stepsize = 1e-8;
+    PreciseType sqp_min_stepsize = 1e-8;
     int max_iter = 1000; 
-    PreciseType tol = 1e-8;       // Set the y-value tolerance to be small
-    PreciseType x_tol = 10000;    // Set the x-value tolerance to be large 
+    PreciseType tol = 1e-8;
+    PreciseType x_tol = 1e-8;
+    PreciseType qp_stepsize_tol = 1e-12;
     QuasiNewtonMethod method = QuasiNewtonMethod::BFGS;
     RegularizationMethod regularize = RegularizationMethod::L2; 
     PreciseType regularize_weight = 0.1; 
@@ -1234,6 +1241,7 @@ int main(int argc, char** argv)
     PreciseType c2 = 0.9;             // Default value suggested by Nocedal and Wright
     int line_search_max_iter = 10;    // Default value in scipy.optimize.line_search()
     int zoom_max_iter = 10;           // Default value in scipy.optimize.line_search()
+    int qp_max_iter = 10000;
     bool verbose = true;
     bool search_verbose = false;
     bool zoom_verbose = false;
@@ -1254,9 +1262,9 @@ int main(int argc, char** argv)
         }
         if (sqp_data.if_contains("min_stepsize"))
         {
-            min_stepsize = static_cast<PreciseType>(sqp_data["min_stepsize"].as_double()); 
-            if (min_stepsize <= 0 || min_stepsize >= 1)              // Must be less than 1
-                throw std::runtime_error("Invalid value for min_stepsize specified");
+            sqp_min_stepsize = static_cast<PreciseType>(sqp_data["min_stepsize"].as_double()); 
+            if (sqp_min_stepsize <= 0 || sqp_min_stepsize >= 1)    // Must be less than 1
+                throw std::runtime_error("Invalid value for sqp_min_stepsize specified");
         }
         if (sqp_data.if_contains("max_iter"))
         {
@@ -1652,10 +1660,10 @@ int main(int argc, char** argv)
             cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, mode, 
             error_mode, cleave_seq_match_arr, unbind_seq_match_arr,
             cleave_error_weight, unbind_error_weight, ninit, rng, delta,
-            beta, min_stepsize, max_iter, tol, x_tol, method, regularize,
-            regularize_weight, hessian_modify_max_iter, c1, c2,
-            line_search_max_iter, zoom_max_iter, verbose, search_verbose,
-            zoom_verbose
+            beta, sqp_min_stepsize, max_iter, tol, x_tol, qp_stepsize_tol,
+            method, regularize, regularize_weight, hessian_modify_max_iter,
+            c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
+            search_verbose, zoom_verbose
         );
         Matrix<PreciseType, Dynamic, Dynamic> best_fit = std::get<0>(results); 
         Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats = std::get<1>(results); 
@@ -1745,10 +1753,10 @@ int main(int argc, char** argv)
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
                 unbind_seqs_train, mode, error_mode, cleave_seq_match_arr,
                 unbind_seq_match_arr, cleave_error_weight, unbind_error_weight,
-                ninit, rng, delta, beta, min_stepsize, max_iter, tol, x_tol,
-                method, regularize, regularize_weight, hessian_modify_max_iter,
-                c1, c2, line_search_max_iter, zoom_max_iter, verbose, search_verbose,
-                zoom_verbose
+                ninit, rng, delta, beta, sqp_min_stepsize, max_iter, tol, x_tol,
+                qp_stepsize_tol, method, regularize, regularize_weight,
+                hessian_modify_max_iter, c1, c2, line_search_max_iter,
+                zoom_max_iter, qp_max_iter, verbose, search_verbose, zoom_verbose
             );
             Matrix<PreciseType, Dynamic, Dynamic> best_fit_per_fold = std::get<0>(results); 
             Matrix<PreciseType, Dynamic, Dynamic> fit_single_mismatch_stats_per_fold = std::get<1>(results); 
