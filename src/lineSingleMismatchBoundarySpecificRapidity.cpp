@@ -11,7 +11,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     10/19/2022
+ *     11/4/2022
  */
 
 #include <iostream>
@@ -317,11 +317,13 @@ int main(int argc, char** argv)
     double beta = 1e-4;
     double min_stepsize = 1e-8; 
     double sqp_tol = 1e-8;
+    double qp_stepsize_tol = 1e-8;
     int hessian_modify_max_iter = 10000;
     double c1 = 1e-4;
     double c2 = 0.9;
     int line_search_max_iter = 10;
     int zoom_max_iter = 10;
+    bool qp_max_iter = 10000;
     bool sqp_verbose = false;
     bool sqp_line_search_verbose = false;
     bool sqp_zoom_verbose = false;
@@ -446,12 +448,13 @@ int main(int argc, char** argv)
     // Run the boundary-finding algorithm
     finder->run(
         mutate_delta, filter, init_input, min_step_iter, max_step_iter,
-        min_pull_iter, max_pull_iter, sqp_max_iter, sqp_tol, max_edges,
-        n_keep_interior, n_keep_origbound, n_mutate_origbound, n_pull_origbound,
-        delta, beta, min_stepsize, hessian_modify_max_iter, ss.str(),
-        RegularizationMethod::NOREG, 0, c1, c2, line_search_max_iter,
-        zoom_max_iter, verbose, sqp_verbose, sqp_line_search_verbose,
-        sqp_zoom_verbose, traversal_verbose, write_pulled_points 
+        min_pull_iter, max_pull_iter, sqp_max_iter, sqp_tol, qp_stepsize_tol,
+        max_edges, n_keep_interior, n_keep_origbound, n_mutate_origbound,
+        n_pull_origbound, delta, beta, min_stepsize, hessian_modify_max_iter,
+        ss.str(), RegularizationMethod::NOREG, VectorXd::Zero(finder->getD()),
+        c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
+        sqp_verbose, sqp_line_search_verbose, sqp_zoom_verbose,
+        traversal_verbose, write_pulled_points 
     );
 
     delete finder;    
