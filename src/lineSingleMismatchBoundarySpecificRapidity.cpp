@@ -5,13 +5,14 @@
  * Abbreviations in the below comments:
  * - LG:   line graph
  * - LGPs: line graph parameters
+ * - QP:   quadratic programming
  * - SQP:  sequential quadratic programming
  *
  * **Author:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     11/4/2022
+ *     11/5/2022
  */
 
 #include <iostream>
@@ -327,7 +328,6 @@ int main(int argc, char** argv)
     bool sqp_verbose = false;
     bool sqp_line_search_verbose = false;
     bool sqp_zoom_verbose = false;
-    bool zoom_verbose = false;
     if (json_data.if_contains("sqp_config"))
     {
         boost::json::object sqp_data = json_data["sqp_config"].as_object(); 
