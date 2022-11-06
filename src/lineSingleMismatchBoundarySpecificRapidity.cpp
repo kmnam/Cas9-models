@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     11/5/2022
+ *     11/6/2022
  */
 
 #include <iostream>
@@ -34,7 +34,6 @@ using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::log10;
 typedef number<mpfr_float_backend<100> > PreciseType; 
-
 const int length = 20;
 
 // Instantiate random number generator 
@@ -317,14 +316,14 @@ int main(int argc, char** argv)
     double delta = 1e-8; 
     double beta = 1e-4;
     double min_stepsize = 1e-8; 
-    double sqp_tol = 1e-8;
+    double sqp_tol = 1e-7;
     double qp_stepsize_tol = 1e-8;
     int hessian_modify_max_iter = 10000;
     double c1 = 1e-4;
     double c2 = 0.9;
-    int line_search_max_iter = 10;
-    int zoom_max_iter = 10;
-    bool qp_max_iter = 10000;
+    int line_search_max_iter = 5;
+    int zoom_max_iter = 5;
+    bool qp_max_iter = 100;
     bool sqp_verbose = false;
     bool sqp_line_search_verbose = false;
     bool sqp_zoom_verbose = false;
@@ -360,6 +359,17 @@ int main(int argc, char** argv)
             sqp_tol = sqp_data["tol"].as_double();
             if (sqp_tol <= 0)
                 throw std::runtime_error("Invalid value for SQP tolerance (tol) specified"); 
+        }
+        if (sqp_data.if_contains("qp_stepsize_tol"))
+        {
+            qp_stepsize_tol = sqp_data["qp_stepsize_tol"].as_double();
+            if (qp_stepsize_tol <= 0)
+            {
+                std::stringstream ss_err;
+                ss_err << "Invalid value for QP stepsize tolerance (qp_stepsize_tol) "
+                      "specified";
+                throw std::runtime_error(ss_err.str());
+            }
         }
         if (sqp_data.if_contains("hessian_modify_max_iter"))
         {
@@ -403,6 +413,17 @@ int main(int argc, char** argv)
                 std::stringstream ss_err;
                 ss_err << "Invalid value for maximum number of SQP zoom iterations "
                        << "(zoom_max_iter) specified";
+                throw std::runtime_error(ss_err.str());
+            }
+        }
+        if (sqp_data.if_contains("qp_max_iter"))
+        {
+            qp_max_iter = sqp_data["qp_max_iter"].as_int64();
+            if (qp_max_iter <= 0)
+            {
+                std::stringstream ss_err;
+                ss_err << "Invalid value for maximum number of QP solver iterations "
+                       << "(qp_max_iter) specified";
                 throw std::runtime_error(ss_err.str());
             }
         }
@@ -452,7 +473,8 @@ int main(int argc, char** argv)
         max_edges, n_keep_interior, n_keep_origbound, n_mutate_origbound,
         n_pull_origbound, delta, beta, min_stepsize, hessian_modify_max_iter,
         ss.str(), RegularizationMethod::NOREG, VectorXd::Zero(finder->getD()),
-        c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
+        QuadraticProgramSolveMethod::USE_CUSTOM_SOLVER, c1, c2,
+        line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
         sqp_verbose, sqp_line_search_verbose, sqp_zoom_verbose,
         traversal_verbose, write_pulled_points 
     );
