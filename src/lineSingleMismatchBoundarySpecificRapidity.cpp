@@ -323,7 +323,7 @@ int main(int argc, char** argv)
     double c2 = 0.9;
     int line_search_max_iter = 5;
     int zoom_max_iter = 5;
-    bool qp_max_iter = 100;
+    int qp_max_iter = 100;
     bool sqp_verbose = false;
     bool sqp_line_search_verbose = false;
     bool sqp_zoom_verbose = false;
