@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     11/6/2022
+ *     11/12/2022
  */
 
 #include <iostream>
@@ -860,7 +860,7 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
         poly_filename = "polytopes/line-10-unbindingunity-plusbind.poly"; 
         vert_filename = "polytopes/line-5-unbindingunity-plusbind.vert"; 
     }
-    Polytopes::LinearConstraints<mpq_rational>* constraints_opt = new Polytopes::LinearConstraints<mpq_rational>(
+    Polytopes::LinearConstraints* constraints_opt = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo 
     );
     constraints_opt->parse(poly_filename);
