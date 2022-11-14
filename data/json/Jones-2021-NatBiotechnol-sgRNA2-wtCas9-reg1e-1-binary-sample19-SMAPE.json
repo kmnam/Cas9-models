@@ -1,0 +1,38 @@
+{
+    "cleave_data_filename":
+        "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA2-wtCas9-cleave_rates-sample19.txt",
+    "unbind_data_filename":
+        "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA2-wtCas9-ndABAs_exp-sample19.txt",
+    "output_filename":
+        "data/Jones-2021-NatBiotechnol-fits-reg1e-1/Jones-2021-NatBiotechnol-fits-sgRNA2-wtCas9-reg1e-1-binary-sample19-SMAPE.tsv",
+    "param_mode": 0,
+    "error_mode": 1,
+    "data_specified_as_times": false,
+    "n_init": 50,
+    "n_folds": 1,
+    "cleave_error_weight": 1.0,
+    "unbind_error_weight": 1.0,
+    "cleave_pseudocount": 1e-8,
+    "unbind_pseudocount": 0.0,
+    "sqp_config": {
+        "delta": 1e-12,
+        "beta": 1e-4,
+        "min_stepsize": 1e-9,
+        "max_iter": 500,
+        "tol": 1e-8,
+        "x_tol": 1e-8,
+        "qp_stepsize_tol": 1e-10,
+        "quasi_newton_method": 1,
+        "regularization_method": 2,
+        "regularization_weight": 1e-1,
+        "hessian_modify_max_iter": 10000,
+        "c1": 1e-4,
+        "c2": 0.9,
+        "line_search_max_iter": 5,
+        "zoom_max_iter": 5,
+        "qp_max_iter": 100,
+        "verbose": true,
+        "line_search_verbose": false,
+        "zoom_verbose": false
+    }
+}
