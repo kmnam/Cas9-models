@@ -4,6 +4,7 @@
 #include <utility>
 #include <iomanip>
 #include <tuple>
+#include <stdexcept>
 #include <Eigen/Dense>
 #include <boost/multiprecision/mpfr.hpp>
 #include <boost/random.hpp>
@@ -21,7 +22,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     7/13/2022
+ *     12/6/2022
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -59,8 +60,8 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
     
     // Compute cleavage probability, cleavage rate, dead unbinding rate, and
     // live unbinding rate
-    T terminal_unbind_rate = static_cast<T>(std::pow(10.0, logrates(4))); 
-    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(5)));
+    T terminal_unbind_rate = 1;
+    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(4)));
     Matrix<T, Dynamic, 8> stats = Matrix<T, Dynamic, 8>::Zero(length + 1, 8); 
     stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
@@ -87,10 +88,13 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
 
 int main(int argc, char** argv)
 {
+    // Process input arguments
+    if (argc != 4)
+        throw std::runtime_error("Invalid number of input arguments"); 
+
     // Sample model parameter combinations
-    int n;
-    sscanf(argv[3], "%d", &n);
-    MatrixXd params;
+    int n = std::stoi(argv[3]);
+    MatrixXd params(n, 5);
     try
     {
         params = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(argv[1], n, 0, rng);
@@ -115,7 +119,7 @@ int main(int argc, char** argv)
         probs.row(i) = stats.col(0);
         cleave_rates.row(i) = stats.col(1);
         dead_unbind_rates.row(i) = stats.col(2);
-        dead_unbind_rates.row(i) = stats.col(3);
+        live_unbind_rates.row(i) = stats.col(3);
         specs.row(i) = stats.col(4).tail(length); 
         rapid.row(i) = stats.col(5).tail(length); 
         dead_dissoc.row(i) = stats.col(6).tail(length); 
@@ -162,7 +166,7 @@ int main(int argc, char** argv)
     oss.str(std::string());
 
     // Write matrix of cleavage rates 
-    oss << argv[2] << "-cleave-rates.tsv";
+    oss << argv[2] << "-cleaverates.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -181,7 +185,7 @@ int main(int argc, char** argv)
     oss.str(std::string());
 
     // Write matrix of dead unbinding rates
-    oss << argv[2] << "-dead-unbind-rates.tsv";
+    oss << argv[2] << "-deadunbindrates.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -200,7 +204,7 @@ int main(int argc, char** argv)
     oss.str(std::string());
 
     // Write matrix of live unbinding rates
-    oss << argv[2] << "-live-unbind-rates.tsv";
+    oss << argv[2] << "-liveunbindrates.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -257,7 +261,7 @@ int main(int argc, char** argv)
     oss.str(std::string());
 
     // Write matrix of dead specific dissociativities 
-    oss << argv[2] << "-dead-dissoc.tsv";
+    oss << argv[2] << "-deaddissoc.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -276,7 +280,7 @@ int main(int argc, char** argv)
     oss.str(std::string());
 
     // Write matrix of live specific dissociativities 
-    oss << argv[2] << "-live-dissoc.tsv";
+    oss << argv[2] << "-livedissoc.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
