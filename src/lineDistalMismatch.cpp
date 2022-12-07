@@ -1,3 +1,17 @@
+/**
+ * Computes cleavage probabilities, unbinding rates, and cleavage rates with
+ * respect to distal-mismatch substrates for the line-graph Cas9 model.
+ *
+ * Call as: 
+ *     ./bin/lineDistalMismatch [SAMPLING POLYTOPE .vert FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
+ *
+ * **Authors:**
+ *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
+ *
+ * **Last updated:**
+ *     12/6/2022
+ */
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -11,19 +25,6 @@
 #include <graphs/line.hpp>
 #include <polytopes.hpp>
 
-/*
- * Computes cleavage probabilities, unbinding rates, and cleavage rates with
- * respect to distal-mismatch substrates for the line-graph Cas9 model.
- *
- * Call as: 
- *     ./bin/lineDistalMismatch [SAMPLING POLYTOPE .vert FILE] [OUTPUT FILE PREFIX] [NUMBER OF POINTS TO SAMPLE]
- *
- * **Authors:**
- *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
- *
- * **Last updated:**
- *     12/6/2022
- */
 using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
