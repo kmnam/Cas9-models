@@ -4,13 +4,13 @@
  * vertices of a given convex polytope in parameter space.
  *
  * Call as: 
- *     ./bin/lineSingleMismatchBounds [SAMPLING POLYTOPE .vert FILE] [OUTPUT FILE PREFIX]
+ *     ./bin/lineSingleMismatchVertices [SAMPLING POLYTOPE .vert FILE] [OUTPUT FILE PREFIX]
  *
  * **Author:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     12/6/2022
+ *     12/16/2022
  */
 
 #include <iostream>
