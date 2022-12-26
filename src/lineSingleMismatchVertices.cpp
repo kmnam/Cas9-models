@@ -10,7 +10,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     12/16/2022
+ *     12/26/2022
  */
 
 #include <iostream>
@@ -40,7 +40,10 @@ boost::random::mt19937 rng(1234567890);
 /**
  * Compute the cleavage probabilities, cleavage rates, dead unbinding rates,
  * and live unbinding rates of randomly parametrized line-graph Cas9 models
- * against single-mismatch substrates. 
+ * against single-mismatch substrates.
+ *
+ * The parameter values here are dimensioned rates, in units of inverse seconds,
+ * instead of normalized ratios of rates divided by the unbinding rate.  
  */
 template <typename T>
 Matrix<T, Dynamic, 10> computeCleavageStats(const Ref<const VectorXd>& logrates)
@@ -62,9 +65,9 @@ Matrix<T, Dynamic, 10> computeCleavageStats(const Ref<const VectorXd>& logrates)
     
     // Compute cleavage probability, cleavage rate, dead unbinding rate, and
     // live unbinding rate
-    T terminal_unbind_rate = 1;
-    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(4)));
-    T bind_rate = static_cast<T>(std::pow(10.0, logrates(5))); 
+    T terminal_unbind_rate = static_cast<T>(std::pow(10.0, logrates(4)));
+    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(5)));
+    T bind_rate = static_cast<T>(std::pow(10.0, logrates(6))); 
     Matrix<T, Dynamic, 10> stats = Matrix<T, Dynamic, 10>::Zero(length + 1, 10); 
     stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
