@@ -5,13 +5,13 @@
  * parameter space.
  *
  * Call as: 
- *     ./bin/lineMultiMismatchVertices [MISMATCH PATTERNS] [POLYTOPE .vert FILE] [OUTPUT FILE PREFIX]
+ *     ./bin/lineMultiMismatchVertices [MISMATCH PATTERNS] [POLYTOPE .vert FILE] [OUTPUT FILE PREFIX] [CAS9 CONCENTRATION]
  *
  * **Author:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     12/26/2022
+ *     12/29/2022
  */
 
 #include <iostream>
@@ -77,9 +77,9 @@ Matrix<T, Dynamic, 10> computeCleavageStats(const Ref<const Matrix<bool, Dynamic
     stats(0, 2) = model->getLowerExitRate(terminal_unbind_rate);
     stats(0, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
     
-    // Compute the composite cleavage time on the perfect-match substrate 
+    // Compute the composite cleavage rate on the perfect-match substrate 
     T term = 1 / stats(0, 0);
-    stats(0, 4) = (term / bind_rate) + (1 / stats(0, 1)) + ((term - 1) / stats(0, 3)); 
+    stats(0, 4) = 1 / ((term / bind_rate) + (1 / stats(0, 1)) + ((term - 1) / stats(0, 3))); 
 
     // Introduce mismatches as defined and re-compute the four output metrics 
     for (int j = 0; j < patterns.rows(); ++j)
@@ -95,13 +95,13 @@ Matrix<T, Dynamic, 10> computeCleavageStats(const Ref<const Matrix<bool, Dynamic
         stats(j+1, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
         stats(j+1, 2) = model->getLowerExitRate(terminal_unbind_rate);
         stats(j+1, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        term = 1 / stats(j+1, 0); 
-        stats(j+1, 4) = (term / bind_rate) + (1 / stats(j+1, 1)) + ((term - 1) / stats(j+1, 3)); 
+        term = 1 / stats(j+1, 0);
+        stats(j+1, 4) = 1 / ((term / bind_rate) + (1 / stats(j+1, 1)) + ((term - 1) / stats(j+1, 3))); 
         stats(j+1, 5) = log10(stats(0, 0)) - log10(stats(j+1, 0));
         stats(j+1, 6) = log10(stats(0, 1)) - log10(stats(j+1, 1)); 
         stats(j+1, 7) = log10(stats(j+1, 2)) - log10(stats(0, 2));
         stats(j+1, 8) = log10(stats(j+1, 3)) - log10(stats(0, 3));
-        stats(j+1, 9) = log10(stats(j+1, 4)) - log10(stats(0, 4));
+        stats(j+1, 9) = log10(stats(0, 4)) - log10(stats(j+1, 4));
     }
 
     delete model;
@@ -111,7 +111,7 @@ Matrix<T, Dynamic, 10> computeCleavageStats(const Ref<const Matrix<bool, Dynamic
 int main(int argc, char** argv)
 {
     // Process input arguments
-    if (argc != 4)
+    if (argc != 5)
         throw std::runtime_error("Invalid number of input arguments"); 
 
     // Parse input polytope 
@@ -125,6 +125,9 @@ int main(int argc, char** argv)
         throw;
     }
     int n = params.rows();
+
+    // Multiply terminal binding rates by given Cas9 concentration 
+    params.col(6) = (params.col(6).cast<PreciseType>() * PreciseType(argv[4])).cast<double>(); 
 
     // Parse input binary complementarity patterns 
     int m = 0; 
@@ -152,12 +155,12 @@ int main(int argc, char** argv)
     Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, m + 1);
     Matrix<PreciseType, Dynamic, Dynamic> dead_unbind_rates(n, m + 1);
     Matrix<PreciseType, Dynamic, Dynamic> live_unbind_rates(n, m + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> comp_cleave_times(n, m + 1); 
+    Matrix<PreciseType, Dynamic, Dynamic> comp_cleave_rates(n, m + 1); 
     Matrix<PreciseType, Dynamic, Dynamic> specs(n, m);
     Matrix<PreciseType, Dynamic, Dynamic> rapid(n, m); 
     Matrix<PreciseType, Dynamic, Dynamic> dead_dissoc(n, m);
     Matrix<PreciseType, Dynamic, Dynamic> live_dissoc(n, m);  
-    Matrix<PreciseType, Dynamic, Dynamic> comp_cleave_time_ratios(n, m); 
+    Matrix<PreciseType, Dynamic, Dynamic> comp_cleave_rate_ratios(n, m); 
     for (int i = 0; i < n; ++i)
     {
         Matrix<PreciseType, Dynamic, 10> stats = computeCleavageStats<PreciseType>(patterns, params.row(i));
@@ -165,12 +168,12 @@ int main(int argc, char** argv)
         cleave_rates.row(i) = stats.col(1);
         dead_unbind_rates.row(i) = stats.col(2);
         live_unbind_rates.row(i) = stats.col(3);
-        comp_cleave_times.row(i) = stats.col(4);
+        comp_cleave_rates.row(i) = stats.col(4);
         specs.row(i) = stats.col(5).tail(m); 
         rapid.row(i) = stats.col(6).tail(m); 
         dead_dissoc.row(i) = stats.col(7).tail(m); 
         live_dissoc.row(i) = stats.col(8).tail(m);
-        comp_cleave_time_ratios.row(i) = stats.col(9).tail(m); 
+        comp_cleave_rate_ratios.row(i) = stats.col(9).tail(m); 
     }
 
     // Write sampled log-rates to file
@@ -200,6 +203,7 @@ int main(int argc, char** argv)
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -232,6 +236,7 @@ int main(int argc, char** argv)
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -264,6 +269,7 @@ int main(int argc, char** argv)
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -296,6 +302,7 @@ int main(int argc, char** argv)
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -321,13 +328,14 @@ int main(int argc, char** argv)
     oss.clear();
     oss.str(std::string());
 
-    // Write matrix of composite cleavage times 
-    oss << argv[3] << "-compcleavetimes.tsv";
+    // Write matrix of composite cleavage rates 
+    oss << argv[3] << "-compcleaverates.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -344,9 +352,9 @@ int main(int argc, char** argv)
         {
             for (int j = 0; j < m; ++j)
             {
-                outfile << comp_cleave_times(i, j) << "\t";
+                outfile << comp_cleave_rates(i, j) << "\t";
             }
-            outfile << comp_cleave_times(i, m) << std::endl;
+            outfile << comp_cleave_rates(i, m) << std::endl;
         }
     }
     outfile.close();
@@ -360,6 +368,7 @@ int main(int argc, char** argv)
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -392,6 +401,7 @@ int main(int argc, char** argv)
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -424,6 +434,7 @@ int main(int argc, char** argv)
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -456,6 +467,7 @@ int main(int argc, char** argv)
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -481,13 +493,14 @@ int main(int argc, char** argv)
     oss.clear();
     oss.str(std::string()); 
 
-    // Write matrix of composite cleavage time ratios 
-    oss << argv[3] << "-compcleavetimeratios.tsv";
+    // Write matrix of composite cleavage rate ratios 
+    oss << argv[3] << "-compcleaverateratios.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
     {
         // Write complementarity patterns to file in header line  
+        outfile << std::string(length, '1') << '\t';
         for (int i = 0; i < m; ++i)
         {
             for (int j = 0; j < length; ++j)
@@ -504,9 +517,9 @@ int main(int argc, char** argv)
         {
             for (int j = 0; j < m - 1; ++j)
             {
-                outfile << comp_cleave_time_ratios(i, j) << "\t";
+                outfile << comp_cleave_rate_ratios(i, j) << "\t";
             }
-            outfile << comp_cleave_time_ratios(i, m - 1) << std::endl;
+            outfile << comp_cleave_rate_ratios(i, m - 1) << std::endl;
         }
     }
     outfile.close();
