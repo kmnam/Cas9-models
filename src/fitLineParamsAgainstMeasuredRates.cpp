@@ -149,29 +149,6 @@ std::vector<int> sampleWithReplacement(const int n, const int k, boost::random::
 }
 
 /**
- * Given a pair of DNA bases as integers (0 = A, 1 = C, 2 = G, 3 = T), return
- * 0 if the pair are the same; 1 if the pair form a transition; and 2 if the 
- * pair form a transversion. 
- *
- * @param c1 First nucleobase.
- * @param c2 Second nucleobase.
- * @returns 0 if `c1` and `c2` are the same, 1 if they form a transition, 
- *          2 if they form a transversion.
- * @throws std::invalid_argument If either `c1` or `c2` are not 0, 1, 2, or 3. 
- */
-int getMutationType(const int c1, const int c2)
-{
-    if (c1 < 0 || c1 > 3 || c2 < 0 || c2 > 3)
-        throw std::invalid_argument("Invalid input nucleobase value (must be 0, 1, 2, or 3)");
-    else if (c1 == c2)
-        return 0; 
-    else if (std::abs(c1 - c2) == 2)   // If c1 == A and c2 == G or vice versa,
-        return 1;                      // or if c1 == C and c2 == T or vice versa
-    else 
-        return 2;
-}
-
-/**
  * Compute cleavage statistics on the perfect-match sequence, as well as all
  * mismatched sequences specified in the given matrix of complementarity
  * patterns, for the given LG.
@@ -188,9 +165,11 @@ int getMutationType(const int c1, const int c2)
  * @param seqs      Matrix of input sequences, with entries of 0 (match w.r.t.
  *                  perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
  *                  sequence).
+ * @param bind_conc Concentration of available Cas9. 
  */
 Matrix<MainType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
-                                                  const Ref<const MatrixXi>& seqs) 
+                                                  const Ref<const MatrixXi>& seqs,
+                                                  const MainType bind_conc) 
 {
     // Array of DNA/RNA match parameters
     std::pair<PreciseType, PreciseType> match_rates = std::make_pair(
@@ -205,11 +184,11 @@ Matrix<MainType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<MainTyp
     );
 
     // Exit rates from terminal nodes 
-    PreciseType terminal_unbind_rate = 1;
-    PreciseType terminal_cleave_rate = pow(ten_precise, static_cast<PreciseType>(logrates(4))); 
+    PreciseType terminal_unbind_rate = pow(ten_precise, static_cast<PreciseType>(logrates(4)));
+    PreciseType terminal_cleave_rate = pow(ten_precise, static_cast<PreciseType>(logrates(5))); 
 
     // Binding rate entering state 0
-    PreciseType bind_rate = pow(ten_precise, static_cast<PreciseType>(logrates(5)));
+    PreciseType bind_rate = pow(ten_precise, static_cast<PreciseType>(logrates(6))) * bind_conc;
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
@@ -287,6 +266,7 @@ Matrix<MainType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<MainTyp
  * @param unbind_data
  * @param cleave_error_weight
  * @param unbind_error_weight
+ * @param bind_conc
  * @returns Mean absolute percentage error against cleavage rate data and
  *          against unbinding rate data, as two separate values.  
  */
@@ -296,13 +276,14 @@ std::pair<MainType, MainType> meanAbsolutePercentageErrorAgainstData(
     const Ref<const Matrix<MainType, Dynamic, 1> >& cleave_data,
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<MainType, Dynamic, 1> >& unbind_data,
-    MainType cleave_error_weight = 1.0, MainType unbind_error_weight = 1.0)
+    MainType cleave_error_weight = 1.0, MainType unbind_error_weight = 1.0,
+    MainType bind_conc = 1e-7)
 {
     Matrix<MainType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
-    stats1 = computeCleavageStats(logrates, cleave_seqs);
-    stats2 = computeCleavageStats(logrates, unbind_seqs);
+    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
+    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
 
     // Normalize error weights to sum to *two* (so that both weights equaling 
     // one means that the weights can be effectively ignored)
@@ -358,6 +339,7 @@ std::pair<MainType, MainType> meanAbsolutePercentageErrorAgainstData(
  * @param unbind_data
  * @param cleave_error_weight
  * @param unbind_error_weight
+ * @param bind_conc
  * @returns Symmetric mean absolute percentage error against cleavage rate
  *          data and against unbinding rate data, as two separate values.  
  */
@@ -367,13 +349,14 @@ std::pair<MainType, MainType> symmetricMeanAbsolutePercentageErrorAgainstData(
     const Ref<const Matrix<MainType, Dynamic, 1> >& cleave_data,
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<MainType, Dynamic, 1> >& unbind_data,
-    MainType cleave_error_weight = 1.0, MainType unbind_error_weight = 1.0)
+    MainType cleave_error_weight = 1.0, MainType unbind_error_weight = 1.0,
+    MainType bind_conc = 1e-7)
 {
     Matrix<MainType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
-    stats1 = computeCleavageStats(logrates, cleave_seqs);
-    stats2 = computeCleavageStats(logrates, unbind_seqs);
+    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
+    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
 
     // Normalize error weights to sum to *two* (so that both weights equaling 
     // one means that the weights can be effectively ignored)
@@ -437,6 +420,7 @@ std::pair<MainType, MainType> symmetricMeanAbsolutePercentageErrorAgainstData(
  * @param unbind_data
  * @param cleave_error_weight
  * @param unbind_error_weight
+ * @param bind_conc
  * @returns Minimum-based mean absolute percentage error against cleavage rate
  *          data and against unbinding rate data, as two separate values.  
  */
@@ -446,13 +430,14 @@ std::pair<MainType, MainType> minBasedMeanAbsolutePercentageErrorAgainstData(
     const Ref<const Matrix<MainType, Dynamic, 1> >& cleave_data,
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<MainType, Dynamic, 1> >& unbind_data,
-    MainType cleave_error_weight = 1.0, MainType unbind_error_weight = 1.0)
+    MainType cleave_error_weight = 1.0, MainType unbind_error_weight = 1.0,
+    MainType bind_conc = 1e-7)
 {
     Matrix<MainType, Dynamic, 4> stats1, stats2; 
 
     // Compute *normalized* cleavage metrics and corresponding error against data
-    stats1 = computeCleavageStats(logrates, cleave_seqs);
-    stats2 = computeCleavageStats(logrates, unbind_seqs);
+    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
+    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
 
     // Normalize error weights to sum to *two* (so that both weights equaling 
     // one means that the weights can be effectively ignored)
@@ -502,6 +487,7 @@ std::pair<MainType, MainType> minBasedMeanAbsolutePercentageErrorAgainstData(
  * @param unbind_data
  * @param cleave_seqs
  * @param unbind_seqs
+ * @param bind_conc
  * @param error_mode
  * @param cleave_seq_match
  * @param unbind_seq_match
@@ -536,7 +522,7 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
                                       const Ref<const Matrix<MainType, Dynamic, 1> >& unbind_data, 
                                       const Ref<const MatrixXi>& cleave_seqs, 
                                       const Ref<const MatrixXi>& unbind_seqs,
-                                      const int error_mode,
+                                      const MainType bind_conc, const int error_mode,
                                       const Ref<const VectorXi>& cleave_seq_match,
                                       const Ref<const VectorXi>& unbind_seq_match,
                                       const MainType cleave_error_weight,
@@ -557,12 +543,9 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
                                       const bool verbose, const bool search_verbose,
                                       const bool zoom_verbose) 
 {
-    // Set up an SQPOptimizer instance that constrains all parameters to lie 
-    // between 1e-10 and 1e+10
-    //
-    // TODO CHANGE THIS  
-    std::string poly_filename = "polytopes/line-10-unbindingunity-plusbind.poly"; 
-    std::string vert_filename = "polytopes/line-5-unbindingunity-plusbind.vert"; 
+    // Set up an SQPOptimizer instance
+    std::string poly_filename = "polytopes/line-1-w2-plusbind.poly"; 
+    std::string vert_filename = "polytopes/line-1-w2-plusbind.vert";
     Polytopes::LinearConstraints* constraints_opt = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo 
     );
@@ -571,8 +554,7 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
     const int N = constraints_opt->getN(); 
     SQPOptimizer<MainType>* opt = new SQPOptimizer<MainType>(constraints_opt);
 
-    // Sample a set of points from an initial polytope in parameter space, 
-    // which constrains all parameters to lie between 1e-5 and 1e+5
+    // Sample a set of initial parameter points from the given polytope 
     Delaunay_triangulation* tri = new Delaunay_triangulation(D); 
     Matrix<MainType, Dynamic, Dynamic> init_points(ninit, D); 
     Polytopes::parseVerticesFile(vert_filename, tri);
@@ -593,12 +575,12 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
     {
         func = [
             &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-            &cleave_error_weight, &unbind_error_weight
+            &cleave_error_weight, &unbind_error_weight, &bind_conc
         ](const Ref<const Matrix<MainType, Dynamic, 1> >& x) -> MainType
         {
             std::pair<MainType, MainType> error = meanAbsolutePercentageErrorAgainstData(
                 x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_error_weight, unbind_error_weight
+                cleave_error_weight, unbind_error_weight, bind_conc
             );
             return error.first + error.second;
         };
@@ -607,12 +589,12 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
     {
         func = [
             &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-            &cleave_error_weight, &unbind_error_weight
+            &cleave_error_weight, &unbind_error_weight, &bind_conc
         ](const Ref<const Matrix<MainType, Dynamic, 1> >& x) -> MainType
         {
             std::pair<MainType, MainType> error = symmetricMeanAbsolutePercentageErrorAgainstData(
                 x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_error_weight, unbind_error_weight
+                cleave_error_weight, unbind_error_weight, bind_conc
             );
             return error.first + error.second;
         };
@@ -621,12 +603,12 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
     {
         func = [
             &cleave_seqs, &unbind_seqs, &cleave_data, &unbind_data,
-            &cleave_error_weight, &unbind_error_weight
+            &cleave_error_weight, &unbind_error_weight, &bind_conc
         ](const Ref<const Matrix<MainType, Dynamic, 1> >& x) -> MainType
         {
             std::pair<MainType, MainType> error = minBasedMeanAbsolutePercentageErrorAgainstData(
                 x, cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_error_weight, unbind_error_weight
+                cleave_error_weight, unbind_error_weight, bind_conc
             );
             return error.first + error.second;
         };
@@ -661,28 +643,28 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
         {
             error = meanAbsolutePercentageErrorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_error_weight, unbind_error_weight
+                cleave_error_weight, unbind_error_weight, bind_conc
             );
         }
         else if (error_mode == 1)    // Symmetric mean absolute percentage error
         {
             error = symmetricMeanAbsolutePercentageErrorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_error_weight, unbind_error_weight
+                cleave_error_weight, unbind_error_weight, bind_conc
             );
         }
         else if (error_mode == 2)    // Minimum-based mean absolute percentage error
         {
             error = minBasedMeanAbsolutePercentageErrorAgainstData(
                 best_fit.row(i), cleave_seqs, cleave_data, unbind_seqs, unbind_data,
-                cleave_error_weight, unbind_error_weight
+                cleave_error_weight, unbind_error_weight, bind_conc
             );
         }
         errors(i) = error.first + error.second;
         
         // Then compute the normalized cleavage statistics of the best-fit 
         // model against all single-mismatch substrates 
-        Matrix<MainType, Dynamic, 4> fit_stats = computeCleavageStats(best_fit.row(i), single_mismatch_seqs);
+        Matrix<MainType, Dynamic, 4> fit_stats = computeCleavageStats(best_fit.row(i), single_mismatch_seqs, bind_conc);
         for (int j = 0; j < length; ++j)
         {
             for (int k = 0; k < 4; ++k)
@@ -733,7 +715,8 @@ int main(int argc, char** argv)
     MainType cleave_error_weight = 1;
     MainType unbind_error_weight = 1;
     MainType cleave_pseudocount = 0;
-    MainType unbind_pseudocount = 0; 
+    MainType unbind_pseudocount = 0;
+    MainType bind_conc = 1e-7;    // TODO Write block for parsing user-defined value 
     if (json_data.if_contains("data_specified_as_times"))
     {
         data_specified_as_times = json_data["data_specified_as_times"].as_bool();
@@ -1094,7 +1077,7 @@ int main(int argc, char** argv)
     {
         results = fitLineParamsAgainstMeasuredRates(
             cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, 
-            error_mode, cleave_seq_match_arr, unbind_seq_match_arr,
+            bind_conc, error_mode, cleave_seq_match_arr, unbind_seq_match_arr,
             cleave_error_weight, unbind_error_weight, ninit, rng, delta,
             beta, sqp_min_stepsize, max_iter, tol, x_tol, qp_stepsize_tol,
             quasi_newton, regularize, regularize_weight, hessian_modify_max_iter,
@@ -1165,7 +1148,7 @@ int main(int argc, char** argv)
             // Optimize model parameters on the training subset 
             results = fitLineParamsAgainstMeasuredRates(
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
-                unbind_seqs_train, error_mode, cleave_seq_match_arr,
+                unbind_seqs_train, bind_conc, error_mode, cleave_seq_match_arr,
                 unbind_seq_match_arr, cleave_error_weight, unbind_error_weight,
                 ninit, rng, delta, beta, sqp_min_stepsize, max_iter, tol, x_tol,
                 qp_stepsize_tol, quasi_newton, regularize, regularize_weight,
@@ -1193,21 +1176,24 @@ int main(int argc, char** argv)
             {
                 error_against_test = meanAbsolutePercentageErrorAgainstData(
                     best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
-                    unbind_data_test, cleave_error_weight, unbind_error_weight
+                    unbind_data_test, cleave_error_weight, unbind_error_weight,
+                    bind_conc
                 );
             }
             else if (error_mode == 1)    // Symmetric mean absolute percentage error
             {
                 error_against_test = symmetricMeanAbsolutePercentageErrorAgainstData(
                     best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
-                    unbind_data_test, cleave_error_weight, unbind_error_weight
+                    unbind_data_test, cleave_error_weight, unbind_error_weight,
+                    bind_conc
                 );
             }
             else if (error_mode == 2)    // Minimum-based mean absolute percentage error
             {
                 error_against_test = minBasedMeanAbsolutePercentageErrorAgainstData(
                     best_fit, cleave_seqs_test, cleave_data_test, unbind_seqs_test,
-                    unbind_data_test, cleave_error_weight, unbind_error_weight
+                    unbind_data_test, cleave_error_weight, unbind_error_weight,
+                    bind_conc
                 );
             }
             best_fit_total.row(fi) = best_fit; 
