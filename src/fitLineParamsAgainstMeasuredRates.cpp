@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     12/29/2022
+ *     12/31/2022
  */
 
 #include <iostream>
@@ -149,25 +149,26 @@ std::vector<int> sampleWithReplacement(const int n, const int k, boost::random::
 }
 
 /**
- * Compute cleavage statistics on the perfect-match sequence, as well as all
+ * Compute the dead unbinding rate and composite cleavage rate on all given
  * mismatched sequences specified in the given matrix of complementarity
  * patterns, for the given LG.
  *
- * Here, `logrates` is assumed to contain 6 entries:
+ * Here, `logrates` is assumed to contain 7 entries:
  * 1) forward rate at DNA-RNA matches,
  * 2) reverse rate at DNA-RNA matches,
  * 3) forward rate at DNA-RNA mismatches,
  * 4) reverse rate at DNA-RNA mismatches,
- * 5) terminal cleavage rate, and
- * 6) terminal binding rate.
+ * 5) terminal unbinding rate,
+ * 6) terminal cleavage rate, and
+ * 7) terminal binding rate (units of inverse (M * sec)).
  *
- * @param logrates  Input vector of 6 LGPs.
+ * @param logrates  Input vector of 7 LGPs.
  * @param seqs      Matrix of input sequences, with entries of 0 (match w.r.t.
  *                  perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
  *                  sequence).
  * @param bind_conc Concentration of available Cas9. 
  */
-Matrix<MainType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
+Matrix<MainType, Dynamic, 2> computeCleavageStats(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
                                                   const Ref<const MatrixXi>& seqs,
                                                   const MainType bind_conc) 
 {
@@ -188,29 +189,26 @@ Matrix<MainType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<MainTyp
     PreciseType terminal_cleave_rate = pow(ten_precise, static_cast<PreciseType>(logrates(5))); 
 
     // Binding rate entering state 0
-    PreciseType bind_rate = pow(ten_precise, static_cast<PreciseType>(logrates(6))) * bind_conc;
+    PreciseType bind_rate = pow(ten_precise, static_cast<PreciseType>(logrates(6))) * static_cast<PreciseType>(bind_conc);
 
     // Populate each rung with DNA/RNA match parameters
     LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
     for (int i = 0; i < length; ++i)
         model->setEdgeLabels(i, match_rates); 
-    
-    // Compute cleavage probability, cleavage rate, dead unbinding rate, and 
-    // live unbinding rate against perfect-match substrate
-    Matrix<PreciseType, 5, 1> stats_perfect;
-    stats_perfect(0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
-    stats_perfect(1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
-    stats_perfect(2) = model->getLowerExitRate(terminal_unbind_rate); 
-    stats_perfect(3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
+  
+    // Compute dead unbinding rate against perfect-match substrate
+    PreciseType prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+    PreciseType cleave_rate_perfect = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
+    PreciseType dead_unbind_rate_perfect = model->getLowerExitRate(terminal_unbind_rate);
+    PreciseType live_unbind_rate_perfect = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
+    PreciseType term = 1 / prob_perfect;
+    PreciseType composite_cleave_time_perfect = (
+        (term / bind_rate) + (1 / cleave_rate_perfect) + ((term - 1) / live_unbind_rate_perfect)
+    );
 
-    // Compute the composite cleavage time 
-    PreciseType term = 1 / stats_perfect(0); 
-    stats_perfect(4) = (term / bind_rate) + (1 / stats_perfect(1)) + ((term - 1) / stats_perfect(3)); 
-
-    // Re-compute cleavage probability, cleavage rate, dead unbinding rate, 
-    // live unbinding rate, and composite cleavage time against each given
-    // mismatched substrate
-    Matrix<PreciseType, Dynamic, 4> stats(seqs.rows(), 4);  
+    // Compute dead unbinding rate and composite cleavage rate against each
+    // given mismatched substrate
+    Matrix<PreciseType, Dynamic, 2> stats(seqs.rows(), 2);  
     for (int i = 0; i < seqs.rows(); ++i)
     {
         for (int j = 0; j < length; ++j)
@@ -220,27 +218,19 @@ Matrix<MainType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<MainTyp
             else
                 model->setEdgeLabels(j, mismatch_rates);
         }
-        stats(i, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
-        stats(i, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
-        stats(i, 2) = model->getLowerExitRate(terminal_unbind_rate); 
-        PreciseType unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        term = 1 / stats(i, 0); 
-        stats(i, 3) = (term / bind_rate) + (1 / stats(i, 1)) + ((term - 1) / unbind_rate); 
+        PreciseType prob = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+        PreciseType cleave_rate = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
+        PreciseType dead_unbind_rate = model->getLowerExitRate(terminal_unbind_rate); 
+        PreciseType live_unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
+        term = 1 / prob;
+        PreciseType composite_cleave_time = (term / bind_rate) + (1 / cleave_rate) + ((term - 1) / live_unbind_rate);
 
-        // Inverse specificity = cleavage probability on mismatched / cleavage probability on perfect
-        stats(i, 0) = log10(stats(i, 0)) - log10(stats_perfect(0)); 
+        // Compute *inverse* specific dissociativity: rate on perfect / rate on mismatched 
+        stats(i, 0) = log10(dead_unbind_rate_perfect) - log10(dead_unbind_rate);
 
-        // Inverse rapidity = cleavage rate on mismatched / cleavage rate on perfect
-        stats(i, 1) = log10(stats(i, 1)) - log10(stats_perfect(1));  
-
-        // Unbinding rate on mismatched > unbinding rate on perfect, so 
-        // return perfect rate / mismatched rate (inverse dissociativity) 
-        stats(i, 2) = log10(stats_perfect(2)) - log10(stats(i, 2));
-        
-        // Cleavage *time* on mismatched > cleavage *time* on perfect (usually), 
-        // so return perfect time / mismatched time (inverse composite cleavage
-        // time ratio)
-        stats(i, 3) = log10(stats_perfect(4)) - log10(stats(i, 3));
+        // Compute *inverse* composite cleavage rate ratio: rate on mismatched / rate on perfect
+        // or time on perfect / time on mismatched
+        stats(i, 1) = log10(composite_cleave_time_perfect) - log10(composite_cleave_time);
     }
 
     delete model;
@@ -250,8 +240,8 @@ Matrix<MainType, Dynamic, 4> computeCleavageStats(const Ref<const Matrix<MainTyp
 /**
  * Compute the *unregularized* error between a set of (composite) cleavage
  * rates and dead unbinding rates inferred from the given LGPs and a set of
- * experimentally determined cleavage rates/times and (dead) unbinding
- * rates/times, with respect to a set of binary complementarity patterns.
+ * experimentally determined cleavage rates and (dead) unbinding rates, with
+ * respect to a set of binary complementarity patterns.
  *
  * The error computed here is the mean absolute percentage error, defined as
  * error = |(true value - fit value) / true value|.
@@ -276,29 +266,26 @@ std::pair<MainType, MainType> meanAbsolutePercentageErrorAgainstData(
     const Ref<const Matrix<MainType, Dynamic, 1> >& cleave_data,
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<MainType, Dynamic, 1> >& unbind_data,
-    MainType cleave_error_weight = 1.0, MainType unbind_error_weight = 1.0,
+    MainType cleave_error_weight = 1, MainType unbind_error_weight = 1,
     MainType bind_conc = 1e-7)
 {
-    Matrix<MainType, Dynamic, 4> stats1, stats2; 
+    Matrix<MainType, Dynamic, 1> stats1, stats2; 
 
-    // Compute *normalized* cleavage metrics and corresponding error against data
-    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
-    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+    // Compute cleavage metrics and corresponding error against data
+    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc).col(1);
+    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc).col(0);
 
     // Normalize error weights to sum to *two* (so that both weights equaling 
     // one means that the weights can be effectively ignored)
     MainType weight_mean = (cleave_error_weight + unbind_error_weight) / 2; 
     cleave_error_weight /= weight_mean;
     unbind_error_weight /= weight_mean;
-    Matrix<MainType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
-    Matrix<MainType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
-    for (int j = 0; j < 4; ++j)
-    {
-        for (int i = 0; i < stats1.rows(); ++i)
-            stats1_transformed(i, j) = pow(ten_main, stats1(i, j)); 
-        for (int i = 0; i < stats2.rows(); ++i)
-            stats2_transformed(i, j) = pow(ten_main, stats2(i, j));
-    }
+    //Matrix<MainType, Dynamic, 2> stats1_transformed(stats1.rows(), 2);
+    //Matrix<MainType, Dynamic, 2> stats2_transformed(stats2.rows(), 2);
+    for (int i = 0; i < stats1.size(); ++i)
+        stats1(i) = pow(ten_main, stats1(i)); 
+    for (int i = 0; i < stats2.size(); ++i)
+        stats2(i) = pow(ten_main, stats2(i));
 
     // Compute each error as the mean absolute percentage error:
     // |(true value - fit value) / fit value|
@@ -307,13 +294,13 @@ std::pair<MainType, MainType> meanAbsolutePercentageErrorAgainstData(
     if (cleave_data.size() > 0)
     {
         cleave_error = cleave_error_weight * (
-            ((stats1_transformed.col(3) - cleave_data).array() / cleave_data.array()).abs().mean()
+            ((stats1 - cleave_data).array() / cleave_data.array()).abs().mean()
         );
     }
     if (unbind_data.size() > 0)
     {
         unbind_error = unbind_error_weight * (
-            ((stats2_transformed.col(2) - unbind_data).array() / unbind_data.array()).abs().mean()
+            ((stats2 - unbind_data).array() / unbind_data.array()).abs().mean()
         );
     }
 
@@ -349,29 +336,24 @@ std::pair<MainType, MainType> symmetricMeanAbsolutePercentageErrorAgainstData(
     const Ref<const Matrix<MainType, Dynamic, 1> >& cleave_data,
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<MainType, Dynamic, 1> >& unbind_data,
-    MainType cleave_error_weight = 1.0, MainType unbind_error_weight = 1.0,
+    MainType cleave_error_weight = 1, MainType unbind_error_weight = 1,
     MainType bind_conc = 1e-7)
 {
-    Matrix<MainType, Dynamic, 4> stats1, stats2; 
+    Matrix<MainType, Dynamic, 1> stats1, stats2; 
 
-    // Compute *normalized* cleavage metrics and corresponding error against data
-    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
-    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+    // Compute cleavage metrics and corresponding error against data
+    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc).col(1);
+    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc).col(0);
 
     // Normalize error weights to sum to *two* (so that both weights equaling 
     // one means that the weights can be effectively ignored)
     MainType weight_mean = (cleave_error_weight + unbind_error_weight) / 2; 
     cleave_error_weight /= weight_mean;
     unbind_error_weight /= weight_mean;
-    Matrix<MainType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
-    Matrix<MainType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
-    for (int j = 0; j < 4; ++j)
-    {
-        for (int i = 0; i < stats1.rows(); ++i)
-            stats1_transformed(i, j) = pow(ten_main, stats1(i, j)); 
-        for (int i = 0; i < stats2.rows(); ++i)
-            stats2_transformed(i, j) = pow(ten_main, stats2(i, j));
-    }
+    for (int i = 0; i < stats1.size(); ++i)
+        stats1(i) = pow(ten_main, stats1(i)); 
+    for (int i = 0; i < stats2.size(); ++i)
+        stats2(i) = pow(ten_main, stats2(i));
 
     // Compute each error as the symmetric mean absolute percentage error:
     // (|true value - fit value|) / ((|true value| + |fit value|) / 2)
@@ -380,21 +362,27 @@ std::pair<MainType, MainType> symmetricMeanAbsolutePercentageErrorAgainstData(
     Array<MainType, Dynamic, 1> cleave_denom(n_cleave_data);
     Array<MainType, Dynamic, 1> unbind_denom(n_unbind_data);
     for (int i = 0; i < n_cleave_data; ++i)
-        cleave_denom(i) = (abs(cleave_data(i)) + abs(stats1_transformed(i, 3))) / 2;
+    {
+        //cleave_denom(i) = (abs(cleave_data(i)) + abs(stats1_transformed(i, 3))) / 2;
+        cleave_denom(i) = (abs(cleave_data(i)) + abs(stats1(i))) / 2;
+    }
     for (int i = 0; i < n_unbind_data; ++i)
-        unbind_denom(i) = (abs(unbind_data(i)) + abs(stats2_transformed(i, 2))) / 2;
+    {
+        //unbind_denom(i) = (abs(unbind_data(i)) + abs(stats2_transformed(i, 2))) / 2;
+        unbind_denom(i) = (abs(unbind_data(i)) + abs(stats2(i))) / 2;
+    }
     MainType cleave_error = 0; 
     MainType unbind_error = 0;
     if (n_cleave_data > 0)
     {
         cleave_error = cleave_error_weight * (
-            ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).mean()
+            ((stats1 - cleave_data).array().abs() / cleave_denom).mean()
         );
     }
     if (n_unbind_data > 0)
     {
         unbind_error = unbind_error_weight * (
-            ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).mean()
+            ((stats2 - unbind_data).array().abs() / unbind_denom).mean()
         );
     }
 
@@ -430,29 +418,26 @@ std::pair<MainType, MainType> minBasedMeanAbsolutePercentageErrorAgainstData(
     const Ref<const Matrix<MainType, Dynamic, 1> >& cleave_data,
     const Ref<const MatrixXi>& unbind_seqs,
     const Ref<const Matrix<MainType, Dynamic, 1> >& unbind_data,
-    MainType cleave_error_weight = 1.0, MainType unbind_error_weight = 1.0,
+    MainType cleave_error_weight = 1, MainType unbind_error_weight = 1,
     MainType bind_conc = 1e-7)
 {
-    Matrix<MainType, Dynamic, 4> stats1, stats2; 
+    Matrix<MainType, Dynamic, 1> stats1, stats2; 
 
-    // Compute *normalized* cleavage metrics and corresponding error against data
-    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc);
-    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc);
+    // Compute cleavage metrics and corresponding error against data
+    stats1 = computeCleavageStats(logrates, cleave_seqs, bind_conc).col(1);
+    stats2 = computeCleavageStats(logrates, unbind_seqs, bind_conc).col(0);
 
     // Normalize error weights to sum to *two* (so that both weights equaling 
     // one means that the weights can be effectively ignored)
     MainType weight_mean = (cleave_error_weight + unbind_error_weight) / 2; 
     cleave_error_weight /= weight_mean;
     unbind_error_weight /= weight_mean;
-    Matrix<MainType, Dynamic, 4> stats1_transformed(stats1.rows(), 4);
-    Matrix<MainType, Dynamic, 4> stats2_transformed(stats2.rows(), 4);
-    for (int j = 0; j < 4; ++j)
-    {
-        for (int i = 0; i < stats1.rows(); ++i)
-            stats1_transformed(i, j) = pow(ten_main, stats1(i, j)); 
-        for (int i = 0; i < stats2.rows(); ++i)
-            stats2_transformed(i, j) = pow(ten_main, stats2(i, j));
-    }
+    //Matrix<MainType, Dynamic, 2> stats1_transformed(stats1.rows(), 2);
+    //Matrix<MainType, Dynamic, 2> stats2_transformed(stats2.rows(), 2);
+    for (int i = 0; i < stats1.size(); ++i)
+        stats1(i) = pow(ten_main, stats1(i)); 
+    for (int i = 0; i < stats2.size(); ++i)
+        stats2(i) = pow(ten_main, stats2(i));
 
     // Compute each error as the minimum-based mean absolute percentage error:
     // (|true value - fit value|) / (min(|true value|, |fit value|))
@@ -461,21 +446,27 @@ std::pair<MainType, MainType> minBasedMeanAbsolutePercentageErrorAgainstData(
     Array<MainType, Dynamic, 1> cleave_denom(n_cleave_data);
     Array<MainType, Dynamic, 1> unbind_denom(n_unbind_data);
     for (int i = 0; i < n_cleave_data; ++i)
-        cleave_denom(i) = min(abs(cleave_data(i)), abs(stats1_transformed(i, 3)));
+    {
+        //cleave_denom(i) = min(abs(cleave_data(i)), abs(stats1_transformed(i, 3)));
+        cleave_denom(i) = min(abs(cleave_data(i)), abs(stats1(i)));
+    }
     for (int i = 0; i < n_unbind_data; ++i)
-        unbind_denom(i) = min(abs(unbind_data(i)), abs(stats2_transformed(i, 2)));
+    {
+        //unbind_denom(i) = min(abs(unbind_data(i)), abs(stats2_transformed(i, 2)));
+        unbind_denom(i) = min(abs(unbind_data(i)), abs(stats2(i)));
+    }
     MainType cleave_error = 0;
     MainType unbind_error = 0;
     if (n_cleave_data > 0)
     {
         cleave_error = cleave_error_weight * (
-            ((stats1_transformed.col(3) - cleave_data).array().abs() / cleave_denom).mean()
+            ((stats1 - cleave_data).array().abs() / cleave_denom).mean()
         );
     }
     if (n_unbind_data > 0)
     {
         unbind_error = unbind_error_weight * (
-            ((stats2_transformed.col(2) - unbind_data).array().abs() / unbind_denom).mean()
+            ((stats2 - unbind_data).array().abs() / unbind_denom).mean()
         );
     }
 
@@ -489,8 +480,6 @@ std::pair<MainType, MainType> minBasedMeanAbsolutePercentageErrorAgainstData(
  * @param unbind_seqs
  * @param bind_conc
  * @param error_mode
- * @param cleave_seq_match
- * @param unbind_seq_match
  * @param cleave_error_weight
  * @param unbind_error_weight
  * @param ninit
@@ -523,8 +512,6 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
                                       const Ref<const MatrixXi>& cleave_seqs, 
                                       const Ref<const MatrixXi>& unbind_seqs,
                                       const MainType bind_conc, const int error_mode,
-                                      const Ref<const VectorXi>& cleave_seq_match,
-                                      const Ref<const VectorXi>& unbind_seq_match,
                                       const MainType cleave_error_weight,
                                       const MainType unbind_error_weight,
                                       const int ninit, boost::random::mt19937& rng,
@@ -544,8 +531,8 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
                                       const bool zoom_verbose) 
 {
     // Set up an SQPOptimizer instance
-    std::string poly_filename = "polytopes/line-1-w2-plusbind.poly"; 
-    std::string vert_filename = "polytopes/line-1-w2-plusbind.vert";
+    std::string poly_filename = "polytopes/line-2-w4-plusbind.poly"; 
+    std::string vert_filename = "polytopes/line-2-w4-plusbind.vert";
     Polytopes::LinearConstraints* constraints_opt = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo 
     );
@@ -618,7 +605,7 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
     // from which to begin each round of optimization 
     Matrix<MainType, Dynamic, Dynamic> best_fit(ninit, D); 
     Matrix<MainType, Dynamic, 1> x_init, l_init;
-    Matrix<MainType, Dynamic, Dynamic> fit_single_mismatch_stats(ninit, 4 * length);
+    Matrix<MainType, Dynamic, Dynamic> fit_single_mismatch_stats(ninit, 2 * length);
     Matrix<MainType, Dynamic, 1> errors(ninit);
     QuadraticProgramSolveMethod qp_solve_method = USE_CUSTOM_SOLVER;
     for (int i = 0; i < ninit; ++i)
@@ -662,15 +649,16 @@ std::tuple<Matrix<MainType, Dynamic, Dynamic>,
         }
         errors(i) = error.first + error.second;
         
-        // Then compute the normalized cleavage statistics of the best-fit 
-        // model against all single-mismatch substrates 
-        Matrix<MainType, Dynamic, 4> fit_stats = computeCleavageStats(best_fit.row(i), single_mismatch_seqs, bind_conc);
+        // Then compute the desired cleavage statistics of the best-fit 
+        // model against all single-mismatch substrates
+        //
+        // Invert so that the cleavage statistics are correctly returned
+        Matrix<MainType, Dynamic, 2> fit_stats = -computeCleavageStats(best_fit.row(i), single_mismatch_seqs, bind_conc);
         for (int j = 0; j < length; ++j)
         {
-            for (int k = 0; k < 4; ++k)
+            for (int k = 0; k < 2; ++k)
             {
-                // Invert all returned statistics  
-                fit_single_mismatch_stats(i, 4 * j + k) = -fit_stats(j, k); 
+                fit_single_mismatch_stats(i, 2 * j + k) = fit_stats(j, k); 
             }
         }
     }
@@ -907,8 +895,6 @@ int main(int argc, char** argv)
     // Parse the input file of (composite) cleavage rates, if one is given 
     std::ifstream infile;
     std::string line, token;
-    std::string cleave_seq_match = "";
-    std::string unbind_seq_match = "";  
     if (cleave_infilename.size() > 0)
     {
         infile.open(cleave_infilename);
@@ -938,7 +924,7 @@ int main(int argc, char** argv)
             std::getline(ss, token, '\t'); 
             try
             {
-                cleave_data(n_cleave_data - 1) = std::stod(token);
+                cleave_data(n_cleave_data - 1) = MainType(token);
             }
             catch (const std::out_of_range& e)
             {
@@ -974,11 +960,11 @@ int main(int argc, char** argv)
                     unbind_seqs(n_unbind_data - 1, j) = 1;
             } 
 
-            // The second entry is the unbinding rate being parsed
+            // The second entry is the ndABA (specific dissociativity) being parsed 
             std::getline(ss, token, '\t');
             try
             {
-                unbind_data(n_unbind_data - 1) = std::stod(token);
+                unbind_data(n_unbind_data - 1) = MainType(token);
             }
             catch (const std::out_of_range& e)
             {
@@ -992,81 +978,33 @@ int main(int argc, char** argv)
     if (n_cleave_data == 0 && n_unbind_data == 0)
         throw std::runtime_error("Both cleavage rate and unbinding rate datasets are empty");
 
+    std::cout << cleave_data << std::endl; 
+    std::cout << cleave_seqs << std::endl; 
+    std::cout << unbind_data << std::endl; 
+    std::cout << unbind_seqs << std::endl; 
+
+    // Assume that the cleavage rate for the perfect-match substrate is
+    // specified first ...
+    //
+    // ... and thus normalize all composite cleavage rates and invert 
+    if (cleave_data.size() > 0)
+    {
+        for (int i = 1; i < cleave_data.size(); ++i)
+            cleave_data(i) = cleave_data(i) / cleave_data(0);   // rate on mismatched / rate on perfect
+        cleave_data(0) = 1;
+    }
+    std::cout << cleave_data << std::endl;
+
+    // Also invert all parsed ndABAs (i.e., specific dissociativities)
+    if (unbind_data.size() > 0)
+        unbind_data = unbind_data.array().pow(-1).matrix();
+    
     // Add pseudocounts to the cleavage rates and unbinding rates 
     cleave_data += cleave_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_cleave_data);
     unbind_data += unbind_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_unbind_data);
 
-    // Define the two perfect-match sequences as integer vectors
-    VectorXi cleave_seq_match_arr = VectorXi::Ones(length); 
-    VectorXi unbind_seq_match_arr = VectorXi::Ones(length); 
-
-    // Shuffle the rows of the datasets to ensure that there are no biases 
-    // in sequence composition 
-    PermutationMatrix<Dynamic, Dynamic> cleave_perm = getPermutation(n_cleave_data, rng);  
-    PermutationMatrix<Dynamic, Dynamic> unbind_perm = getPermutation(n_unbind_data, rng);
-    cleave_data = cleave_perm * cleave_data; 
-    cleave_seqs = cleave_perm * cleave_seqs; 
-    unbind_data = unbind_perm * unbind_data; 
-    unbind_seqs = unbind_perm * unbind_seqs; 
-
-    // Assume that there exist cleavage and dead unbinding rates for the
-    // perfect-match substrate (if any cleavage/unbinding rates have been
-    // specified at all) 
-    int unbind_match_index = -1;
-    for (int i = 0; i < unbind_seqs.rows(); ++i)
-    {
-        if (unbind_seqs.row(i).sum() == length)
-        {
-            unbind_match_index = i;
-            break; 
-        }
-    } 
-    if (n_unbind_data > 0 && unbind_match_index == -1)
-    {
-        throw std::runtime_error(
-            "Cannot normalize given data without value corresponding to perfect-match substrate"
-        );
-    }
-    int cleave_match_index = -1; 
-    for (int i = 0; i < cleave_seqs.rows(); ++i)
-    {
-        if (cleave_seqs.row(i).sum() == length)
-        {
-            cleave_match_index = i; 
-            break;
-        }
-    }
-    if (n_cleave_data > 0 && cleave_match_index == -1)
-    {
-        throw std::runtime_error(
-            "Cannot normalize given data without value corresponding to perfect-match substrate"
-        );
-    }
-
-    // Normalize all given composite cleavage rates/times and dead unbinding
-    // rates/times (with copies of the data matrices that were passed into
-    // this function)
-    Matrix<MainType, Dynamic, 1> unbind_data_norm(unbind_data.size());
-    Matrix<MainType, Dynamic, 1> cleave_data_norm(cleave_data.size());
-    if (data_specified_as_times)    // Data specified as times 
-    {
-        // The normalized data are *inverse* specific dissociativities and rapidities
-        for (int i = 0; i < unbind_data_norm.size(); ++i)
-            unbind_data_norm(i) = unbind_data(i) / unbind_data(unbind_match_index);   // rate on perfect / rate on mismatched
-        for (int i = 0; i < cleave_data_norm.size(); ++i)
-            cleave_data_norm(i) = cleave_data(cleave_match_index) / cleave_data(i);   // time on perfect / time on mismatched
-    }
-    else                            // Data specified as rates 
-    {
-        // The normalized data are *inverse* specific dissociativities and rapidities
-        for (int i = 0; i < unbind_data_norm.size(); ++i)
-            unbind_data_norm(i) = unbind_data(unbind_match_index) / unbind_data(i);   // rate on perfect / rate on mismatched
-        for (int i = 0; i < cleave_data_norm.size(); ++i)
-            cleave_data_norm(i) = cleave_data(i) / cleave_data(cleave_match_index);   // time on perfect / time on mismatched
-    }
-
     /** ----------------------------------------------------------------------- //
-     *     RUN K-FOLD CROSS VALIDATION AGAINST GIVEN CLEAVAGE/UNBINDING DATA    //
+     *                     FIT AGAINST GIVEN KINETIC DATA                       //
      *  ----------------------------------------------------------------------- */
     std::tuple<Matrix<MainType, Dynamic, Dynamic>, 
                Matrix<MainType, Dynamic, Dynamic>, 
@@ -1076,10 +1014,9 @@ int main(int argc, char** argv)
     if (nfolds == 1)
     {
         results = fitLineParamsAgainstMeasuredRates(
-            cleave_data_norm, unbind_data_norm, cleave_seqs, unbind_seqs, 
-            bind_conc, error_mode, cleave_seq_match_arr, unbind_seq_match_arr,
-            cleave_error_weight, unbind_error_weight, ninit, rng, delta,
-            beta, sqp_min_stepsize, max_iter, tol, x_tol, qp_stepsize_tol,
+            cleave_data, unbind_data, cleave_seqs, unbind_seqs, bind_conc,
+            error_mode, cleave_error_weight, unbind_error_weight, ninit, rng,
+            delta, beta, sqp_min_stepsize, max_iter, tol, x_tol, qp_stepsize_tol,
             quasi_newton, regularize, regularize_weight, hessian_modify_max_iter,
             c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
             search_verbose, zoom_verbose
@@ -1092,13 +1029,12 @@ int main(int argc, char** argv)
         std::ofstream outfile(outfilename); 
         outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         outfile << "fit_attempt\t" << header_ss.str()
-                << "terminal_cleave_rate\tterminal_bind_rate\terror\t";
+                << "terminal_unbind_rate\tterminal_cleave_rate\t"
+                << "terminal_bind_rate\ttest_error\t";
         for (int i = 0; i < length; ++i)
         {
-            outfile << "mm" << i << "_log_spec\t"
-                    << "mm" << i << "_log_rapid\t"
-                    << "mm" << i << "_log_deaddissoc\t"
-                    << "mm" << i << "_log_composite_rapid\t";
+            outfile << "mm" << i << "_deaddissoc\t"
+                    << "mm" << i << "_composite_cleave_rate_ratio\t";
         }
         int pos = outfile.tellp();
         outfile.seekp(pos - 1);
@@ -1123,6 +1059,15 @@ int main(int argc, char** argv)
     }
     else
     {
+        // Shuffle the rows of the datasets to ensure that there are no biases 
+        // in sequence composition (only for cross-validation purposes) 
+        PermutationMatrix<Dynamic, Dynamic> cleave_perm = getPermutation(n_cleave_data, rng);  
+        PermutationMatrix<Dynamic, Dynamic> unbind_perm = getPermutation(n_unbind_data, rng);
+        cleave_data = cleave_perm * cleave_data; 
+        cleave_seqs = cleave_perm * cleave_seqs; 
+        unbind_data = unbind_perm * unbind_data; 
+        unbind_seqs = unbind_perm * unbind_seqs;
+
         // Divide the indices in each dataset into folds
         auto unbind_fold_pairs = getFolds(n_unbind_data, nfolds);
         auto cleave_fold_pairs = getFolds(n_cleave_data, nfolds); 
@@ -1136,24 +1081,24 @@ int main(int argc, char** argv)
         Matrix<MainType, Dynamic, 1> errors_against_test(nfolds); 
         for (int fi = 0; fi < nfolds; ++fi)
         {
-            unbind_data_train = unbind_data_norm(unbind_fold_pairs[fi].first);
-            unbind_data_test = unbind_data_norm(unbind_fold_pairs[fi].second);
+            unbind_data_train = unbind_data(unbind_fold_pairs[fi].first);
+            unbind_data_test = unbind_data(unbind_fold_pairs[fi].second);
             unbind_seqs_train = unbind_seqs(unbind_fold_pairs[fi].first, Eigen::all);
             unbind_seqs_test = unbind_seqs(unbind_fold_pairs[fi].second, Eigen::all); 
-            cleave_data_train = cleave_data_norm(cleave_fold_pairs[fi].first); 
-            cleave_data_test = cleave_data_norm(cleave_fold_pairs[fi].second); 
+            cleave_data_train = cleave_data(cleave_fold_pairs[fi].first); 
+            cleave_data_test = cleave_data(cleave_fold_pairs[fi].second); 
             cleave_seqs_train = cleave_seqs(cleave_fold_pairs[fi].first, Eigen::all); 
             cleave_seqs_test = cleave_seqs(cleave_fold_pairs[fi].second, Eigen::all);
 
             // Optimize model parameters on the training subset 
             results = fitLineParamsAgainstMeasuredRates(
                 cleave_data_train, unbind_data_train, cleave_seqs_train,
-                unbind_seqs_train, bind_conc, error_mode, cleave_seq_match_arr,
-                unbind_seq_match_arr, cleave_error_weight, unbind_error_weight,
-                ninit, rng, delta, beta, sqp_min_stepsize, max_iter, tol, x_tol,
-                qp_stepsize_tol, quasi_newton, regularize, regularize_weight,
-                hessian_modify_max_iter, c1, c2, line_search_max_iter,
-                zoom_max_iter, qp_max_iter, verbose, search_verbose, zoom_verbose
+                unbind_seqs_train, bind_conc, error_mode, cleave_error_weight,
+                unbind_error_weight, ninit, rng, delta, beta, sqp_min_stepsize,
+                max_iter, tol, x_tol, qp_stepsize_tol, quasi_newton, regularize,
+                regularize_weight, hessian_modify_max_iter, c1, c2,
+                line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
+                search_verbose, zoom_verbose
             );
             Matrix<MainType, Dynamic, Dynamic> best_fit_per_fold = std::get<0>(results); 
             Matrix<MainType, Dynamic, Dynamic> fit_single_mismatch_stats_per_fold = std::get<1>(results); 
@@ -1205,13 +1150,12 @@ int main(int argc, char** argv)
         std::ofstream outfile(outfilename); 
         outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
         outfile << "fold\t" << header_ss.str()
-                << "terminal_cleave_rate\tterminal_bind_rate\ttest_error\t";
+                << "terminal_unbind_rate\tterminal_cleave_rate\t"
+                << "terminal_bind_rate\ttest_error\t";
         for (int i = 0; i < length; ++i)
         {
-            outfile << "mm" << i << "_log_spec\t"
-                    << "mm" << i << "_log_rapid\t"
-                    << "mm" << i << "_log_deaddissoc\t"
-                    << "mm" << i << "_log_composite_rapid\t";
+            outfile << "mm" << i << "_deaddissoc\t"
+                    << "mm" << i << "_composite_cleave_rate_ratio\t";
         }
         int pos = outfile.tellp();
         outfile.seekp(pos - 1);
