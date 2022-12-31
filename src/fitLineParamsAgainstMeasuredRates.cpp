@@ -986,18 +986,25 @@ int main(int argc, char** argv)
     // Assume that the cleavage rate for the perfect-match substrate is
     // specified first ...
     //
-    // ... and thus normalize all composite cleavage rates and invert 
+    // ... and thus normalize all composite cleavage rates and invert
     if (cleave_data.size() > 0)
     {
         for (int i = 1; i < cleave_data.size(); ++i)
             cleave_data(i) = cleave_data(i) / cleave_data(0);   // rate on mismatched / rate on perfect
         cleave_data(0) = 1;
+        /*
+        MainType log_cleave_perfect = log10(cleave_data(0)); 
+        for (int i = 1; i < cleave_data.size(); ++i)
+            cleave_data(i) = log10(cleave_data(i)) - log_cleave_perfect;    // rate on mismatched / rate on perfect
+        cleave_data(0) = 0;
+        */
     }
     std::cout << cleave_data << std::endl;
 
     // Also invert all parsed ndABAs (i.e., specific dissociativities)
     if (unbind_data.size() > 0)
         unbind_data = unbind_data.array().pow(-1).matrix();
+        //unbind_data = -unbind_data.array().log10().matrix(); 
     
     // Add pseudocounts to the cleavage rates and unbinding rates 
     cleave_data += cleave_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_cleave_data);
