@@ -24,8 +24,10 @@
 #include <tuple>
 #include <vector>
 #include <boost/random.hpp>
-#include <linearConstraints.hpp>   // Includes quadraticProgram.hpp from convex-polytopes
-#include <SQP.hpp>                 // Includes Eigen/Dense, CGAL/QP_*, Boost.Multiprecision, boostMultiprecisionEigen.hpp, etc.
+#include <SQP.hpp>                 // Includes linearConstraints.hpp from convex-polytopes, which 
+                                   // includes Eigen/Dense, quadraticProgram.hpp, CGAL/QP_*,
+                                   // boost/multiprecision/gmp.hpp, boostMultiprecisionEigen.hpp; 
+                                   // additionally includes boost/multiprecision/mpfr.hpp
 #include <polytopes.hpp>           // Must be included after SQP.hpp
 #include <graphs/line.hpp>
 #include "../include/utils.hpp"
