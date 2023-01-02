@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     1/1/2023
+ *     1/2/2023
  */
 
 #include <iostream>
@@ -618,13 +618,13 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, 1> >
     // Set up an SQPOptimizer instance
     std::string poly_filename = "polytopes/line-2-w4-plusbind.poly"; 
     std::string vert_filename = "polytopes/line-2-w4-plusbind.vert";
-    Polytopes::LinearConstraints* constraints_opt = new Polytopes::LinearConstraints(
+    Polytopes::LinearConstraints* constraints = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo 
     );
-    constraints_opt->parse(poly_filename);
-    const int D = constraints_opt->getD(); 
-    const int N = constraints_opt->getN(); 
-    SQPOptimizer<MainType>* opt = new SQPOptimizer<MainType>(constraints_opt);
+    constraints->parse(poly_filename);
+    const int D = constraints->getD(); 
+    const int N = constraints->getN(); 
+    SQPOptimizer<MainType>* opt = new SQPOptimizer<MainType>(constraints);
 
     // Sample a set of initial parameter points from the given polytope 
     Delaunay_triangulation* tri = new Delaunay_triangulation(D); 
@@ -632,6 +632,26 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, 1> >
     Polytopes::parseVerticesFile(vert_filename, tri);
     init_points = Polytopes::sampleFromConvexPolytope<MAIN_PRECISION>(tri, ninit, 0, rng);
     delete tri;
+
+    // Get the vertices of the given polytope and extract the min/max bounds 
+    // of each parameter
+    Matrix<mpq_rational, Dynamic, Dynamic> vertices = Polytopes::parseVertexCoords(vert_filename); 
+    Matrix<MainType, Dynamic, 2> bounds(D, 2); 
+    for (int i = 0; i < D; ++i)
+    {
+        mpq_rational min_param = std::numeric_limits<mpq_rational>::infinity(); 
+        mpq_rational max_param = -std::numeric_limits<mpq_rational>::infinity();
+        for (int j = 0; j < vertices.rows(); ++j)
+        {
+            if (min_param > vertices(j, i))
+                min_param = vertices(j, i); 
+            if (max_param < vertices(j, i))
+                max_param = vertices(j, i);
+        }
+        bounds(i, 0) = static_cast<MainType>(min_param); 
+        bounds(i, 1) = static_cast<MainType>(max_param);
+    }
+    Matrix<MainType, Dynamic, 1> regularize_bases = (bounds.col(0) + bounds.col(1)) / 2;
 
     // Define objective function and vector of regularization weights
     std::function<MainType(const Ref<const Matrix<MainType, Dynamic, 1> >&)> func;
@@ -693,15 +713,15 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, 1> >
         x_init = init_points.row(i); 
         l_init = (
             Matrix<MainType, Dynamic, 1>::Ones(N)
-            - constraints_opt->active(x_init.cast<mpq_rational>()).template cast<MainType>()
+            - constraints->active(x_init.cast<mpq_rational>()).template cast<MainType>()
         );
 
         // Obtain best-fit parameter values from the initial parameters
         best_fits.row(i) = opt->run(
-            func, quasi_newton, regularize, regularize_weights, qp_solve_method,
-            x_init, l_init, delta, beta, sqp_min_stepsize, max_iter, tol,
-            x_tol, qp_stepsize_tol, hessian_modify_max_iter, c1, c2,
-            line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
+            func, quasi_newton, regularize, regularize_bases, regularize_weights,
+            qp_solve_method, x_init, l_init, delta, beta, sqp_min_stepsize,
+            max_iter, tol, x_tol, qp_stepsize_tol, hessian_modify_max_iter,
+            c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
             search_verbose, zoom_verbose
         );
         std::pair<MainType, MainType> error;
