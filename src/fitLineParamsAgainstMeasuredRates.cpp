@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     1/2/2023
+ *     1/3/2023
  */
 
 #include <iostream>
@@ -639,20 +639,12 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, 1> >
     Matrix<MainType, Dynamic, 2> bounds(D, 2); 
     for (int i = 0; i < D; ++i)
     {
-        mpq_rational min_param = std::numeric_limits<mpq_rational>::infinity(); 
-        mpq_rational max_param = -std::numeric_limits<mpq_rational>::infinity();
-        for (int j = 0; j < vertices.rows(); ++j)
-        {
-            if (min_param > vertices(j, i))
-                min_param = vertices(j, i); 
-            if (max_param < vertices(j, i))
-                max_param = vertices(j, i);
-        }
+        mpq_rational min_param = vertices.col(i).minCoeff();
+        mpq_rational max_param = vertices.col(i).maxCoeff();
         bounds(i, 0) = static_cast<MainType>(min_param); 
         bounds(i, 1) = static_cast<MainType>(max_param);
     }
     Matrix<MainType, Dynamic, 1> regularize_bases = (bounds.col(0) + bounds.col(1)) / 2;
-    std::cout << regularize_bases << std::endl; 
 
     // Define objective function and vector of regularization weights
     std::function<MainType(const Ref<const Matrix<MainType, Dynamic, 1> >&)> func;
@@ -1066,11 +1058,6 @@ int main(int argc, char** argv)
     if (n_cleave_data == 0 && n_unbind_data == 0)
         throw std::runtime_error("Both cleavage rate and unbinding rate datasets are empty");
 
-    std::cout << cleave_data << std::endl; 
-    std::cout << cleave_seqs << std::endl; 
-    std::cout << unbind_data << std::endl; 
-    std::cout << unbind_seqs << std::endl; 
-
     // Assume that the cleavage rate for the perfect-match substrate is
     // specified first ...
     //
@@ -1082,7 +1069,6 @@ int main(int argc, char** argv)
                                                                 // = rate on mismatched / rate on perfect
         cleave_data(0) = 1;
     }
-    std::cout << cleave_data << std::endl;
 
     // Also invert all parsed ndABAs (i.e., specific dissociativities)
     if (unbind_data.size() > 0)
