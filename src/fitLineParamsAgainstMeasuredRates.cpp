@@ -652,12 +652,14 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, 1> >
         bounds(i, 1) = static_cast<MainType>(max_param);
     }
     Matrix<MainType, Dynamic, 1> regularize_bases = (bounds.col(0) + bounds.col(1)) / 2;
+    std::cout << regularize_bases << std::endl; 
 
     // Define objective function and vector of regularization weights
     std::function<MainType(const Ref<const Matrix<MainType, Dynamic, 1> >&)> func;
     Matrix<MainType, Dynamic, 1> regularize_weights(D);
-    regularize_weights.head(D - 1) = regularize_weight * Matrix<MainType, Dynamic, 1>::Ones(D - 1);
-    regularize_weights(D - 1) = 0;   // No regularization for terminal binding rate 
+    //regularize_weights.head(D - 1) = regularize_weight * Matrix<MainType, Dynamic, 1>::Ones(D - 1);
+    //regularize_weights(D - 1) = 0;   // No regularization for terminal binding rate
+    regularize_weights = regularize_weight * Matrix<MainType, Dynamic, 1>::Ones(D); 
     if (error_mode == 0)   // Mean absolute percentage error 
     {
         func = [
