@@ -649,9 +649,14 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, 1> >
     // Define objective function and vector of regularization weights
     std::function<MainType(const Ref<const Matrix<MainType, Dynamic, 1> >&)> func;
     Matrix<MainType, Dynamic, 1> regularize_weights(D);
-    //regularize_weights.head(D - 1) = regularize_weight * Matrix<MainType, Dynamic, 1>::Ones(D - 1);
-    //regularize_weights(D - 1) = 0;   // No regularization for terminal binding rate
-    regularize_weights = regularize_weight * Matrix<MainType, Dynamic, 1>::Ones(D); 
+    regularize_weights = regularize_weight * Matrix<MainType, Dynamic, 1>::Ones(D);
+
+    // Taking the given regularization weight as that for the first parameter,
+    // re-scale the other regularization weights according to their ranges
+    MainType range = bounds(0, 1) - bounds(0, 0);
+    for (int i = 1; i < D; ++i)
+        regularize_weights(i) *= range / (bounds(i, 1) - bounds(i, 0));
+
     if (error_mode == 0)   // Mean absolute percentage error 
     {
         func = [
