@@ -67,7 +67,6 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
     stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 2) = model->getLowerExitRate(terminal_unbind_rate);
-    stats(0, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);  
 
     // Introduce single mismatches and re-compute the four output metrics 
     for (int j = 0; j < length; ++j)
