@@ -9,7 +9,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     12/6/2022
+ *     1/7/2023
  */
 
 #include <iostream>
@@ -42,7 +42,7 @@ boost::random::mt19937 rng(1234567890);
  * against distal-mismatch substrates. 
  */
 template <typename T>
-Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
+Matrix<T, Dynamic, 6> computeCleavageStats(const Ref<const VectorXd>& logrates)
 {
     // Define arrays of DNA/RNA match and mismatch parameters 
     std::pair<T, T> match_rates = std::make_pair(
@@ -63,11 +63,10 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
     // live unbinding rate
     T terminal_unbind_rate = 1;
     T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(4)));
-    Matrix<T, Dynamic, 8> stats = Matrix<T, Dynamic, 8>::Zero(length + 1, 8); 
+    Matrix<T, Dynamic, 6> stats = Matrix<T, Dynamic, 6>::Zero(length + 1, 6); 
     stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 2) = model->getLowerExitRate(terminal_unbind_rate);
-    stats(0, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);  
 
     // Introduce distal mismatches and re-compute the four output metrics 
     for (int j = 1; j <= length; ++j)    // j = number of distal mismatches 
@@ -76,11 +75,9 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
         stats(j, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         stats(j, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
         stats(j, 2) = model->getLowerExitRate(terminal_unbind_rate);
-        stats(j, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        stats(j, 4) = log10(stats(0, 0)) - log10(stats(j, 0));
-        stats(j, 5) = log10(stats(0, 1)) - log10(stats(j, 1)); 
-        stats(j, 6) = log10(stats(j, 2)) - log10(stats(0, 2));
-        stats(j, 7) = log10(stats(j, 3)) - log10(stats(0, 3));
+        stats(j, 3) = log10(stats(0, 0)) - log10(stats(j, 0));
+        stats(j, 4) = log10(stats(0, 1)) - log10(stats(j, 1)); 
+        stats(j, 5) = log10(stats(j, 2)) - log10(stats(0, 2));
     }
 
     delete model;
@@ -109,22 +106,18 @@ int main(int argc, char** argv)
     Matrix<PreciseType, Dynamic, Dynamic> probs(n, length + 1);
     Matrix<PreciseType, Dynamic, Dynamic> cleave_rates(n, length + 1);
     Matrix<PreciseType, Dynamic, Dynamic> dead_unbind_rates(n, length + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> live_unbind_rates(n, length + 1);
     Matrix<PreciseType, Dynamic, Dynamic> specs(n, length);
     Matrix<PreciseType, Dynamic, Dynamic> rapid(n, length); 
     Matrix<PreciseType, Dynamic, Dynamic> dead_dissoc(n, length);
-    Matrix<PreciseType, Dynamic, Dynamic> live_dissoc(n, length);  
     for (unsigned i = 0; i < n; ++i)
     {
-        Matrix<PreciseType, Dynamic, 8> stats = computeCleavageStats<PreciseType>(params.row(i));
+        Matrix<PreciseType, Dynamic, 6> stats = computeCleavageStats<PreciseType>(params.row(i));
         probs.row(i) = stats.col(0);
         cleave_rates.row(i) = stats.col(1);
         dead_unbind_rates.row(i) = stats.col(2);
-        live_unbind_rates.row(i) = stats.col(3);
-        specs.row(i) = stats.col(4).tail(length); 
-        rapid.row(i) = stats.col(5).tail(length); 
-        dead_dissoc.row(i) = stats.col(6).tail(length); 
-        live_dissoc.row(i) = stats.col(7).tail(length); 
+        specs.row(i) = stats.col(3).tail(length); 
+        rapid.row(i) = stats.col(4).tail(length); 
+        dead_dissoc.row(i) = stats.col(5).tail(length); 
     }
 
     // Write sampled log-rates to file
@@ -167,7 +160,7 @@ int main(int argc, char** argv)
     oss.str(std::string());
 
     // Write matrix of cleavage rates 
-    oss << argv[2] << "-cleaverates.tsv";
+    oss << argv[2] << "-cleave.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -186,7 +179,7 @@ int main(int argc, char** argv)
     oss.str(std::string());
 
     // Write matrix of dead unbinding rates
-    oss << argv[2] << "-deadunbindrates.tsv";
+    oss << argv[2] << "-unbind.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -198,25 +191,6 @@ int main(int argc, char** argv)
                 outfile << dead_unbind_rates(i, j) << "\t";
             }
             outfile << dead_unbind_rates(i, length) << std::endl; 
-        }
-    }
-    outfile.close();
-    oss.clear();
-    oss.str(std::string());
-
-    // Write matrix of live unbinding rates
-    oss << argv[2] << "-liveunbindrates.tsv";
-    outfile.open(oss.str());
-    outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
-    if (outfile.is_open())
-    {
-        for (unsigned i = 0; i < n; ++i)
-        {
-            for (unsigned j = 0; j < length; ++j)
-            {
-                outfile << live_unbind_rates(i, j) << "\t";
-            }
-            outfile << live_unbind_rates(i, length) << std::endl; 
         }
     }
     outfile.close();
@@ -279,23 +253,6 @@ int main(int argc, char** argv)
     outfile.close();
     oss.clear();
     oss.str(std::string());
-
-    // Write matrix of live specific dissociativities 
-    oss << argv[2] << "-livedissoc.tsv";
-    outfile.open(oss.str());
-    outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
-    if (outfile.is_open())
-    {
-        for (unsigned i = 0; i < n; ++i)
-        {
-            for (unsigned j = 0; j < length - 1; ++j)
-            {
-                outfile << live_dissoc(i, j) << "\t"; 
-            }
-            outfile << live_dissoc(i, length-1) << std::endl; 
-        }
-    }
-    outfile.close();
 
     return 0;
 }
