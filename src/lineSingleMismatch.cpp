@@ -42,7 +42,7 @@ boost::random::mt19937 rng(1234567890);
  * against single-mismatch substrates. 
  */
 template <typename T>
-Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
+Matrix<T, Dynamic, 6> computeCleavageStats(const Ref<const VectorXd>& logrates)
 {
     // Define arrays of DNA/RNA match and mismatch parameters 
     std::pair<T, T> match_rates = std::make_pair(
@@ -63,7 +63,7 @@ Matrix<T, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& logrates)
     // live unbinding rate
     T terminal_unbind_rate = 1;
     T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(4))); 
-    Matrix<T, Dynamic, 8> stats = Matrix<T, Dynamic, 8>::Zero(length + 1, 8); 
+    Matrix<T, Dynamic, 6> stats = Matrix<T, Dynamic, 6>::Zero(length + 1, 6); 
     stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 2) = model->getLowerExitRate(terminal_unbind_rate);
@@ -113,7 +113,7 @@ int main(int argc, char** argv)
     Matrix<PreciseType, Dynamic, Dynamic> dead_dissoc(n, length);
     for (unsigned i = 0; i < n; ++i)
     {
-        Matrix<PreciseType, Dynamic, 8> stats = computeCleavageStats<PreciseType>(params.row(i));
+        Matrix<PreciseType, Dynamic, 6> stats = computeCleavageStats<PreciseType>(params.row(i));
         probs.row(i) = stats.col(0);
         cleave_rates.row(i) = stats.col(1);
         dead_unbind_rates.row(i) = stats.col(2);
