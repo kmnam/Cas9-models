@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     1/3/2023
+ *     1/12/2023
  */
 
 #include <iostream>
@@ -319,7 +319,7 @@ Matrix<MainType, Dynamic, 8> computeCleavageStatsAll(const Ref<const Matrix<Main
         stats(i, 0) = prob; 
         stats(i, 1) = cleave_rate; 
         stats(i, 2) = dead_unbind_rate; 
-        stats(i, 3) = live_unbind_rate;
+        stats(i, 3) = composite_cleave_time;
 
         // Compute cleavage specificity: prob on perfect / prob on mismatched
         stats(i, 4) = log10(prob_perfect) - log10(prob);
@@ -1116,13 +1116,13 @@ int main(int argc, char** argv)
         for (int i = 0; i < length; ++i)
         {
             outfile << "mm" << i << "_prob\t"
-                    << "mm" << i << "_cleave_rate\t"
-                    << "mm" << i << "_dead_unbind_rate\t"
-                    << "mm" << i << "_live_unbind_rate\t"
+                    << "mm" << i << "_cleave\t"
+                    << "mm" << i << "_unbind\t"
+                    << "mm" << i << "_compcleave\t"
                     << "mm" << i << "_spec\t"
                     << "mm" << i << "_rapid\t"
                     << "mm" << i << "_deaddissoc\t"
-                    << "mm" << i << "_composite_cleave_rate_ratio\t";
+                    << "mm" << i << "_compcleaveratio\t";
         }
         int pos = outfile.tellp();
         outfile.seekp(pos - 1);
