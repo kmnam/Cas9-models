@@ -253,8 +253,6 @@ int main(int argc, char** argv)
         }
     }
     outfile.close();
-    oss.clear();
-    oss.str(std::string());
 
     return 0;
 }

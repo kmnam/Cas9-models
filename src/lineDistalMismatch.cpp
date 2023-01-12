@@ -9,7 +9,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/7/2023
+ *     1/12/2023
  */
 
 #include <iostream>
@@ -29,8 +29,9 @@ using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::log10;
-typedef number<mpfr_float_backend<100> > PreciseType;
-const int INTERNAL_PRECISION = 100; 
+constexpr int INTERNAL_PRECISION = 100;
+typedef number<mpfr_float_backend<INTERNAL_PRECISION> > PreciseType;
+const PreciseType ten("10");
 const int length = 20;
 
 // Instantiate random number generator 
@@ -45,25 +46,25 @@ template <typename T>
 Matrix<T, Dynamic, 6> computeCleavageStats(const Ref<const VectorXd>& logrates)
 {
     // Define arrays of DNA/RNA match and mismatch parameters 
-    std::pair<T, T> match_rates = std::make_pair(
-        static_cast<T>(std::pow(10.0, logrates(0))),
-        static_cast<T>(std::pow(10.0, logrates(1)))
+    std::pair<PreciseType, PreciseType> match_rates = std::make_pair(
+        pow(ten, static_cast<PreciseType>(logrates(0))),
+        pow(ten, static_cast<PreciseType>(logrates(1)))
     );
-    std::pair<T, T> mismatch_rates = std::make_pair(
-        static_cast<T>(std::pow(10.0, logrates(2))),
-        static_cast<T>(std::pow(10.0, logrates(3)))
+    std::pair<PreciseType, PreciseType> mismatch_rates = std::make_pair(
+        pow(ten, static_cast<PreciseType>(logrates(2))),
+        pow(ten, static_cast<PreciseType>(logrates(3)))
     );
 
     // Populate each rung with DNA/RNA match parameters
-    LineGraph<T, T>* model = new LineGraph<T, T>(length);
+    LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
     for (int j = 0; j < length; ++j)
         model->setEdgeLabels(j, match_rates); 
     
     // Compute cleavage probability, cleavage rate, dead unbinding rate, and
     // live unbinding rate
-    T terminal_unbind_rate = 1;
-    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, logrates(4)));
-    Matrix<T, Dynamic, 6> stats = Matrix<T, Dynamic, 6>::Zero(length + 1, 6); 
+    PreciseType terminal_unbind_rate = pow(ten, static_cast<PreciseType>(logrates(4)));
+    PreciseType terminal_cleave_rate = pow(ten, static_cast<PreciseType>(logrates(5)));
+    Matrix<PreciseType, Dynamic, 6> stats = Matrix<PreciseType, Dynamic, 6>::Zero(length + 1, 6); 
     stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 2) = model->getLowerExitRate(terminal_unbind_rate);
@@ -92,7 +93,7 @@ int main(int argc, char** argv)
 
     // Sample model parameter combinations
     int n = std::stoi(argv[3]);
-    MatrixXd params(n, 5);
+    MatrixXd params(n, 6);
     try
     {
         params = Polytopes::sampleFromConvexPolytope<INTERNAL_PRECISION>(argv[1], n, 0, rng);
@@ -251,8 +252,6 @@ int main(int argc, char** argv)
         }
     }
     outfile.close();
-    oss.clear();
-    oss.str(std::string());
 
     return 0;
 }
