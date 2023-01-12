@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     11/6/2022
+ *     1/12/2023
  */
 
 #include <iostream>
@@ -21,7 +21,6 @@
 #include <utility>
 #include <iomanip>
 #include <tuple>
-#include <Eigen/Dense>
 #include <boost/container_hash/hash.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <boost/random.hpp>
@@ -473,8 +472,8 @@ int main(int argc, char** argv)
         max_edges, n_keep_interior, n_keep_origbound, n_mutate_origbound,
         n_pull_origbound, delta, beta, min_stepsize, hessian_modify_max_iter,
         ss.str(), RegularizationMethod::NOREG, VectorXd::Zero(finder->getD()),
-        QuadraticProgramSolveMethod::USE_CUSTOM_SOLVER, c1, c2,
-        line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
+        VectorXd::Zero(finder->getD()), QuadraticProgramSolveMethod::USE_CUSTOM_SOLVER,
+        c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
         sqp_verbose, sqp_line_search_verbose, sqp_zoom_verbose,
         traversal_verbose, write_pulled_points 
     );
