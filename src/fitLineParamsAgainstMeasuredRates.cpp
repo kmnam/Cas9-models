@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     1/12/2023
+ *     1/13/2023
  */
 
 #include <iostream>
@@ -616,8 +616,8 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, 1> >
                                       const bool zoom_verbose) 
 {
     // Set up an SQPOptimizer instance
-    std::string poly_filename = "polytopes/line-2-w4-plusbind.poly"; 
-    std::string vert_filename = "polytopes/line-2-w4-plusbind.vert";
+    std::string poly_filename = "polytopes/line-2-w2-plusbind.poly"; 
+    std::string vert_filename = "polytopes/line-2-w2-plusbind.vert";
     Polytopes::LinearConstraints* constraints = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo 
     );
