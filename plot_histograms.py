@@ -3,7 +3,7 @@ Authors:
     Kee-Myoung Nam
 
 Last updated:
-    1/12/2023
+    1/13/2023
 """
 import numpy as np
 import pandas as pd
@@ -142,24 +142,24 @@ def main():
             marker=None, zorder=0
         )
     indices = [            # Handpicked plots to be highlighted in different colors 
-        134,  # blue
-        400,  # orange 
-        768,  # green 
-        284,  # red
-        534,  # purple
-        230,  # brown (update to yellow)
-        307   # pink
+        704,  # blue
+        146,  # orange 
+        830,  # green 
+        697,  # red
+        440,  # purple
+        105,  # brown (update to yellow)
+        139   # pink
     ]
     palette = sns.color_palette('colorblind', len(indices))
     palette[-2] = sns.color_palette('colorblind', 9)[8]    # Replace brown with yellow
     for i, j in enumerate(indices):
         axes['A0'].plot(
             list(range(20)), probs[j, 1:], c=palette[i], marker=None, zorder=1,
-            linewidth=3
+            linewidth=2
         )
         axes['A1'].plot(
             list(range(20)), np.power(10.0, -specs[j, :]), c=palette[i],
-            marker=None, zorder=1, linewidth=3
+            marker=None, zorder=1, linewidth=2
         )
     axes['A0'].set_xlim([-0.5, 19.5])
     axes['A0'].set_xlabel(r'$m$', size=10)
