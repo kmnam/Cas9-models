@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     1/12/2023
+ *     1/13/2023
  */
 
 #include <iostream>
@@ -32,7 +32,10 @@ using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::log10;
-typedef number<mpfr_float_backend<100> > PreciseType; 
+using boost::multiprecision::pow;
+constexpr int INTERNAL_PRECISION = 100;
+typedef number<mpfr_float_backend<INTERNAL_PRECISION> > PreciseType;
+const PreciseType ten("10");
 const int length = 20;
 
 // Instantiate random number generator 
@@ -74,33 +77,33 @@ T getMaxDist(const Ref<const Matrix<T, Dynamic, Dynamic> >& vertices)
  * @returns Cleavage activity and cleavage specificity w.r.t the single-mismatch
  *          substrate for the given mismatch position.
  */
-template <typename T, int position>
+template <int position>
 VectorXd computeCleavageStats(const Ref<const VectorXd>& input) 
 {
     // Array of DNA/RNA match parameters
-    std::pair<T, T> match;
-    match.first = static_cast<T>(std::pow(10.0, input(0)));
-    match.second = static_cast<T>(std::pow(10.0, input(1)));
+    std::pair<PreciseType, PreciseType> match;
+    match.first = pow(ten, static_cast<PreciseType>(input(0))); 
+    match.second = pow(ten, static_cast<PreciseType>(input(1)));
 
     // Array of DNA/RNA mismatch parameters
-    std::pair<T, T> mismatch;
-    mismatch.first = static_cast<T>(std::pow(10.0, input(2)));
-    mismatch.second = static_cast<T>(std::pow(10.0, input(3)));
+    std::pair<PreciseType, PreciseType> mismatch;
+    mismatch.first = pow(ten, static_cast<PreciseType>(input(2)));
+    mismatch.second = pow(ten, static_cast<PreciseType>(input(3)));
 
     // Populate each rung with DNA/RNA match parameters
-    LineGraph<T, T>* model = new LineGraph<T, T>(length);
+    LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
     for (int j = 0; j < length; ++j)
         model->setEdgeLabels(j, match);
     
     // Compute cleavage probability on the perfect-match substrate
-    T terminal_unbind_rate = 1;
-    T terminal_cleave_rate = static_cast<T>(std::pow(10.0, input(4))); 
-    T prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
+    PreciseType terminal_unbind_rate = pow(ten, static_cast<PreciseType>(input(4)));
+    PreciseType terminal_cleave_rate = pow(ten, static_cast<PreciseType>(input(5)));
+    PreciseType prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
 
     // Introduce one mismatch at the specified position and re-compute
     // cleavage probability
     model->setEdgeLabels(position, mismatch); 
-    T prob_mismatched = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
+    PreciseType prob_mismatched = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
 
     // Compile results and return 
     VectorXd output(2);
@@ -118,51 +121,50 @@ VectorXd computeCleavageStats(const Ref<const VectorXd>& input)
  * @param position Mismatch position.
  * @returns Template specialization of `computeCleavageStats()`.
  */ 
-template <typename T>
 std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(const int position)
 {
     switch (position)
     {
         case 0:
-            return computeCleavageStats<PreciseType, 0>;
+            return computeCleavageStats<0>;
         case 1: 
-            return computeCleavageStats<PreciseType, 1>;
+            return computeCleavageStats<1>;
         case 2:
-            return computeCleavageStats<PreciseType, 2>; 
+            return computeCleavageStats<2>; 
         case 3: 
-            return computeCleavageStats<PreciseType, 3>; 
+            return computeCleavageStats<3>; 
         case 4: 
-            return computeCleavageStats<PreciseType, 4>; 
+            return computeCleavageStats<4>; 
         case 5: 
-            return computeCleavageStats<PreciseType, 5>; 
+            return computeCleavageStats<5>; 
         case 6: 
-            return computeCleavageStats<PreciseType, 6>; 
+            return computeCleavageStats<6>; 
         case 7: 
-            return computeCleavageStats<PreciseType, 7>; 
+            return computeCleavageStats<7>; 
         case 8: 
-            return computeCleavageStats<PreciseType, 8>; 
+            return computeCleavageStats<8>; 
         case 9: 
-            return computeCleavageStats<PreciseType, 9>; 
+            return computeCleavageStats<9>; 
         case 10: 
-            return computeCleavageStats<PreciseType, 10>; 
+            return computeCleavageStats<10>; 
         case 11:
-            return computeCleavageStats<PreciseType, 11>; 
+            return computeCleavageStats<11>; 
         case 12: 
-            return computeCleavageStats<PreciseType, 12>; 
+            return computeCleavageStats<12>; 
         case 13: 
-            return computeCleavageStats<PreciseType, 13>; 
+            return computeCleavageStats<13>; 
         case 14: 
-            return computeCleavageStats<PreciseType, 14>; 
+            return computeCleavageStats<14>; 
         case 15:
-            return computeCleavageStats<PreciseType, 15>; 
+            return computeCleavageStats<15>; 
         case 16: 
-            return computeCleavageStats<PreciseType, 16>; 
+            return computeCleavageStats<16>; 
         case 17: 
-            return computeCleavageStats<PreciseType, 17>; 
+            return computeCleavageStats<17>; 
         case 18:
-            return computeCleavageStats<PreciseType, 18>; 
+            return computeCleavageStats<18>; 
         case 19:
-            return computeCleavageStats<PreciseType, 19>; 
+            return computeCleavageStats<19>; 
         default:
             throw std::invalid_argument("Invalid mismatch position");
     }
@@ -454,7 +456,7 @@ int main(int argc, char** argv)
         tol, rng, poly_filename, vert_filename,
         Polytopes::InequalityType::GreaterThanOrEqualTo
     );
-    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc<PreciseType>(mismatch_pos);
+    std::function<VectorXd(const Ref<const VectorXd>&)> func = getCleavageFunc(mismatch_pos);
     finder->setFunc(func);  
     double mutate_delta = 0.1 * getMaxDist<double>(finder->getVertices());
 
