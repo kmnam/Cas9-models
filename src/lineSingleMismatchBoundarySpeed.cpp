@@ -67,14 +67,14 @@ T getMaxDist(const Ref<const Matrix<T, Dynamic, Dynamic> >& vertices)
 /**
  * Compute the following quantities for the given set of LGPs:
  *
- * - cleavage activity w.r.t the perfect-match substrate and
+ * - (conditional) cleavage rate w.r.t the perfect-match substrate and
  * - cleavage specificity w.r.t the single-mismatch substrate for the given 
  *   mismatch position 
  *
  * with the terminal unbinding rate set to one.
  *
  * @param input Input vector of LGPs.
- * @returns Cleavage activity and cleavage specificity w.r.t the single-mismatch
+ * @returns Cleavage rate and cleavage specificity w.r.t the single-mismatch
  *          substrate for the given mismatch position.
  */
 template <int position>
@@ -439,7 +439,7 @@ int main(int argc, char** argv)
         }
     }
     std::stringstream ss;
-    ss << outprefix << "-activity-mm" << mismatch_pos << "-boundary";
+    ss << outprefix << "-speed-mm" << mismatch_pos << "-boundary";
 
     // Parse the given .poly file and store its contents as a string 
     std::ifstream infile(poly_filename); 
