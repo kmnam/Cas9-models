@@ -173,11 +173,11 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(const int po
 
 int main(int argc, char** argv)
 {
-    // Define trivial filtering function
+    // Define filtering function that excludes all output points with y <= 0.1
     std::function<bool(const Ref<const VectorXd>&)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return false;
+            return (x(1) <= 0.1);
         };
 
     /** ------------------------------------------------------- //
@@ -461,12 +461,10 @@ int main(int argc, char** argv)
     finder->setFunc(func);  
     double mutate_delta = 0.1 * getMaxDist<double>(finder->getVertices());
 
-    // Obtain the initial set of input points
-    MatrixXd init_input = finder->sampleInput(n_init);
-
     // Run the boundary-finding algorithm  
+    const int max_nsample = 1000000;
     finder->run(
-        mutate_delta, filter, init_input, min_step_iter, max_step_iter,
+        mutate_delta, filter, n_init, max_nsample, min_step_iter, max_step_iter,
         min_pull_iter, max_pull_iter, sqp_max_iter, sqp_tol, qp_stepsize_tol, 
         max_edges, n_keep_interior, n_keep_origbound, n_mutate_origbound,
         n_pull_origbound, delta, beta, min_stepsize, hessian_modify_max_iter,
