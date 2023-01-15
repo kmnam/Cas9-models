@@ -10,6 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+##########################################################################
 def plot_histograms(filenames, output_prefix):
     # ---------------------------------------------------------------- # 
     # Parse the output metrics for single-mismatch substrates  
@@ -428,7 +429,7 @@ def plot_histograms(filenames, output_prefix):
     plt.savefig('plots/{}-main.pdf'.format(output_prefix))
     plt.close()
     
-#######################################################################
+##########################################################################
 def main():
     filenames = {
         'logrates': 'data/line-2-w2-minusbind-single-logrates.tsv',
@@ -451,6 +452,6 @@ def main():
     }
     plot_histograms(filenames, 'line-2-w2-minusbind-distal')
 
-#######################################################################
+##########################################################################
 if __name__ == '__main__':
     main()
