@@ -438,7 +438,7 @@ def main():
         'cleave': 'data/line-2-w2-minusbind-single-cleave.tsv',
         'unbind': 'data/line-2-w2-minusbind-single-unbind.tsv',
         'rapid': 'data/line-2-w2-minusbind-single-rapid.tsv',
-        'dead_dissoc': 'data/line-2-w2-minusbind-single-deaddissoc.tsv'
+        'deaddissoc': 'data/line-2-w2-minusbind-single-deaddissoc.tsv'
     }
     plot_histograms(filenames, 'line-2-w2-minusbind-single')
     filenames = {
@@ -448,7 +448,7 @@ def main():
         'cleave': 'data/line-2-w2-minusbind-distal-cleave.tsv',
         'unbind': 'data/line-2-w2-minusbind-distal-unbind.tsv',
         'rapid': 'data/line-2-w2-minusbind-distal-rapid.tsv',
-        'dead_dissoc': 'data/line-2-w2-minusbind-distal-deaddissoc.tsv'
+        'deaddissoc': 'data/line-2-w2-minusbind-distal-deaddissoc.tsv'
     }
     plot_histograms(filenames, 'line-2-w2-minusbind-distal')
 
