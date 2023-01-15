@@ -11,7 +11,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/12/2023
+ *     1/15/2023
  */
 
 #include <iostream>
@@ -31,7 +31,7 @@ using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
 using boost::multiprecision::log10;
-constexpr int INTERNAL_PRECISION = 100;
+constexpr int INTERNAL_PRECISION = 200;
 typedef number<mpfr_float_backend<INTERNAL_PRECISION> > PreciseType;
 const int length = 20;
 const PreciseType ten("10");
@@ -64,15 +64,8 @@ Matrix<PreciseType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<bool
     
     // Assign each edge with the appropriate DNA/RNA match parameter 
     LineGraph<PreciseType, PreciseType>* model = new LineGraph<PreciseType, PreciseType>(length);
-    LineGraph<PreciseType, PreciseType>* model_fwd = new LineGraph<PreciseType, PreciseType>(length - 1);
-    LineGraph<PreciseType, PreciseType>* model_rev = new LineGraph<PreciseType, PreciseType>(length - 1);
     for (int j = 0; j < length; ++j)
         model->setEdgeLabels(j, match_rates);
-    for (int j = 0; j < length - 1; ++j)
-    {
-        model_fwd->setEdgeLabels(j, match_rates);
-        model_rev->setEdgeLabels(j, match_rates);
-    }
     
     // Compute cleavage probability, cleavage rate, dead unbinding rate,
     // live unbinding rate, R-loop completion rate, and R-loop dissolution
@@ -80,13 +73,13 @@ Matrix<PreciseType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<bool
     PreciseType terminal_unbind_rate = pow(ten, static_cast<PreciseType>(logrates(4)));
     PreciseType terminal_cleave_rate = pow(ten, static_cast<PreciseType>(logrates(5)));
     PreciseType bind_rate = pow(ten, static_cast<PreciseType>(logrates(6))) * bind_conc; 
-    Matrix<PreciseType, Dynamic, 8> stats = Matrix<PreciseType, Dynamic, 8>::Zero(patterns.rows() + 1, 8); 
+    Matrix<PreciseType, Dynamic, 8> stats = Matrix<PreciseType, Dynamic, 8>::Zero(patterns.rows() + 1, 8);
     stats(0, 0) = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 2) = model->getLowerExitRate(terminal_unbind_rate);
     stats(0, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-    stats(0, 4) = model_fwd->getUpperExitRateFromZero(match_fwd);     // R-loop completion rate 
-    stats(0, 5) = model_rev->getLowerExitRateFromN(match_rev);        // R-loop dissolution rate
+    stats(0, 4) = pow(model->getUpperEndToEndTime(), -1);    // R-loop completion rate 
+    stats(0, 5) = pow(model->getLowerEndToEndTime(), -1);    // R-loop dissolution rate
     
     // Compute the composite cleavage rate on the perfect-match substrate 
     PreciseType term = 1 / stats(0, 0);
@@ -109,24 +102,11 @@ Matrix<PreciseType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<bool
         term = 1 / stats(j+1, 0);
         stats(j+1, 6) = 1 / ((term / bind_rate) + (1 / stats(j+1, 1)) + ((term - 1) / stats(j+1, 3))); 
         stats(j+1, 7) = log10(stats(j+1, 2)) - log10(stats(0, 2));
-        for (int k = 0; k < length - 1; ++k)
-        {
-            if (patterns(j, k))
-                model_fwd->setEdgeLabels(k, match_rates);
-            else
-                model_fwd->setEdgeLabels(k, mismatch_rates);
-            if (patterns(j, k+1))
-                model_rev->setEdgeLabels(k, match_rates);
-            else 
-                model_rev->setEdgeLabels(k, mismatch_rates);
-        }
-        stats(j+1, 4) = model_fwd->getUpperExitRateFromZero(patterns(j, length - 1) ? match_fwd : mismatch_fwd);
-        stats(j+1, 5) = model_rev->getLowerExitRateFromN(patterns(j, 0) ? match_rev : mismatch_rev);
+        stats(j+1, 4) = pow(model->getUpperEndToEndTime(), -1); 
+        stats(j+1, 5) = pow(model->getLowerEndToEndTime(), -1);
     }
 
     delete model;
-    delete model_fwd;
-    delete model_rev;
     return stats;
 }
 
