@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     1/13/2023
+ *     1/15/2023
  */
 
 #include <iostream>
@@ -651,11 +651,10 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, 1> >
     Matrix<MainType, Dynamic, 1> regularize_weights(D);
     regularize_weights = regularize_weight * Matrix<MainType, Dynamic, 1>::Ones(D);
 
-    // Taking the given regularization weight as that for the first parameter,
-    // re-scale the other regularization weights according to their ranges
-    MainType range = bounds(0, 1) - bounds(0, 0);
-    for (int i = 1; i < D; ++i)
-        regularize_weights(i) *= range / (bounds(i, 1) - bounds(i, 0));
+    // Fix the regularization weights of the terminal rates at 1e-6
+    regularize_weights(4) = 1e-6;
+    regularize_weights(5) = 1e-6;
+    regularize_weights(6) = 1e-6;
 
     if (error_mode == 0)   // Mean absolute percentage error 
     {
