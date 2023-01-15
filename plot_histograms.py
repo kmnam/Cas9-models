@@ -10,17 +10,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def main():
+def plot_histograms(filenames, output_prefix):
     # ---------------------------------------------------------------- # 
     # Parse the output metrics for single-mismatch substrates  
     # ---------------------------------------------------------------- #
-    logrates = np.loadtxt('data/line-2-w2-minusbind-single-logrates.tsv')
-    probs = np.loadtxt('data/line-2-w2-minusbind-single-probs.tsv')
-    specs = np.loadtxt('data/line-2-w2-minusbind-single-specs.tsv')
-    cleave = np.loadtxt('data/line-2-w2-minusbind-single-cleave.tsv')
-    unbind = np.loadtxt('data/line-2-w2-minusbind-single-unbind.tsv')
-    rapid = np.loadtxt('data/line-2-w2-minusbind-single-rapid.tsv')
-    dead_dissoc = np.loadtxt('data/line-2-w2-minusbind-single-deaddissoc.tsv')
+    logrates = np.loadtxt(filenames['logrates'])
+    probs = np.loadtxt(filenames['probs'])
+    specs = np.loadtxt(filenames['specs'])
+    cleave = np.loadtxt(filenames['cleave'])
+    unbind = np.loadtxt(filenames['unbind'])
+    rapid = np.loadtxt(filenames['rapid'])
+    dead_dissoc = np.loadtxt(filenames['deaddissoc'])
 
     # Cleavage probabilities on perfect-match substrates
     activities = np.tile(probs[:, 0].reshape((probs.shape[0]), 1), 20)
@@ -198,7 +198,7 @@ def main():
         x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1]
     )
     plt.tight_layout()
-    plt.savefig('plots/line-2-w2-minusbind-single-prob-by-mismatch-all.pdf')
+    plt.savefig('plots/{}-prob-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
 
     # ------------------------------------------------------------- #
@@ -258,7 +258,7 @@ def main():
                     color='red'
                 )
     plt.tight_layout()
-    plt.savefig('plots/line-2-w2-minusbind-single-speed-vs-spec-by-mismatch-all.pdf')
+    plt.savefig('plots/{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
 
     # Then plot the histograms for mismatch positions 4, 9, 14, 19 ...
@@ -306,7 +306,7 @@ def main():
     )
     #print(x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1])
     plt.tight_layout()
-    plt.savefig('plots/line-2-w2-minusbind-single-speed-vs-rapid-by-mismatch-all.pdf')
+    plt.savefig('plots/{}-speed-vs-rapid-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
 
     # ------------------------------------------------------------------------- #
@@ -334,7 +334,7 @@ def main():
     )
     #print(x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1])
     plt.tight_layout()
-    plt.savefig('plots/line-2-w2-minusbind-single-spec-vs-rapid-by-mismatch-all.pdf')
+    plt.savefig('plots/{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
 
     # ------------------------------------------------------------------------------- #
@@ -387,7 +387,7 @@ def main():
                     color='red'
                 )
     plt.tight_layout()
-    plt.savefig('plots/line-2-w2-minusbind-single-spec-vs-deaddissoc-by-mismatch-all.pdf')
+    plt.savefig('plots/{}-spec-vs-deaddissoc-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
 
     indices = [2, 10, 16, 19]
@@ -425,9 +425,32 @@ def main():
         hspace=0.35,
         wspace=0.3
     )
-    plt.savefig('plots/line-2-w2-minusbind-single-main.pdf')
+    plt.savefig('plots/{}-main.pdf'.format(output_prefix))
     plt.close()
     
+#######################################################################
+def main():
+    filenames = {
+        'logrates': 'data/line-2-w2-minusbind-single-logrates.tsv',
+        'probs': 'data/line-2-w2-minusbind-single-probs.tsv',
+        'specs': 'data/line-2-w2-minusbind-single-specs.tsv',
+        'cleave': 'data/line-2-w2-minusbind-single-cleave.tsv',
+        'unbind': 'data/line-2-w2-minusbind-single-unbind.tsv',
+        'rapid': 'data/line-2-w2-minusbind-single-rapid.tsv',
+        'dead_dissoc': 'data/line-2-w2-minusbind-single-deaddissoc.tsv'
+    }
+    plot_histograms(filenames, 'line-2-w2-minusbind-single')
+    filenames = {
+        'logrates': 'data/line-2-w2-minusbind-distal-logrates.tsv',
+        'probs': 'data/line-2-w2-minusbind-distal-probs.tsv',
+        'specs': 'data/line-2-w2-minusbind-distal-specs.tsv',
+        'cleave': 'data/line-2-w2-minusbind-distal-cleave.tsv',
+        'unbind': 'data/line-2-w2-minusbind-distal-unbind.tsv',
+        'rapid': 'data/line-2-w2-minusbind-distal-rapid.tsv',
+        'dead_dissoc': 'data/line-2-w2-minusbind-distal-deaddissoc.tsv'
+    }
+    plot_histograms(filenames, 'line-2-w2-minusbind-distal')
+
 #######################################################################
 if __name__ == '__main__':
     main()
