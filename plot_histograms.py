@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 ##########################################################################
-def plot_histograms(filenames, output_prefix):
+def plot_histograms(filenames, output_prefix, highlight_plot_indices,
+                    label_thresholds=True):
     # ---------------------------------------------------------------- # 
     # Parse the output metrics for single-mismatch substrates  
     # ---------------------------------------------------------------- #
@@ -138,18 +139,9 @@ def plot_histograms(filenames, output_prefix):
             list(range(20)), np.power(10.0, -specs[i, :]), c=(0.9, 0.9, 0.9),
             marker=None, zorder=0
         )
-    indices = [            # Handpicked plots to be highlighted in different colors 
-        704,  # blue
-        146,  # orange 
-        830,  # green 
-        697,  # red
-        440,  # purple
-        105,  # brown (update to yellow)
-        139   # pink
-    ]
-    palette = sns.color_palette('colorblind', len(indices))
+    palette = sns.color_palette('colorblind', len(highlight_plot_indices))
     palette[-2] = sns.color_palette('colorblind', 9)[8]    # Replace brown with yellow
-    for i, j in enumerate(indices):
+    for i, j in enumerate(highlight_plot_indices):
         axes_main['A0'].plot(
             list(range(20)), probs[j, 1:], c=palette[i], marker=None, zorder=1,
             linewidth=2
@@ -222,42 +214,46 @@ def plot_histograms(filenames, output_prefix):
         x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1]
     )
 
-    # For each histogram, identify the upper limit of the rightmost bin in the
-    # second-to-bottommost column 
-    speed_threshold_indices = {}
-    for i in range(4, 20):
-        spec_within_range = (
-            (specs[:, i] >= y_bin_edges[1]) &
-            (specs[:, i] < y_bin_edges[2])
-        )
-        speed_threshold_indices[i] = np.nonzero(
-            x_bin_edges > np.max(speeds[spec_within_range, i])
-        )[0][0]
-    speed_thresholds = {i: x_bin_edges[speed_threshold_indices[i]] for i in range(4, 20)}
-    print(speed_threshold_indices)
-    print(speed_thresholds)
-    for i in range(5):
-        for j in range(4):
-            k = 4 * i + j
-            if k >= 4:
-                key = '{}{}'.format(i, j)
-                xlim = axes[key].get_xlim()
-                axes[key].plot(
-                    [speed_thresholds[k], speed_thresholds[k]],
-                    [y_bin_edges[0], y_bin_edges[-1]],
-                    c='red', linewidth=2, linestyle='--'
-                )
-                xlim = axes[key].get_xlim()
-                xaxis_fraction = (speed_thresholds[k] - xlim[0]) / (xlim[1] - xlim[0])
-                axes[key].annotate(
-                    '{:.1f}'.format(speed_thresholds[k]),
-                    xy=(xaxis_fraction + 0.02, 0.08),
-                    xycoords='axes fraction',
-                    horizontalalignment='left',
-                    verticalalignment='bottom',
-                    size=9,
-                    color='red'
-                )
+    # For each histogram, identify the upper limit within all bins but the 
+    # bottommost
+    if label_thresholds:
+        speed_threshold_indices = {}
+        for i in range(4, 20):
+            spec_within_range = (specs[:, i] >= y_bin_edges[1])
+            try:
+                speed_threshold_indices[i] = np.nonzero(
+                    x_bin_edges > np.max(speeds[spec_within_range, i])
+                )[0][0]
+            except IndexError:
+                speed_threshold_indices[i] = None
+        speed_thresholds = {
+            i: None if speed_threshold_indices[i] is None 
+            else x_bin_edges[speed_threshold_indices[i]] for i in range(4, 20)
+        }
+        print(speed_threshold_indices)
+        print(speed_thresholds)
+        for i in range(5):
+            for j in range(4):
+                k = 4 * i + j
+                if k >= 4 and speed_thresholds[k] is not None:
+                    key = '{}{}'.format(i, j)
+                    xlim = axes[key].get_xlim()
+                    axes[key].plot(
+                        [speed_thresholds[k], speed_thresholds[k]],
+                        [y_bin_edges[0], y_bin_edges[-1]],
+                        c='red', linewidth=2, linestyle='--'
+                    )
+                    xlim = axes[key].get_xlim()
+                    xaxis_fraction = (speed_thresholds[k] - xlim[0]) / (xlim[1] - xlim[0])
+                    axes[key].annotate(
+                        '{:.1f}'.format(speed_thresholds[k]),
+                        xy=(xaxis_fraction + 0.02, 0.08),
+                        xycoords='axes fraction',
+                        horizontalalignment='left',
+                        verticalalignment='bottom',
+                        size=9,
+                        color='red'
+                    )
     plt.tight_layout()
     plt.savefig('plots/{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
@@ -270,25 +266,27 @@ def plot_histograms(filenames, output_prefix):
         r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
         axes_main, indices=indices, ax_indices=['10', '11', '12', '13'], ymin=0
     )
-    for i, k in enumerate(indices):
-        key = '1{}'.format(i)
-        xlim = axes_main[key].get_xlim()
-        axes_main[key].plot(
-            [speed_thresholds[k], speed_thresholds[k]],
-            [y_bin_edges[0], y_bin_edges[-1]],
-            c='red', linewidth=2, linestyle='--'
-        )
-        xlim = axes_main[key].get_xlim()
-        xaxis_fraction = (speed_thresholds[k] - xlim[0]) / (xlim[1] - xlim[0])
-        axes_main[key].annotate(
-            '{:.1f}'.format(speed_thresholds[k]),
-            xy=(xaxis_fraction + 0.02, 0.08),
-            xycoords='axes fraction',
-            horizontalalignment='left',
-            verticalalignment='bottom',
-            size=9,
-            color='red'
-        )
+    if label_thresholds:
+        for i, k in enumerate(indices):
+            key = '1{}'.format(i)
+            if speed_thresholds[k] is not None:
+                xlim = axes_main[key].get_xlim()
+                axes_main[key].plot(
+                    [speed_thresholds[k], speed_thresholds[k]],
+                    [y_bin_edges[0], y_bin_edges[-1]],
+                    c='red', linewidth=2, linestyle='--'
+                )
+                xlim = axes_main[key].get_xlim()
+                xaxis_fraction = (speed_thresholds[k] - xlim[0]) / (xlim[1] - xlim[0])
+                axes_main[key].annotate(
+                    '{:.1f}'.format(speed_thresholds[k]),
+                    xy=(xaxis_fraction + 0.02, 0.08),
+                    xycoords='axes fraction',
+                    horizontalalignment='left',
+                    verticalalignment='bottom',
+                    size=9,
+                    color='red'
+                )
 
     # ------------------------------------------------------------------- #
     # Plot how speed and specific rapidity change with mismatch position
@@ -354,39 +352,40 @@ def plot_histograms(filenames, output_prefix):
     )
     print(x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1])
 
-    # For each plot, identify the upper limit of the uppermost bin in the
-    # second column 
-    dissoc_threshold_indices = {}
-    for i in range(2, 20):
-        spec_within_range = (specs[:, i] >= x_bin_edges[1]) & (specs[:, i] < x_bin_edges[2]) 
-        dissoc_threshold_indices[i] = np.nonzero(
-            y_bin_edges > np.max(dead_dissoc[spec_within_range, i])
-        )[0][0]
-    dissoc_thresholds = {i: y_bin_edges[dissoc_threshold_indices[i]] for i in range(2, 20)}
-    print(dissoc_threshold_indices)
-    print(dissoc_thresholds)
-    for i in range(5):
-        for j in range(4):
-            k = 4 * i + j
-            if k >= 2:
-                key = '{}{}'.format(i, j)
-                xlim = axes[key].get_xlim()
-                axes[key].plot(
-                    [x_bin_edges[0], x_bin_edges[-1]],
-                    [dissoc_thresholds[k], dissoc_thresholds[k]],
-                    c='red', linewidth=2, linestyle='--'
-                )
-                ylim = axes[key].get_ylim()
-                yaxis_fraction = (dissoc_thresholds[k] - ylim[0]) / (ylim[1] - ylim[0])
-                axes[key].annotate(
-                    '{:.1f}'.format(dissoc_thresholds[k]),
-                    xy=(0.97, yaxis_fraction + 0.01),
-                    xycoords='axes fraction',
-                    horizontalalignment='right',
-                    verticalalignment='bottom',
-                    size=9,
-                    color='red'
-                )
+    # For each histogram, identify the upper limit within all bins but the 
+    # rightmost 
+    if label_thresholds:
+        dissoc_threshold_indices = {}
+        for i in range(2, 20):
+            spec_within_range = (specs[:, i] >= x_bin_edges[1])
+            dissoc_threshold_indices[i] = np.nonzero(
+                y_bin_edges > np.max(dead_dissoc[spec_within_range, i])
+            )[0][0]
+        dissoc_thresholds = {i: y_bin_edges[dissoc_threshold_indices[i]] for i in range(2, 20)}
+        print(dissoc_threshold_indices)
+        print(dissoc_thresholds)
+        for i in range(5):
+            for j in range(4):
+                k = 4 * i + j
+                if k >= 2:
+                    key = '{}{}'.format(i, j)
+                    xlim = axes[key].get_xlim()
+                    axes[key].plot(
+                        [x_bin_edges[0], x_bin_edges[-1]],
+                        [dissoc_thresholds[k], dissoc_thresholds[k]],
+                        c='red', linewidth=2, linestyle='--'
+                    )
+                    ylim = axes[key].get_ylim()
+                    yaxis_fraction = (dissoc_thresholds[k] - ylim[0]) / (ylim[1] - ylim[0])
+                    axes[key].annotate(
+                        '{:.1f}'.format(dissoc_thresholds[k]),
+                        xy=(0.97, yaxis_fraction + 0.01),
+                        xycoords='axes fraction',
+                        horizontalalignment='right',
+                        verticalalignment='bottom',
+                        size=9,
+                        color='red'
+                    )
     plt.tight_layout()
     plt.savefig('plots/{}-spec-vs-deaddissoc-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
@@ -399,25 +398,26 @@ def plot_histograms(filenames, output_prefix):
         axes_main, indices=indices, ax_indices=['30', '31', '32', '33'], xmin=0, ymin=0
     )
     print(x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1])
-    for i, k in enumerate(indices):
-        key = '3{}'.format(i)
-        xlim = axes_main[key].get_xlim()
-        axes_main[key].plot(
-            [x_bin_edges[0], x_bin_edges[-1]],
-            [dissoc_thresholds[k], dissoc_thresholds[k]],
-            c='red', linewidth=2, linestyle='--'
-        )
-        ylim = axes_main[key].get_ylim()
-        yaxis_fraction = (dissoc_thresholds[k] - ylim[0]) / (ylim[1] - ylim[0])
-        axes_main[key].annotate(
-            '{:.1f}'.format(dissoc_thresholds[k]),
-            xy=(0.97, yaxis_fraction + 0.01),
-            xycoords='axes fraction',
-            horizontalalignment='right',
-            verticalalignment='bottom',
-            size=9,
-            color='red'
-        )
+    if label_thresholds:
+        for i, k in enumerate(indices):
+            key = '3{}'.format(i)
+            xlim = axes_main[key].get_xlim()
+            axes_main[key].plot(
+                [x_bin_edges[0], x_bin_edges[-1]],
+                [dissoc_thresholds[k], dissoc_thresholds[k]],
+                c='red', linewidth=2, linestyle='--'
+            )
+            ylim = axes_main[key].get_ylim()
+            yaxis_fraction = (dissoc_thresholds[k] - ylim[0]) / (ylim[1] - ylim[0])
+            axes_main[key].annotate(
+                '{:.1f}'.format(dissoc_thresholds[k]),
+                xy=(0.97, yaxis_fraction + 0.01),
+                xycoords='axes fraction',
+                horizontalalignment='right',
+                verticalalignment='bottom',
+                size=9,
+                color='red'
+            )
     plt.subplots_adjust(
         left=0.1,
         right=0.9,
@@ -432,25 +432,40 @@ def plot_histograms(filenames, output_prefix):
 ##########################################################################
 def main():
     filenames = {
-        'logrates': 'data/line-2-w2-minusbind-single-logrates.tsv',
-        'probs': 'data/line-2-w2-minusbind-single-probs.tsv',
-        'specs': 'data/line-2-w2-minusbind-single-specs.tsv',
-        'cleave': 'data/line-2-w2-minusbind-single-cleave.tsv',
-        'unbind': 'data/line-2-w2-minusbind-single-unbind.tsv',
-        'rapid': 'data/line-2-w2-minusbind-single-rapid.tsv',
-        'deaddissoc': 'data/line-2-w2-minusbind-single-deaddissoc.tsv'
+        'logrates': 'data/line-4-w8-minusbind-single-logrates.tsv',
+        'probs': 'data/line-4-w8-minusbind-single-probs.tsv',
+        'specs': 'data/line-4-w8-minusbind-single-specs.tsv',
+        'cleave': 'data/line-4-w8-minusbind-single-cleave.tsv',
+        'unbind': 'data/line-4-w8-minusbind-single-unbind.tsv',
+        'rapid': 'data/line-4-w8-minusbind-single-rapid.tsv',
+        'deaddissoc': 'data/line-4-w8-minusbind-single-deaddissoc.tsv'
     }
-    plot_histograms(filenames, 'line-2-w2-minusbind-single')
+    highlight_plot_indices = [    # Handpicked plots to be highlighted in different colors 
+        704,  # blue
+        146,  # orange 
+        830,  # green 
+        697,  # red
+        440,  # purple
+        105,  # brown (update to yellow)
+        139   # pink
+    ]
+    plot_histograms(
+        filenames, 'line-4-w8-minusbind-single', highlight_plot_indices,
+        label_thresholds=True
+    )
     filenames = {
-        'logrates': 'data/line-2-w2-minusbind-distal-logrates.tsv',
-        'probs': 'data/line-2-w2-minusbind-distal-probs.tsv',
-        'specs': 'data/line-2-w2-minusbind-distal-specs.tsv',
-        'cleave': 'data/line-2-w2-minusbind-distal-cleave.tsv',
-        'unbind': 'data/line-2-w2-minusbind-distal-unbind.tsv',
-        'rapid': 'data/line-2-w2-minusbind-distal-rapid.tsv',
-        'deaddissoc': 'data/line-2-w2-minusbind-distal-deaddissoc.tsv'
+        'logrates': 'data/line-4-w8-minusbind-distal-logrates.tsv',
+        'probs': 'data/line-4-w8-minusbind-distal-probs.tsv',
+        'specs': 'data/line-4-w8-minusbind-distal-specs.tsv',
+        'cleave': 'data/line-4-w8-minusbind-distal-cleave.tsv',
+        'unbind': 'data/line-4-w8-minusbind-distal-unbind.tsv',
+        'rapid': 'data/line-4-w8-minusbind-distal-rapid.tsv',
+        'deaddissoc': 'data/line-4-w8-minusbind-distal-deaddissoc.tsv'
     }
-    plot_histograms(filenames, 'line-2-w2-minusbind-distal')
+    plot_histograms(
+        filenames, 'line-4-w8-minusbind-distal', highlight_plot_indices,
+        label_thresholds=False
+    )
 
 ##########################################################################
 if __name__ == '__main__':
