@@ -11,6 +11,92 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 ##########################################################################
+def plot_metrics_by_mismatch_2d(xvals, yvals, nbins, xlabel, ylabel, axes,
+                                indices=list(range(20)),
+                                ax_indices=[(i, j) for i in range(5) for j in range(4)],
+                                xmin=None, xmax=None, ymin=None, ymax=None,
+                                labelsize=10, ticklabelsize=8, cbar_ticklabelsize=8,
+                                annotate_fmt=r'$M = \{{ {} \}}$'):
+    # First identify the min/max x- and y-values over all mismatch positions
+    if xmin is None:
+        xmin = round(np.min(xvals))
+    if xmax is None:
+        xmax = round(np.max(xvals))
+    if ymin is None:
+        ymin = round(np.min(yvals))
+    if ymax is None:
+        ymax = round(np.max(yvals))
+
+    # Maintain all plotted 2-D histograms and their bin edges
+    x_bin_edges = np.linspace(xmin, xmax, nbins + 1)
+    y_bin_edges = np.linspace(ymin, ymax, nbins + 1)
+    histograms = np.zeros((len(indices), nbins, nbins), dtype=np.float64) 
+
+    # Re-compute and plot the 2-D histograms with the maximum frequency  
+    max_row = max(int(c[0]) for c in ax_indices)
+    for k, (i, j) in enumerate(zip(indices, ax_indices)):
+        sns.histplot(
+            x=xvals[:, i], y=yvals[:, i], ax=axes[j], bins=nbins,
+            binrange=[[xmin, xmax], [ymin, ymax]], stat='probability',
+            cbar=True
+        )
+        hist, _, _ = np.histogram2d(
+            xvals[:, i], yvals[:, i], bins=nbins,
+            range=[[xmin, xmax], [ymin, ymax]]
+        )
+        histograms[k, :, :] = hist
+        if type(j) == str:
+            if j.startswith(str(max_row)):
+                axes[j].set_xlabel(xlabel, size=labelsize)
+            if j.endswith('0'):
+                axes[j].set_ylabel(ylabel, size=labelsize)
+        elif type(j) == tuple:
+            if j[0] == max_row:
+                axes[j].set_xlabel(xlabel, size=labelsize)
+            if j[1] == 0:
+                axes[j].set_ylabel(ylabel, size=labelsize)
+        axes[j].tick_params(axis='both', labelsize=ticklabelsize)
+
+        # Fix colorbar tick labels so that they increase in increments
+        # of 0.1, 0.05, or 0.01 (depending on the maximum value)
+        _, cbar_max = plt.gcf().axes[-1].get_ylim()
+        if cbar_max > 0.2:
+            new_cbar_ticks = [0]
+            while new_cbar_ticks[-1] < cbar_max:
+                new_cbar_ticks.append(new_cbar_ticks[-1] + 0.1)
+        elif cbar_max > 0.1:
+            new_cbar_ticks = [0]
+            while new_cbar_ticks[-1] < cbar_max:
+                new_cbar_ticks.append(new_cbar_ticks[-1] + 0.05)
+        elif cbar_max > 0.02:
+            new_cbar_ticks = [0]
+            while new_cbar_ticks[-1] < cbar_max:
+                new_cbar_ticks.append(new_cbar_ticks[-1] + 0.01)
+        else:
+            new_cbar_ticks = plt.gcf().axes[-1].get_yticks()
+        if new_cbar_ticks[-1] > cbar_max:
+            new_cbar_ticks = new_cbar_ticks[:-1]
+        plt.gcf().axes[-1].set_yticks(new_cbar_ticks)
+        plt.gcf().axes[-1].tick_params(labelsize=cbar_ticklabelsize)
+        
+        # Add padding to the upper side of the y-axis and add an 
+        # annotation on the top-right
+        ax_ymin, ax_ymax = axes[j].get_ylim()
+        axes[j].set_ylim(
+            bottom=ax_ymin, top=(ax_ymin + 1.1 * (ax_ymax - ax_ymin))
+        )
+        axes[j].annotate(
+            annotate_fmt.format(str(i)),
+            xy=(0.97, 0.97),
+            xycoords='axes fraction',
+            horizontalalignment='right',
+            verticalalignment='top',
+            size=9
+        )
+    
+    return histograms, x_bin_edges, y_bin_edges
+
+##########################################################################
 def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
                     label_speed_thresholds=False, label_dissoc_thresholds=True,
                     label_speed_thresholds_from=3, label_dissoc_thresholds_from=2):
@@ -48,91 +134,6 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
         ]
 
     ######################################################################
-    def plot_metrics_by_mismatch_2d(xvals, yvals, nbins, xlabel, ylabel, axes,
-                                    indices=list(range(20)),
-                                    ax_indices=[(i, j) for i in range(5) for j in range(4)],
-                                    xmin=None, xmax=None, ymin=None, ymax=None,
-                                    labelsize=10, ticklabelsize=8, cbar_ticklabelsize=8,
-                                    annotate_fmt=r'$M = \{{ {} \}}$'):
-        # First identify the min/max x- and y-values over all mismatch positions
-        if xmin is None:
-            xmin = round(np.min(xvals))
-        if xmax is None:
-            xmax = round(np.max(xvals))
-        if ymin is None:
-            ymin = round(np.min(yvals))
-        if ymax is None:
-            ymax = round(np.max(yvals))
-
-        # Maintain all plotted 2-D histograms and their bin edges
-        x_bin_edges = np.linspace(xmin, xmax, nbins + 1)
-        y_bin_edges = np.linspace(ymin, ymax, nbins + 1)
-        histograms = np.zeros((len(indices), nbins, nbins), dtype=np.float64) 
-
-        # Re-compute and plot the 2-D histograms with the maximum frequency  
-        max_row = max(int(c[0]) for c in ax_indices)
-        for k, (i, j) in enumerate(zip(indices, ax_indices)):
-            sns.histplot(
-                x=xvals[:, i], y=yvals[:, i], ax=axes[j], bins=nbins,
-                binrange=[[xmin, xmax], [ymin, ymax]], stat='probability',
-                cbar=True
-            )
-            hist, _, _ = np.histogram2d(
-                xvals[:, i], yvals[:, i], bins=nbins,
-                range=[[xmin, xmax], [ymin, ymax]]
-            )
-            histograms[k, :, :] = hist
-            if type(j) == str:
-                if j.startswith(str(max_row)):
-                    axes[j].set_xlabel(xlabel, size=labelsize)
-                if j.endswith('0'):
-                    axes[j].set_ylabel(ylabel, size=labelsize)
-            elif type(j) == tuple:
-                if j[0] == max_row:
-                    axes[j].set_xlabel(xlabel, size=labelsize)
-                if j[1] == 0:
-                    axes[j].set_ylabel(ylabel, size=labelsize)
-            axes[j].tick_params(axis='both', labelsize=ticklabelsize)
-
-            # Fix colorbar tick labels so that they increase in increments
-            # of 0.1, 0.05, or 0.01 (depending on the maximum value)
-            _, cbar_max = plt.gcf().axes[-1].get_ylim()
-            if cbar_max > 0.2:
-                new_cbar_ticks = [0]
-                while new_cbar_ticks[-1] < cbar_max:
-                    new_cbar_ticks.append(new_cbar_ticks[-1] + 0.1)
-            elif cbar_max > 0.1:
-                new_cbar_ticks = [0]
-                while new_cbar_ticks[-1] < cbar_max:
-                    new_cbar_ticks.append(new_cbar_ticks[-1] + 0.05)
-            elif cbar_max > 0.02:
-                new_cbar_ticks = [0]
-                while new_cbar_ticks[-1] < cbar_max:
-                    new_cbar_ticks.append(new_cbar_ticks[-1] + 0.01)
-            else:
-                new_cbar_ticks = plt.gcf().axes[-1].get_yticks()
-            if new_cbar_ticks[-1] > cbar_max:
-                new_cbar_ticks = new_cbar_ticks[:-1]
-            plt.gcf().axes[-1].set_yticks(new_cbar_ticks)
-            plt.gcf().axes[-1].tick_params(labelsize=cbar_ticklabelsize)
-            
-            # Add padding to the upper side of the y-axis and add an 
-            # annotation on the top-right
-            ax_ymin, ax_ymax = axes[j].get_ylim()
-            axes[j].set_ylim(
-                bottom=ax_ymin, top=(ax_ymin + 1.1 * (ax_ymax - ax_ymin))
-            )
-            axes[j].annotate(
-                annotate_fmt.format(str(i)),
-                xy=(0.97, 0.97),
-                xycoords='axes fraction',
-                horizontalalignment='right',
-                verticalalignment='top',
-                size=9
-            )
-        
-        return histograms, x_bin_edges, y_bin_edges
-
     ######################################################################
     # ---------------------------------------------------------------- #
     # Plot how cleavage probability depends on mismatch position ...
