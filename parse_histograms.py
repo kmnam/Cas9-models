@@ -44,13 +44,13 @@ def main():
     # ---------------------------------------------------------------- # 
     # Parse the output metrics for single-mismatch substrates  
     # ---------------------------------------------------------------- #
-    logrates = np.loadtxt('data/line-3-w6-v2-minusbind-single-logrates-subset.tsv')
-    probs = np.loadtxt('data/line-3-w6-v2-minusbind-single-probs-subset.tsv')
-    specs = np.loadtxt('data/line-3-w6-v2-minusbind-single-specs-subset.tsv')
-    cleave = np.loadtxt('data/line-3-w6-v2-minusbind-single-cleave-subset.tsv')
-    unbind = np.loadtxt('data/line-3-w6-v2-minusbind-single-unbind-subset.tsv')
-    rapid = np.loadtxt('data/line-3-w6-v2-minusbind-single-rapid-subset.tsv')
-    dead_dissoc = np.loadtxt('data/line-3-w6-v2-minusbind-single-deaddissoc-subset.tsv')
+    logrates = np.loadtxt('data/line-3-w6-v2-minusbind-single-logrates.tsv')
+    probs = np.loadtxt('data/line-3-w6-v2-minusbind-single-probs.tsv')
+    specs = np.loadtxt('data/line-3-w6-v2-minusbind-single-specs.tsv')
+    cleave = np.loadtxt('data/line-3-w6-v2-minusbind-single-cleave.tsv')
+    unbind = np.loadtxt('data/line-3-w6-v2-minusbind-single-unbind.tsv')
+    rapid = np.loadtxt('data/line-3-w6-v2-minusbind-single-rapid.tsv')
+    dead_dissoc = np.loadtxt('data/line-3-w6-v2-minusbind-single-deaddissoc.tsv')
     ratio_min = -6
     ratio_max = 6
     
@@ -99,14 +99,14 @@ def main():
         p_valid_i = []
         q_valid_i = []
         for j in range(20):   # ... and each bin along the x-axis ... 
-            # Get indices of parameter vectors for top 1000 rapidity values 
+            # Get indices of parameter vectors for top 500 rapidity values 
             # in the j-th column of the i-th histogram
             in_column = (
                 (specs[:, i] >= spec_x_bin_edges[j]) &
                 (specs[:, i] < spec_x_bin_edges[j+1])
             )
-            rapid_top1000_idx = np.argsort(rapid[in_column, i])[-1000:]
-            logrates_valid = logrates[in_column, :][rapid_top1000_idx]
+            rapid_top500_idx = np.argsort(rapid[in_column, i])[-500:]
+            logrates_valid = logrates[in_column, :][rapid_top500_idx]
             for k in range(logrates_valid.shape[0]):
                 c_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 1])
                 cp_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 3])
@@ -156,12 +156,20 @@ def main():
     p_valid = [p_total]
     q_valid = [q_total]
     for i in range(20):
-        neg_rapid = (rapid[:, i] < 0)
-        logrates_valid = logrates[neg_rapid, :]
-        c_valid.append(logrates_valid[:, 0] - logrates_valid[:, 1])
-        cp_valid.append(logrates_valid[:, 2] - logrates_valid[:, 3])
-        p_valid.append(logrates_valid[:, 2] - logrates_valid[:, 1])
-        q_valid.append(logrates_valid[:, 0] - logrates_valid[:, 3])
+        for j in range(20):   # ... and each bin along the x-axis ... 
+            # Get indices of parameter vectors for most negative 500 rapidity
+            # values in the j-th column of the i-th histogram
+            in_column = (
+                (specs[:, i] >= spec_x_bin_edges[j]) &
+                (specs[:, i] < spec_x_bin_edges[j+1])
+            )
+            rapid_bottom500_idx = np.argsort(rapid[in_column, i])[:500]
+            logrates_valid = logrates[in_column, :][rapid_bottom500_idx]
+            for k in range(logrates_valid.shape[0]):
+                c_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 1])
+                cp_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 3])
+                p_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 1])
+                q_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 3])
     sns.boxplot(
         data=c_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
         ax=axes[0], whis=(5, 95)
