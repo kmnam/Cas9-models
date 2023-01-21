@@ -3,7 +3,7 @@ Authors:
     Kee-Myoung Nam
 
 Last updated:
-    1/20/2023
+    1/22/2023
 """
 import numpy as np
 import pandas as pd
@@ -67,8 +67,73 @@ def main():
         range=[ratio_min, ratio_max]
     )
 
+    # Ratios of model parameters
+    c_total = logrates[:, 0] - logrates[:, 1]        # c = b / d
+    cp_total = logrates[:, 2] - logrates[:, 3]       # cp = b' / d'
+    p_total = logrates[:, 2] - logrates[:, 1]        # p = b' / d
+    q_total = logrates[:, 0] - logrates[:, 3]        # q = b / d'
+
     # ---------------------------------------------------------------- #
-    # Plot how specific rapidity changes with mismatch position
+    # Get distributions of parameter ratios for parameter vectors that yield
+    # high activity and low specificity
+    # ---------------------------------------------------------------- #
+    fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(11, 11))
+    c_valid = [c_total]
+    cp_valid = [cp_total]
+    p_valid = [p_total]
+    q_valid = [q_total]
+    start_idx = 0
+    for i in range(start_idx, 20):       # For each mismatch position ...
+        c_valid_i = []
+        cp_valid_i = []
+        p_valid_i = []
+        q_valid_i = []
+        # Get indices of parameter vectors for least 500 specificity values
+        # in the final column of the i-th histogram
+        in_column = (probs[:, 0] >= 0.95)
+        spec_bottom500_idx = np.argsort(specs[in_column, i])[:500]
+        logrates_valid = logrates[in_column, :][spec_bottom500_idx]
+        for k in range(logrates_valid.shape[0]):
+            c_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 1])
+            cp_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 3])
+            p_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 1])
+            q_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 3])
+        c_valid.append(c_valid_i)
+        cp_valid.append(cp_valid_i)
+        p_valid.append(p_valid_i)
+        q_valid.append(q_valid_i)
+    sns.boxplot(
+        data=c_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[0], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=p_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[1], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=q_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[2], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=cp_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[3], whis=(5, 95)
+    )
+    for i in range(4):
+        axes[i].patches[0].set_facecolor(sns.color_palette('deep')[1])
+        for j in range(1, 21 - start_idx):
+            axes[i].patches[j].set_facecolor(sns.color_palette('deep')[0])
+        axes[i].set_xticklabels(['All'] + [str(k) for k in range(start_idx, 20)])
+        axes[i].set_ylim([ratio_min - 0.2, ratio_max + 0.2])
+    axes[0].set_ylabel(r"$\log_{10}(b/d)$")
+    axes[1].set_ylabel(r"$\log_{10}(b'/d)$")
+    axes[2].set_ylabel(r"$\log_{10}(b/d')$")
+    axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
+    plt.tight_layout()
+    plt.savefig('plots/line-3-w6-v2-minusbind-single-highactivity-lowspec-boxplot.pdf')
+    plt.close()
+
+    # ---------------------------------------------------------------- #
+    # Get histograms of specific rapidity across all mismatch positions
     # ---------------------------------------------------------------- #
     histograms, spec_x_bin_edges, rapid_y_bin_edges = get_histogram_per_mismatch_2d(
         specs, rapid, 20, indices=list(range(20)), xmin=0
@@ -84,10 +149,6 @@ def main():
     # high specific rapidity for each bin along the specificity axis
     # ---------------------------------------------------------------- #
     fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(11, 11))
-    c_total = logrates[:, 0] - logrates[:, 1]        # c = b / d
-    cp_total = logrates[:, 2] - logrates[:, 3]       # cp = b' / d'
-    p_total = logrates[:, 2] - logrates[:, 1]        # p = b' / d
-    q_total = logrates[:, 0] - logrates[:, 3]        # q = b / d'
     c_valid = [c_total]
     cp_valid = [cp_total]
     p_valid = [p_total]
