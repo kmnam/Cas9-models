@@ -20,7 +20,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/21/2023
+ *     1/23/2023
  */
 using namespace Eigen;
 using boost::multiprecision::number;
@@ -118,13 +118,28 @@ Matrix<PreciseType, Dynamic, 8> computeCleavageStats(const Ref<const VectorXd>& 
 }
 
 /**
+ * Compute asymptotic activities for randomly parametrized line-graph Cas9
+ * models with large b / d.
+ */
+PreciseType computeAsymptoticActivityForLargeMatchRatio(
+    const Ref<const VectorXd>& logrates, const double _logb, const double _logd)
+{
+    PreciseType logb = static_cast<PreciseType>(_logb);
+    PreciseType terminal_unbind_lograte = static_cast<PreciseType>(logrates(2));
+    return -logsumexp<PreciseType>(0, terminal_unbind_lograte - logb, ten);
+}
+
+/**
  * Compute asymptotic specificities for randomly parametrized line-graph 
  * Cas9 models with large b / d with respect to the PAM-adjacent single-
  * mismatch substrate. 
  */
-PreciseType computeAsymptoticSpecificityProximalForLargeMatchRatio(const Ref<const VectorXd>& logrates)
+PreciseType computeAsymptoticSpecificityProximalForLargeMatchRatio(
+    const Ref<const VectorXd>& logrates, const double _logb, const double _logd)
 {
-    return logsumexp<PreciseType>(0, -static_cast<PreciseType>(logrates(0)), ten);
+    PreciseType logbp = static_cast<PreciseType>(logrates(0));
+    PreciseType terminal_unbind_lograte = static_cast<PreciseType>(logrates(2));
+    return logsumexp<PreciseType>(0, terminal_unbind_lograte - logbp, ten);
 }
 
 /**
@@ -584,53 +599,14 @@ void runConstrainedSampling(const std::string poly_filename, const int n,
         specs.row(i) = stats.col(4).tail(length);
         rapid.row(i) = stats.col(5).tail(length);
     }
-
-    // Compute asymptotic specificities and tradeoff constants 
-    Matrix<PreciseType, Dynamic, Dynamic> asymp_spec;
-    if (fixed_values.find(0) != fixed_values.end() && fixed_values.find(1) != fixed_values.end())
-        asymp_spec.resize(n, 1); 
-    else    // fixed_values contains 2 and 3
-        asymp_spec.resize(n, length); 
-    Matrix<PreciseType, Dynamic, Dynamic> asymp_tradeoff_rapid(n, length); 
-    for (int i = 0; i < n; ++i)
-    { 
-        Matrix<PreciseType, Dynamic, 1> tradeoff_rapid;
-        VectorXd logrates_i(D - 2); 
-        if (fixed_values.find(0) != fixed_values.end() && fixed_values.find(1) != fixed_values.end())
-        {
-            logrates_i = logrates.row(i).tail(D - 2);
-            tradeoff_rapid = computeLimitsForLargeMatchRatio(logrates_i, logrates(i, 0), logrates(i, 1));
-            asymp_spec(i, 0) = computeAsymptoticSpecificityProximalForLargeMatchRatio(logrates_i);
-        }
-        else    // fixed_values contains 2 and 3
-        {
-            logrates_i.head(2) = logrates.row(i).head(2);
-            logrates_i.tail(2) = logrates.row(i).tail(2);
-            tradeoff_rapid = computeLimitsForSmallMismatchRatio(logrates_i, logrates(i, 2), logrates(i, 3));
-            asymp_spec.row(i) = computeAsymptoticSpecificityForSmallMismatchRatio(
-                logrates_i, logrates(i, 2), logrates(i, 3)
-            );
-        }
-        asymp_tradeoff_rapid.row(i) = tradeoff_rapid.col(0);
-    }
-
     std::cout << specs << std::endl; 
     std::cout << "--\n";
     std::cout << rapid << std::endl;
     std::cout << "--\n";
-    std::cout << asymp_tradeoff_rapid << std::endl;
-    std::cout << "--\n";
-    std::cout << asymp_spec << std::endl; 
-    std::cout << "--\n";  
 
-    std::string suffix; 
-    if (fixed_values.find(0) != fixed_values.end() && fixed_values.find(1) != fixed_values.end())
-        suffix = "largematch"; 
-    else     // fixed_values contains 2 and 3
-        suffix = "smallmismatch";
     // Write sampled parameter combinations to file
     std::ostringstream oss;
-    oss << prefix << "-" << suffix << "-logrates.tsv";  
+    oss << prefix << "-logrates.tsv";  
     std::ofstream samplefile(oss.str());
     samplefile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (samplefile.is_open())
@@ -649,7 +625,7 @@ void runConstrainedSampling(const std::string poly_filename, const int n,
     oss.str(std::string());
 
     // Write matrix of cleavage probabilities
-    oss << prefix << "-" << suffix << "-probs.tsv";  
+    oss << prefix << "-exact-probs.tsv";  
     std::ofstream probsfile(oss.str());
     probsfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (probsfile.is_open())
@@ -668,7 +644,7 @@ void runConstrainedSampling(const std::string poly_filename, const int n,
     oss.str(std::string());
 
     // Write matrix of cleavage specificities
-    oss << prefix << "-" << suffix << "-specs.tsv";  
+    oss << prefix << "-exact-specs.tsv";  
     std::ofstream specfile(oss.str());
     specfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (specfile.is_open())
@@ -687,7 +663,7 @@ void runConstrainedSampling(const std::string poly_filename, const int n,
     oss.str(std::string());
 
     // Write matrix of specific rapidities
-    oss << prefix << "-" << suffix << "-rapid.tsv";  
+    oss << prefix << "-exact-rapid.tsv";  
     std::ofstream rapidfile(oss.str());
     rapidfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (rapidfile.is_open())
@@ -705,41 +681,74 @@ void runConstrainedSampling(const std::string poly_filename, const int n,
     oss.clear();
     oss.str(std::string());
 
-    // Write matrix of asymptotic rapidity tradeoff constants
-    oss << prefix << "-" << suffix << "-rapid-asymp.tsv";  
-    std::ofstream rapidfile2(oss.str()); 
-    rapidfile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-    if (rapidfile2.is_open())
+    // Compute asymptotic specificities and tradeoff constants 
+    if (fixed_values.find(0) != fixed_values.end() && fixed_values.find(1) != fixed_values.end())
     {
+        Matrix<PreciseType, Dynamic, 2> asymp_stats(n, 2);    // Activities in column 0, specificities in column 1
         for (int i = 0; i < n; ++i)
-        {
-            for (int j = 0; j < length - 1; ++j)
-            {
-                rapidfile2 << asymp_tradeoff_rapid(i, j) << "\t"; 
-            }
-            rapidfile2 << asymp_tradeoff_rapid(i, length-1) << std::endl; 
+        { 
+            VectorXd logrates_i = logrates.row(i).tail(D - 2);
+            asymp_stats(i, 0) = computeAsymptoticActivityForLargeMatchRatio(
+                logrates_i, logrates(i, 0), logrates(i, 1)
+            );
+            asymp_stats(i, 1) = computeAsymptoticSpecificityProximalForLargeMatchRatio(
+                logrates_i, logrates(i, 0), logrates(i, 1)
+            );
         }
-    }
-    rapidfile2.close();
-    oss.clear();
-    oss.str(std::string());
+        std::cout << asymp_stats << std::endl; 
+        std::cout << "--\n";  
 
-    // Write matrix of asymptotic specificities
-    oss << prefix << "-" << suffix << "-specs-asymp.tsv";  
-    std::ofstream specfile2(oss.str());
-    specfile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-    if (specfile2.is_open())
+        // Write matrix of asymptotic activities and specificities
+        oss << prefix << "-asymp-activities-specs.tsv";  
+        std::ofstream specfile2(oss.str());
+        specfile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
+        if (specfile2.is_open())
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                for (int j = 0; j < asymp_stats.cols() - 1; ++j)
+                {
+                    specfile2 << asymp_stats(i, j) << "\t";
+                }
+                specfile2 << asymp_stats(i, asymp_stats.cols()-1) << std::endl;
+            }
+        }
+        specfile2.close();
+    } 
+    else    // fixed_values contains 2 and 3
     {
+        Matrix<PreciseType, Dynamic, Dynamic> asymp_tradeoff_rapid(n, length); 
         for (int i = 0; i < n; ++i)
         {
-            for (int j = 0; j < asymp_spec.cols() - 1; ++j)
-            {
-                specfile2 << asymp_spec(i, j) << "\t";
-            }
-            specfile2 << asymp_spec(i, asymp_spec.cols()-1) << std::endl;
+            VectorXd logrates_i(D - 2);
+            logrates_i.head(2) = logrates.row(i).head(2);
+            logrates_i.tail(2) = logrates.row(i).tail(2);
+            asymp_tradeoff_rapid.row(i) = computeLimitsForSmallMismatchRatio(
+                logrates_i, logrates(i, 2), logrates(i, 3)
+            ).transpose();
         }
+        std::cout << asymp_tradeoff_rapid << std::endl;
+        std::cout << "--\n";
+
+        // Write matrix of asymptotic rapidity tradeoff constants
+        oss << prefix << "-asymp-smallmismatch-rapid.tsv";  
+        std::ofstream rapidfile2(oss.str()); 
+        rapidfile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
+        if (rapidfile2.is_open())
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                for (int j = 0; j < length - 1; ++j)
+                {
+                    rapidfile2 << asymp_tradeoff_rapid(i, j) << "\t"; 
+                }
+                rapidfile2 << asymp_tradeoff_rapid(i, length-1) << std::endl; 
+            }
+        }
+        rapidfile2.close();
+        oss.clear();
+        oss.str(std::string());
     }
-    specfile2.close();
 
     delete constraints;
     delete new_constraints;
@@ -751,10 +760,21 @@ int main(int argc, char** argv)
     const std::string poly_filename = argv[1];
     const std::string prefix = argv[2];
     const int n = std::stoi(argv[3]);
-    std::unordered_map<int, mpq_rational> fixed_values; 
+    std::stringstream ss; 
+    std::unordered_map<int, mpq_rational> fixed_values;
+    fixed_values[0] = 6;
+    fixed_values[1] = -6;
+    ss << prefix << "-largematch";
+    std::string prefix2 = ss.str();
+    runConstrainedSampling(poly_filename, n, fixed_values, prefix2);
+    fixed_values.clear();
     fixed_values[3] = 6;
     fixed_values[2] = -6;
-    runConstrainedSampling(poly_filename, n, fixed_values, prefix);
+    ss.clear(); 
+    ss.str(std::string());
+    ss << prefix << "-smallmismatch";
+    prefix2 = ss.str();
+    runConstrainedSampling(poly_filename, n, fixed_values, prefix2);
 
     return 0;
 }
