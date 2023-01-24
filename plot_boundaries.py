@@ -149,22 +149,24 @@ for i, run_type in enumerate(suffixes):
                 linewidth=2, linestyle=linestyles[i], linealpha=linealphas[i]
             )
             
-            # Configure axes limits
-            ymin, ymax = axes_main[j, k].get_ylim()
-            axes_main[j, k].set_ylim([ymin, ymin + 1.1 * (ymax - ymin)])
-            
-            # Introduce plot titles and label all axes
-            text_kwargs = {
-                'size': 10,
-                'xy': (0.97, 0.95),
-                'xycoords': 'axes fraction',
-                'horizontalalignment': 'right',
-                'verticalalignment': 'top'
-            }
-            axes_main[j, k].annotate(r'$M = \{{ {} \}}$'.format(idx), **text_kwargs)
-            axes_main[j, k].set_xlabel(xlabels[name], size=12)
-            axes_main[j, k].tick_params(axis='both', labelsize=9)
-        axes_main[j, 0].set_ylabel(ylabels[name], size=12)
+for j, name in enumerate(['activity', 'speed', 'rapid', 'deaddissoc']):
+    for k, idx in enumerate(idx_main[j, :]):
+        # Configure axes limits
+        ymin, ymax = axes_main[j, k].get_ylim()
+        axes_main[j, k].set_ylim([ymin, ymin + 1.1 * (ymax - ymin)])
+        
+        # Introduce plot titles and label all axes
+        text_kwargs = {
+            'size': 10,
+            'xy': (0.97, 0.95),
+            'xycoords': 'axes fraction',
+            'horizontalalignment': 'right',
+            'verticalalignment': 'top'
+        }
+        axes_main[j, k].annotate(r'$M = \{{ {} \}}$'.format(idx), **text_kwargs)
+        axes_main[j, k].set_xlabel(xlabels[name], size=12)
+        axes_main[j, k].tick_params(axis='both', labelsize=9)
+    axes_main[j, 0].set_ylabel(ylabels[name], size=12)
 
 # Equalize axes limits along each row
 xmin = [min(axes_main[j, k].get_xlim()[0] for k in range(4)) for j in range(4)]
@@ -173,8 +175,12 @@ ymin = [min(axes_main[j, k].get_ylim()[0] for k in range(4)) for j in range(4)]
 ymax = [max(axes_main[j, k].get_ylim()[1] for k in range(4)) for j in range(4)]
 for j in range(4):
     for k in range(4):
-        axes_main[j, k].set_xlim([xmin[j], xmax[j]])
-        axes_main[j, k].set_ylim([ymin[j], ymax[j]])
+        axes_main[j, k].set_xlim([
+            xmin[j] - 0.05 * abs(xmax[j] - xmin[j]), xmax[j]
+        ])
+        axes_main[j, k].set_ylim([
+            ymin[j] - 0.05 * abs(ymax[j] - ymin[j]), ymax[j]
+        ])
 
 # Fix tick labels for rapidity plots 
 #for k in range(4):
