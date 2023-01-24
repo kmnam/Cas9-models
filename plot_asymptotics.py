@@ -105,13 +105,13 @@ for i in range(5):
             'verticalalignment': 'top'
         }
         axes[i, j].annotate(r'$M = \{{ {} \}}$'.format(k), **text_title_kwargs)
-        axes[i, j].tick_params(axis='both', labelsize=8)
+        axes[i, j].tick_params(axis='both', labelsize=10)
 
 # Introduce axes labels
 for i in range(5):
     axes[i, 0].set_ylabel(ylabels['rapid'], size=10)
 for j in range(4):
-    axes[4, j].set_xlabel(xlabels['rapid'], size=10)
+    axes[4, j].set_xlabel(xlabels['rapid'], size=12)
 
 # Generate the PDF file
 plt.tight_layout()
@@ -157,13 +157,13 @@ for i in range(5):
             'verticalalignment': 'top'
         }
         axes[i, j].annotate(r'$M = \{{ {} \}}$'.format(k), **text_title_kwargs)
-        axes[i, j].tick_params(axis='both', labelsize=8)
+        axes[i, j].tick_params(axis='both', labelsize=10)
 
 # Introduce axes labels
 for i in range(5):
     axes[i, 0].set_ylabel(ylabels['rapid'], size=10)
 for j in range(4):
-    axes[4, j].set_xlabel(r'$\log{(b/d)}$', size=10)
+    axes[4, j].set_xlabel(r'$\log{(b/d)}$', size=12)
 
 # Generate the PDF file
 plt.tight_layout()
@@ -172,70 +172,3 @@ plt.savefig(
 )
 plt.close(fig)
 
-"""
-for family in ['single', 'distal']:
-for metric in ['rapid', 'deaddissoc']:
-for exp in [2, 4, 6]:
-    for lim in ['largematch', 'smallmismatch']:
-        # Parse corresponding cleavage statistics and asymptotics
-        if exp == 6:
-            specs = np.loadtxt(filename_exact_fmt.format(exp, family, lim, 'spec'))
-            stats = np.loadtxt(filename_exact_fmt.format(exp, family, lim, metric))
-            asymp = np.loadtxt(filename_asymp_fmt.format(exp, family, lim, metric))
-        else:
-            specs = np.loadtxt(filename_exact_fmt.format(exp, family, 'exp6-' + lim, 'spec'))
-            stats = np.loadtxt(filename_exact_fmt.format(exp, family, 'exp6-' + lim, metric))
-            asymp = np.loadtxt(filename_asymp_fmt.format(exp, family, 'exp6-' + lim, metric))
-        if specs.shape[0] > nmax:
-            specs = specs[:nmax, :]
-            stats = stats[:nmax, :]
-                asymp = asymp[:nmax, :]
-            fig, axd = plt.subplot_mosaic(
-                mosaic, gridspec_kw=gridspec_kw, figsize=(10, 12),
-                constrained_layout=True
-            )
-            # For each mismatch position ...
-            for i in range(5):
-                for j in range(4): 
-                    # ... plot the corresponding set of exact and asymptotic tradeoff
-                    # constants 
-                    k = 4 * i + j
-                    key = '{}{}'.format(i, j)
-                    axd[key].scatter(
-                        x=(specs[:, k] + stats[:, k]), y=asymp[:, k],
-                        color=sns.color_palette()[0],
-                        alpha=0.05
-                    )
-                    
-                    # Plot a straight line for y = x
-                    xmin, xmax = axd[key].get_xlim()
-                    axd[key].plot([xmin, xmax], [xmin, xmax], c='red', linestyle='--')
-
-                    # Configure axes limits
-                    ymin, ymax = axd[key].get_ylim()
-                    axd[key].set_ylim([ymin, ymin + 1.15 * (ymax - ymin)])
-
-                        # Introduce plot titles and label all axes
-                        text_title_kwargs = {
-                            'size': 10,
-                            'xy': (0.97, 0.95),
-                            'xycoords': 'axes fraction',
-                            'horizontalalignment': 'right',
-                            'verticalalignment': 'top'
-                        }
-                        if family == 'single':
-                            axd[key].annotate(r'$M = \{{ {} \}}$'.format(k), **text_title_kwargs)
-                        elif family == 'distal':
-                            axd[key].annotate(r'$M = [ {} ]$'.format(k), **text_title_kwargs)
-                        axd[key].set_xlabel(xlabels[metric], size=8)
-                        axd[key].set_ylabel(ylabels[(family, metric, lim, k)], size=10)
-                        axd[key].tick_params(axis='both', labelsize=8)
-
-                # Generate the PDF file
-                plt.savefig(
-                    'plots/asymptotics/line-{}-unbindingunity-{}-asymptotics-{}-{}.pdf'.format(
-                        exp, family, lim if exp == 6 else 'exp6-' + lim, metric
-                    )
-                )
-                plt.close(fig)
-"""
