@@ -1,3 +1,14 @@
+/**
+ * Compute various asymptotic tradeoff constants for the line-graph Cas9 
+ * model with respect to single-mismatch substrates. 
+ *
+ * **Authors:**
+ *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
+ *
+ * **Last updated:**
+ *     1/23/2023
+ */
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -12,16 +23,6 @@
 #include <polytopes.hpp>
 #include <vertexEnum.hpp>
 
-/**
- * Compute various asymptotic tradeoff constants for the line-graph Cas9 
- * model with respect to single-mismatch substrates. 
- *
- * **Authors:**
- *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
- *
- * **Last updated:**
- *     1/23/2023
- */
 using namespace Eigen;
 using boost::multiprecision::number;
 using boost::multiprecision::mpfr_float_backend;
@@ -33,7 +34,6 @@ using boost::multiprecision::log10;
 constexpr int INTERNAL_PRECISION = 100;
 typedef number<mpfr_float_backend<INTERNAL_PRECISION> > PreciseType;
 const PreciseType ten("10");
-const mpq_rational BIG_RATIONAL = static_cast<mpq_rational>(std::numeric_limits<int>::max());
 
 const int length = 20;
 
