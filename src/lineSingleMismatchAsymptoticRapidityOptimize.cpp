@@ -8,7 +8,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/24/2023
+ *     1/25/2023
  */
 
 #include <iostream>
@@ -393,7 +393,7 @@ void runConstrainedSampling(const std::string poly_filename, const int n, const 
     }
 
     // Write matrix of asymptotic rapidity tradeoff constants
-    oss << prefix << "-asymp-smallmismatch-rapid.tsv";  
+    oss << prefix << "-asymp-rapid.tsv";  
     std::ofstream rapidfile2(oss.str()); 
     rapidfile2 << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     if (rapidfile2.is_open())
