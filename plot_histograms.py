@@ -450,8 +450,8 @@ def main():
     }
     plot_histograms(
         filenames, 'line-3-w6-minusbind-single', plot_main=False, 
-        highlight_plot_indices=None, label_speed_thresholds=False,
-        label_dissoc_thresholds=True, label_speed_thresholds_from=None,
+        highlight_plot_indices=None, label_speed_thresholds=True,
+        label_dissoc_thresholds=True, label_speed_thresholds_from=4,
         label_dissoc_thresholds_from=2
     )
 
