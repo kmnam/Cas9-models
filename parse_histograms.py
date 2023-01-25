@@ -77,6 +77,119 @@ def main():
     # Get distributions of parameter ratios for parameter vectors that yield
     # high activity and low specificity
     # ---------------------------------------------------------------- #
+    # Low specificity only 
+    fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(11, 11))
+    c_valid = [c_total]
+    cp_valid = [cp_total]
+    p_valid = [p_total]
+    q_valid = [q_total]
+    start_idx = 0
+    for i in range(start_idx, 20):       # For each mismatch position ...
+        c_valid_i = []
+        cp_valid_i = []
+        p_valid_i = []
+        q_valid_i = []
+        # Get indices of parameter vectors for least 500 specificity values
+        # in the final column of the i-th histogram
+        for edge in np.linspace(0, 0.95, 20):
+            in_column = (specs[:, i] >= edge) & (specs[:, i] < edge + 0.05)
+            spec_bottom500_idx = np.argsort(specs[in_column, i])[:500]
+            logrates_valid = logrates[in_column, :][spec_bottom500_idx]
+            for k in range(logrates_valid.shape[0]):
+                c_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 1])
+                cp_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 3])
+                p_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 1])
+                q_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 3])
+        c_valid.append(c_valid_i)
+        cp_valid.append(cp_valid_i)
+        p_valid.append(p_valid_i)
+        q_valid.append(q_valid_i)
+    sns.boxplot(
+        data=c_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[0], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=p_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[1], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=q_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[2], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=cp_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[3], whis=(5, 95)
+    )
+    for i in range(4):
+        axes[i].patches[0].set_facecolor(sns.color_palette('deep')[1])
+        for j in range(1, 21 - start_idx):
+            axes[i].patches[j].set_facecolor(sns.color_palette('deep')[0])
+        axes[i].set_xticklabels(['All'] + [str(k) for k in range(start_idx, 20)])
+        axes[i].set_ylim([ratio_min - 0.2, ratio_max + 0.2])
+    axes[0].set_ylabel(r"$\log_{10}(b/d)$")
+    axes[1].set_ylabel(r"$\log_{10}(b'/d)$")
+    axes[2].set_ylabel(r"$\log_{10}(b/d')$")
+    axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
+    plt.tight_layout()
+    plt.savefig('plots/line-3-w6-v2-minusbind-single-lowspec-boxplot.pdf')
+    plt.close()
+
+    # High activity only
+    fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(11, 11))
+    c_valid = [c_total]
+    cp_valid = [cp_total]
+    p_valid = [p_total]
+    q_valid = [q_total]
+    start_idx = 0
+    for i in range(start_idx, 20):       # For each mismatch position ...
+        c_valid_i = []
+        cp_valid_i = []
+        p_valid_i = []
+        q_valid_i = []
+        # Get indices of parameter vectors for least 500 specificity values
+        # in the final column of the i-th histogram
+        in_column = (probs[:, 0] >= 0.95)
+        logrates_valid = logrates[in_column, :]
+        for k in range(logrates_valid.shape[0]):
+            c_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 1])
+            cp_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 3])
+            p_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 1])
+            q_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 3])
+        c_valid.append(c_valid_i)
+        cp_valid.append(cp_valid_i)
+        p_valid.append(p_valid_i)
+        q_valid.append(q_valid_i)
+    sns.boxplot(
+        data=c_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[0], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=p_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[1], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=q_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[2], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=cp_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[3], whis=(5, 95)
+    )
+    for i in range(4):
+        axes[i].patches[0].set_facecolor(sns.color_palette('deep')[1])
+        for j in range(1, 21 - start_idx):
+            axes[i].patches[j].set_facecolor(sns.color_palette('deep')[0])
+        axes[i].set_xticklabels(['All'] + [str(k) for k in range(start_idx, 20)])
+        axes[i].set_ylim([ratio_min - 0.2, ratio_max + 0.2])
+    axes[0].set_ylabel(r"$\log_{10}(b/d)$")
+    axes[1].set_ylabel(r"$\log_{10}(b'/d)$")
+    axes[2].set_ylabel(r"$\log_{10}(b/d')$")
+    axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
+    plt.tight_layout()
+    plt.savefig('plots/line-3-w6-v2-minusbind-single-highactivity-boxplot.pdf')
+    plt.close()
+
+    # Both high activity and low specificity
     fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(11, 11))
     c_valid = [c_total]
     cp_valid = [cp_total]
@@ -212,7 +325,12 @@ def main():
     cp_valid = [cp_total]
     p_valid = [p_total]
     q_valid = [q_total]
-    for i in range(20):
+    start_idx = 0
+    for i in range(start_idx, 20):
+        c_valid_i = []
+        cp_valid_i = []
+        p_valid_i = []
+        q_valid_i = []
         for j in range(20):   # ... and each bin along the x-axis ... 
             # Get indices of parameter vectors for most negative 500 rapidity
             # values in the j-th column of the i-th histogram
@@ -220,13 +338,18 @@ def main():
                 (specs[:, i] >= spec_x_bin_edges[j]) &
                 (specs[:, i] < spec_x_bin_edges[j+1])
             )
-            rapid_bottom500_idx = np.argsort(rapid[in_column, i])[:500]
-            logrates_valid = logrates[in_column, :][rapid_bottom500_idx]
+            neg_rapid = (rapid[:, i] < 0)
+            rapid_bottom500_idx = np.argsort(rapid[in_column & neg_rapid, i])[:500]
+            logrates_valid = logrates[in_column & neg_rapid, :][rapid_bottom500_idx]
             for k in range(logrates_valid.shape[0]):
                 c_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 1])
                 cp_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 3])
                 p_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 1])
                 q_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 3])
+        c_valid.append(c_valid_i)
+        cp_valid.append(cp_valid_i)
+        p_valid.append(p_valid_i)
+        q_valid.append(q_valid_i)
     sns.boxplot(
         data=c_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
         ax=axes[0], whis=(5, 95)
@@ -257,7 +380,10 @@ def main():
     plt.savefig('plots/line-3-w6-v2-minusbind-single-negrapid-boxplot.pdf')
     plt.close()
 
-   # ---------------------------------------------------------------- #
+    # ---------------------------------------------------------------- #
+    # Get histograms of specificity and dissociativity for all mismatch 
+    # positions 
+    # ---------------------------------------------------------------- #
     histograms, spec_x_bin_edges, dissoc_y_bin_edges = get_histogram_per_mismatch_2d(
         specs, dead_dissoc, 20, indices=list(range(20)), xmin=0, ymin=0
     )
@@ -324,6 +450,8 @@ def main():
     plt.savefig('plots/line-3-w6-v2-minusbind-single-highdissoc-boxplot.pdf')
     plt.close()
 
+    # ---------------------------------------------------------------- #
+    # Get histograms of speed and specificity for all mismatch positions 
     # ---------------------------------------------------------------- #
     logrates = np.loadtxt('data/line-3-w6-minusbind-single-logrates.tsv')
     specs = np.loadtxt('data/line-3-w6-minusbind-single-specs.tsv')
