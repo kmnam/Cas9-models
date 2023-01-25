@@ -139,10 +139,6 @@ def main():
         specs, rapid, 20, indices=list(range(20)), xmin=0
     )
     low_spec_threshold = spec_x_bin_edges[1] 
-    print(
-        spec_x_bin_edges[0], spec_x_bin_edges[-1],
-        rapid_y_bin_edges[0], rapid_y_bin_edges[-1]
-    )
 
     # ---------------------------------------------------------------- #
     # Get distributions of parameter ratios for parameter vectors that yield
@@ -261,17 +257,11 @@ def main():
     plt.savefig('plots/line-3-w6-v2-minusbind-single-negrapid-boxplot.pdf')
     plt.close()
 
-    # ---------------------------------------------------------------- #
-    # Plot how dead specific dissociativity changes with mismatch position
-    # ---------------------------------------------------------------- #
+   # ---------------------------------------------------------------- #
     histograms, spec_x_bin_edges, dissoc_y_bin_edges = get_histogram_per_mismatch_2d(
         specs, dead_dissoc, 20, indices=list(range(20)), xmin=0, ymin=0
     )
-    print(
-        spec_x_bin_edges[0], spec_x_bin_edges[-1],
-        dissoc_y_bin_edges[0], dissoc_y_bin_edges[-1]
-    )
-
+    
     # For each histogram, identify the upper limit of the uppermost bin in the
     # second column 
     dissoc_threshold_indices = {}
@@ -281,8 +271,6 @@ def main():
             dissoc_y_bin_edges > np.max(dead_dissoc[spec_within_range, i])
         )[0][0]
     dissoc_thresholds = {i: dissoc_y_bin_edges[dissoc_threshold_indices[i]] for i in range(2, 20)}
-    print(dissoc_threshold_indices)
-    print(dissoc_thresholds)
 
     # ---------------------------------------------------------------- #
     # Get distributions of parameter ratios for parameter vectors that yield
@@ -334,6 +322,83 @@ def main():
     axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
     plt.tight_layout()
     plt.savefig('plots/line-3-w6-v2-minusbind-single-highdissoc-boxplot.pdf')
+    plt.close()
+
+    # ---------------------------------------------------------------- #
+    logrates = np.loadtxt('data/line-3-w6-minusbind-single-logrates.tsv')
+    specs = np.loadtxt('data/line-3-w6-minusbind-single-specs.tsv')
+    cleave = np.loadtxt('data/line-3-w6-minusbind-single-cleave.tsv')
+    ratio_min = -6
+    ratio_max = 6
+    
+    # Cleavage rates on perfect-match substrates 
+    speeds = np.tile(cleave[:, 0].reshape((cleave.shape[0]), 1), 20)
+
+    histograms, speed_x_bin_edges, spec_y_bin_edges = get_histogram_per_mismatch_2d(
+        speeds, specs, 20, indices=list(range(20)), xmin=0, ymin=0
+    )
+    
+    # For each histogram, identify the upper limit of the uppermost bin in the
+    # second row from bottom 
+    speed_threshold_indices = {}
+    for i in range(4, 20):
+        spec_within_range = (specs[:, i] >= spec_y_bin_edges[1])
+        speed_threshold_indices[i] = np.nonzero(
+            spec_y_bin_edges > np.max(speeds[spec_within_range, i])
+        )[0][0]
+    speed_thresholds = {i: speed_x_bin_edges[speed_threshold_indices[i]] for i in range(4, 20)}
+    print(speed_thresholds)
+
+    # ---------------------------------------------------------------- #
+    # Get distributions of parameter ratios for parameter vectors that yield
+    # high speed and low specificity
+    # ---------------------------------------------------------------- #
+    fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(11, 11))
+    c_valid = [c_total]
+    cp_valid = [cp_total]
+    p_valid = [p_total]
+    q_valid = [q_total]
+    start_idx = 2
+    for i in range(start_idx, 20):       # For each mismatch position ...
+        c_valid_i = []
+        cp_valid_i = []
+        p_valid_i = []
+        q_valid_i = []
+        low_spec = (specs[:, i] < low_spec_threshold)
+        high_speed = (speeds[:, i] > speed_thresholds[i])
+        logrates_valid = logrates[low_spec & high_speed, :]
+        c_valid.append(logrates_valid[:, 0] - logrates_valid[:, 1])
+        cp_valid.append(logrates_valid[:, 2] - logrates_valid[:, 3])
+        p_valid.append(logrates_valid[:, 2] - logrates_valid[:, 1])
+        q_valid.append(logrates_valid[:, 0] - logrates_valid[:, 3])
+    sns.boxplot(
+        data=c_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[0], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=p_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[1], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=q_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[2], whis=(5, 95)
+    )
+    sns.boxplot(
+        data=cp_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+        ax=axes[3], whis=(5, 95)
+    )
+    for i in range(4):
+        axes[i].patches[0].set_facecolor(sns.color_palette('deep')[1])
+        for j in range(1, 21 - start_idx):
+            axes[i].patches[j].set_facecolor(sns.color_palette('deep')[0])
+        axes[i].set_xticklabels(['All'] + [str(k) for k in range(start_idx, 20)])
+        axes[i].set_ylim([ratio_min - 0.2, ratio_max + 0.2])
+    axes[0].set_ylabel(r"$\log_{10}(b/d)$")
+    axes[1].set_ylabel(r"$\log_{10}(b'/d)$")
+    axes[2].set_ylabel(r"$\log_{10}(b/d')$")
+    axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
+    plt.tight_layout()
+    plt.savefig('plots/line-3-w6-minusbind-single-highspeed-boxplot.pdf')
     plt.close()
 
 ###########################################################################
