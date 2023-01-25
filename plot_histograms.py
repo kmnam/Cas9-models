@@ -97,9 +97,10 @@ def plot_metrics_by_mismatch_2d(xvals, yvals, nbins, xlabel, ylabel, axes,
     return histograms, x_bin_edges, y_bin_edges
 
 ##########################################################################
-def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
-                    label_speed_thresholds=False, label_dissoc_thresholds=True,
-                    label_speed_thresholds_from=3, label_dissoc_thresholds_from=2):
+def plot_histograms(filenames, output_prefix, plot_main=False,
+                    highlight_plot_indices=None, label_speed_thresholds=False,
+                    label_dissoc_thresholds=True, label_speed_thresholds_from=3,
+                    label_dissoc_thresholds_from=2):
     # ---------------------------------------------------------------- # 
     # Parse the output metrics for single-mismatch substrates  
     # ---------------------------------------------------------------- #
@@ -118,7 +119,7 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
     speeds = np.tile(cleave[:, 0].reshape((cleave.shape[0]), 1), 20)
 
     # Pick plots to highlight if not already specified 
-    if highlight_plot_indices is None:
+    if plot_main and highlight_plot_indices is None:
         highlight_plot_indices = []
         rng = np.random.default_rng(37)
         highlight_plot_indices.append(rng.integers(0, 500, None))
@@ -134,62 +135,62 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
         ]
 
     ######################################################################
-    ######################################################################
     # ---------------------------------------------------------------- #
     # Plot how cleavage probability depends on mismatch position ...
     # ---------------------------------------------------------------- #
-    # First plot cleavage probability and specificity for 500 handpicked
-    # parameter combinations ... 
-    n = 500
-    length = 20
-    fig_main, axes_main = plt.subplot_mosaic(
-        [['A0', 'A0', 'A1', 'A1']] +\
-        [['{}{}'.format(j, k) for k in range(4)] for j in range(4)],
-        figsize=(12, 14)
-    )
-    for i in range(n):     # Plot cleavage probabilities as a function of mismatch position 
-        axes_main['A0'].plot(
-            list(range(20)), probs[i, 1:], c=(0.9, 0.9, 0.9), marker=None,
-            zorder=0
+    if plot_main:
+        # First plot cleavage probability and specificity for 500 handpicked
+        # parameter combinations ...
+        n = 500
+        length = 20
+        fig_main, axes_main = plt.subplot_mosaic(
+            [['A0', 'A0', 'A1', 'A1']] +\
+            [['{}{}'.format(j, k) for k in range(4)] for j in range(4)],
+            figsize=(12, 14)
         )
-    for i in range(n):     # Plot cleavage specificities as a function of mismatch position 
-        axes_main['A1'].plot(
-            list(range(20)), np.power(10.0, -specs[i, :]), c=(0.9, 0.9, 0.9),
-            marker=None, zorder=0
-        )
-    palette = sns.color_palette('colorblind', len(highlight_plot_indices))
-    for i, j in enumerate(highlight_plot_indices):
-        axes_main['A0'].plot(
-            list(range(20)), probs[j, 1:], c=palette[i], marker=None, zorder=1,
-            linewidth=2
-        )
-        axes_main['A1'].plot(
-            list(range(20)), np.power(10.0, -specs[j, :]), c=palette[i],
-            marker=None, zorder=1, linewidth=2
-        )
-    axes_main['A0'].set_xlim([-0.5, 19.5])
-    axes_main['A0'].set_xlabel(r'$m$', size=10)
-    axes_main['A0'].set_xticks(list(range(20)))
-    axes_main['A0'].set_xticklabels([str(i) for i in range(20)], size=8)
-    axes_main['A0'].set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
-    axes_main['A0'].set_yticklabels(['0.0', '0.2', '0.4', '0.6', '0.8', '1.0'], size=8)
-    axes_main['A0'].set_ylabel(r'$\phi(\mathbf{u}^{\{m\}})$', size=10)
-    axes_main['A1'].set_xlim([-0.5, 19.5])
-    axes_main['A1'].set_xlabel(r'$m$', size=10)
-    axes_main['A1'].set_xticks(list(range(20)))
-    axes_main['A1'].set_xticklabels([str(i) for i in range(20)], size=8)
-    axes_main['A1'].set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
-    axes_main['A1'].set_yticklabels(['0.0', '0.2', '0.4', '0.6', '0.8', '1.0'], size=8)
-    axes_main['A1'].set_ylabel(r'$\phi(\mathbf{u}^{\{m\}}) \,/\, \phi(\mathbf{u}^{\mathrm{P}})$', size=10)
+        for i in range(n):     # Plot cleavage probabilities as a function of mismatch position 
+            axes_main['A0'].plot(
+                list(range(20)), probs[i, 1:], c=(0.9, 0.9, 0.9), marker=None,
+                zorder=0
+            )
+        for i in range(n):     # Plot cleavage specificities as a function of mismatch position 
+            axes_main['A1'].plot(
+                list(range(20)), np.power(10.0, -specs[i, :]), c=(0.9, 0.9, 0.9),
+                marker=None, zorder=0
+            )
+        palette = sns.color_palette('colorblind', len(highlight_plot_indices))
+        for i, j in enumerate(highlight_plot_indices):
+            axes_main['A0'].plot(
+                list(range(20)), probs[j, 1:], c=palette[i], marker=None, zorder=1,
+                linewidth=2
+            )
+            axes_main['A1'].plot(
+                list(range(20)), np.power(10.0, -specs[j, :]), c=palette[i],
+                marker=None, zorder=1, linewidth=2
+            )
+        axes_main['A0'].set_xlim([-0.5, 19.5])
+        axes_main['A0'].set_xlabel(r'$m$', size=10)
+        axes_main['A0'].set_xticks(list(range(20)))
+        axes_main['A0'].set_xticklabels([str(i) for i in range(20)], size=8)
+        axes_main['A0'].set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+        axes_main['A0'].set_yticklabels(['0.0', '0.2', '0.4', '0.6', '0.8', '1.0'], size=8)
+        axes_main['A0'].set_ylabel(r'$\phi(\mathbf{u}^{\{m\}})$', size=10)
+        axes_main['A1'].set_xlim([-0.5, 19.5])
+        axes_main['A1'].set_xlabel(r'$m$', size=10)
+        axes_main['A1'].set_xticks(list(range(20)))
+        axes_main['A1'].set_xticklabels([str(i) for i in range(20)], size=8)
+        axes_main['A1'].set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+        axes_main['A1'].set_yticklabels(['0.0', '0.2', '0.4', '0.6', '0.8', '1.0'], size=8)
+        axes_main['A1'].set_ylabel(r'$\phi(\mathbf{u}^{\{m\}}) \,/\, \phi(\mathbf{u}^{\mathrm{P}})$', size=10)
 
-    # Then plot the histograms for mismatch positions 0, 6, 12, 19 ...
-    _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
-        activities, specs, 20,
-        r'$\phi(\mathbf{u}^{\mathrm{P}})$',
-        r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
-        axes_main, indices=[0, 6, 12, 19], ax_indices=['00', '01', '02', '03'],
-        xmin=0, xmax=1, ymin=0
-    )
+        # Then plot the histograms for mismatch positions 0, 6, 12, 19 ...
+        _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
+            activities, specs, 20,
+            r'$\phi(\mathbf{u}^{\mathrm{P}})$',
+            r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
+            axes_main, indices=[0, 6, 12, 19], ax_indices=['00', '01', '02', '03'],
+            xmin=0, xmax=1, ymin=0
+        )
 
     # Then plot the histograms for all 20 mismatch positions ... 
     fig, axes = plt.subplot_mosaic(
@@ -202,10 +203,6 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
         r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
         axes, indices=list(range(20)), xmin=0, ymin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
-    )
-    print(
-        'bin edges for activity vs specificity:',
-        x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1]
     )
     plt.tight_layout()
     plt.savefig('plots/{}-prob-by-mismatch-all.pdf'.format(output_prefix))
@@ -226,10 +223,6 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
         axes, indices=list(range(20)), ymin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
     )
-    print(
-        'bin edges for speed vs specificity:',
-        x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1]
-    )
 
     # For each histogram, identify the upper limit within all bins but the 
     # bottommost
@@ -248,8 +241,6 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
             else x_bin_edges[speed_threshold_indices[i]]
             for i in range(label_speed_thresholds_from, 20)
         }
-        print(speed_threshold_indices)
-        print(speed_thresholds)
         for i in range(5):
             for j in range(4):
                 k = 4 * i + j
@@ -277,65 +268,47 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
     plt.close()
 
     # Then plot the histograms for mismatch positions 4, 9, 14, 19 ...
-    indices = [4, 9, 14, 19]
-    _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
-        speeds, specs, 20,
-        r'$\sigma_{*}(\mathbf{u}^{\mathrm{P}})$',
-        r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
-        axes_main, indices=indices, ax_indices=['10', '11', '12', '13'], ymin=0
-    )
-    if label_speed_thresholds:
-        for i, k in enumerate(indices):
-            key = '1{}'.format(i)
-            if speed_thresholds[k] is not None and k >= label_speed_thresholds_from:
-                xlim = axes_main[key].get_xlim()
-                axes_main[key].plot(
-                    [speed_thresholds[k], speed_thresholds[k]],
-                    [y_bin_edges[0], y_bin_edges[-1]],
-                    c='red', linewidth=2, linestyle='--'
-                )
-                xlim = axes_main[key].get_xlim()
-                xaxis_fraction = (speed_thresholds[k] - xlim[0]) / (xlim[1] - xlim[0])
-                axes_main[key].annotate(
-                    '{:.1f}'.format(speed_thresholds[k]),
-                    xy=(xaxis_fraction + 0.02, 0.08),
-                    xycoords='axes fraction',
-                    horizontalalignment='left',
-                    verticalalignment='bottom',
-                    size=9,
-                    color='red'
-                )
-
-    # ------------------------------------------------------------------- #
-    # Plot how speed and specific rapidity change with mismatch position
-    # ------------------------------------------------------------------- #
-    # Then plot the histograms for all 20 mismatch positions ... 
-    fig, axes = plt.subplot_mosaic(
-        [['{}{}'.format(i, j) for j in range(4)] for i in range(5)],
-        figsize=(12, 14)
-    )
-    histograms, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
-        speeds, rapid, 20,
-        r'$\sigma_{*}(\mathbf{u}^{\mathrm{P}})$',
-        r'$\log_{10}(\sigma_{*}(\mathbf{u}^{\mathrm{P}}) / \sigma_{*}(\mathbf{u}^M))$',
-        axes, indices=list(range(20)), ymin=0,
-        ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)]
-    )
-    #print(x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1])
-    plt.tight_layout()
-    plt.savefig('plots/{}-speed-vs-rapid-by-mismatch-all.pdf'.format(output_prefix))
-    plt.close()
+    if plot_main:
+        indices = [4, 9, 14, 19]
+        _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
+            speeds, specs, 20,
+            r'$\sigma_{*}(\mathbf{u}^{\mathrm{P}})$',
+            r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
+            axes_main, indices=indices, ax_indices=['10', '11', '12', '13'], ymin=0
+        )
+        if label_speed_thresholds:
+            for i, k in enumerate(indices):
+                key = '1{}'.format(i)
+                if speed_thresholds[k] is not None and k >= label_speed_thresholds_from:
+                    xlim = axes_main[key].get_xlim()
+                    axes_main[key].plot(
+                        [speed_thresholds[k], speed_thresholds[k]],
+                        [y_bin_edges[0], y_bin_edges[-1]],
+                        c='red', linewidth=2, linestyle='--'
+                    )
+                    xlim = axes_main[key].get_xlim()
+                    xaxis_fraction = (speed_thresholds[k] - xlim[0]) / (xlim[1] - xlim[0])
+                    axes_main[key].annotate(
+                        '{:.1f}'.format(speed_thresholds[k]),
+                        xy=(xaxis_fraction + 0.02, 0.08),
+                        xycoords='axes fraction',
+                        horizontalalignment='left',
+                        verticalalignment='bottom',
+                        size=9,
+                        color='red'
+                    )
 
     # ------------------------------------------------------------------------- #
     # Plot how specificity and specific rapidity change with mismatch position
     # ------------------------------------------------------------------------- #
     # First plot the histograms for mismatch positions 0, 6, 12, 19 ... 
-    _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
-        specs, rapid, 20,
-        r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
-        r'$\log_{10}(\sigma_{*}(\mathbf{u}^{\mathrm{P}}) / \sigma_{*}(\mathbf{u}^M))$',
-        axes_main, indices=[0, 6, 12, 19], ax_indices=['20', '21', '22', '23'], xmin=0
-    )
+    if plot_main:
+        _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
+            specs, rapid, 20,
+            r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
+            r'$\log_{10}(\sigma_{*}(\mathbf{u}^{\mathrm{P}}) / \sigma_{*}(\mathbf{u}^M))$',
+            axes_main, indices=[0, 6, 12, 19], ax_indices=['20', '21', '22', '23'], xmin=0
+        )
 
     # Then plot the histograms for all 20 mismatch positions ... 
     fig, axes = plt.subplot_mosaic(
@@ -349,7 +322,6 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
         axes, indices=list(range(20)), xmin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)]
     )
-    #print(x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1])
     plt.tight_layout()
     plt.savefig('plots/{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
@@ -357,7 +329,8 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
     # ------------------------------------------------------------------------------- #
     # Plot how specificity and specific dissociativity change with mismatch position
     # ------------------------------------------------------------------------------- #
-    fig, axes = plt.subplot_mosaic(    # Then plot all 20 subplots 
+    # First plot the histograms for all 20 mismatch positions ... 
+    fig, axes = plt.subplot_mosaic(
         [['{}{}'.format(i, j) for j in range(4)] for i in range(5)],
         figsize=(12, 14)
     )
@@ -368,7 +341,6 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
         axes, indices=list(range(20)), xmin=0, ymin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)]
     )
-    print(x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1])
 
     # For each histogram, identify the upper limit within all bins but the 
     # rightmost 
@@ -383,8 +355,6 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
             i: y_bin_edges[dissoc_threshold_indices[i]]
             for i in range(label_dissoc_thresholds_from, 20)
         }
-        print(dissoc_threshold_indices)
-        print(dissoc_thresholds)
         for i in range(5):
             for j in range(4):
                 k = 4 * i + j
@@ -411,46 +381,47 @@ def plot_histograms(filenames, output_prefix, highlight_plot_indices=None,
     plt.savefig('plots/{}-spec-vs-deaddissoc-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
 
-    indices = [2, 10, 16, 19]
-    _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
-        specs, dead_dissoc, 20,
-        r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
-        r'$\log_{10}(\sigma(\mathbf{u}^M) / \sigma(\mathbf{u}^{\mathrm{P}}))$',
-        axes_main, indices=indices, ax_indices=['30', '31', '32', '33'], xmin=0, ymin=0
-    )
-    print(x_bin_edges[0], x_bin_edges[-1], y_bin_edges[0], y_bin_edges[-1])
-    if label_dissoc_thresholds:
-        for i, k in enumerate(indices):
-            key = '3{}'.format(i)
-            if k >= label_dissoc_thresholds_from:
-                xlim = axes_main[key].get_xlim()
-                axes_main[key].plot(
-                    [x_bin_edges[0], x_bin_edges[-1]],
-                    [dissoc_thresholds[k], dissoc_thresholds[k]],
-                    c='red', linewidth=2, linestyle='--'
-                )
-                ylim = axes_main[key].get_ylim()
-                yaxis_fraction = (dissoc_thresholds[k] - ylim[0]) / (ylim[1] - ylim[0])
-                axes_main[key].annotate(
-                    '{:.1f}'.format(dissoc_thresholds[k]),
-                    xy=(0.97, yaxis_fraction + 0.01),
-                    xycoords='axes fraction',
-                    horizontalalignment='right',
-                    verticalalignment='bottom',
-                    size=9,
-                    color='red'
-                )
-    plt.subplots_adjust(
-        left=0.1,
-        right=0.9,
-        bottom=0.18,
-        top=0.9,
-        hspace=0.35,
-        wspace=0.3
-    )
-    plt.savefig('plots/{}-main.pdf'.format(output_prefix))
-    plt.close()
-    
+    # Then plot the histograms for mismatch positions 2, 10, 16, 19 ...
+    if plot_main:
+        indices = [2, 10, 16, 19]
+        _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
+            specs, dead_dissoc, 20,
+            r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
+            r'$\log_{10}(\sigma(\mathbf{u}^M) / \sigma(\mathbf{u}^{\mathrm{P}}))$',
+            axes_main, indices=indices, ax_indices=['30', '31', '32', '33'], xmin=0, ymin=0
+        )
+        if label_dissoc_thresholds:
+            for i, k in enumerate(indices):
+                key = '3{}'.format(i)
+                if k >= label_dissoc_thresholds_from:
+                    xlim = axes_main[key].get_xlim()
+                    axes_main[key].plot(
+                        [x_bin_edges[0], x_bin_edges[-1]],
+                        [dissoc_thresholds[k], dissoc_thresholds[k]],
+                        c='red', linewidth=2, linestyle='--'
+                    )
+                    ylim = axes_main[key].get_ylim()
+                    yaxis_fraction = (dissoc_thresholds[k] - ylim[0]) / (ylim[1] - ylim[0])
+                    axes_main[key].annotate(
+                        '{:.1f}'.format(dissoc_thresholds[k]),
+                        xy=(0.97, yaxis_fraction + 0.01),
+                        xycoords='axes fraction',
+                        horizontalalignment='right',
+                        verticalalignment='bottom',
+                        size=9,
+                        color='red'
+                    )
+        plt.subplots_adjust(
+            left=0.1,
+            right=0.9,
+            bottom=0.18,
+            top=0.9,
+            hspace=0.35,
+            wspace=0.3
+        )
+        plt.savefig('plots/{}-main.pdf'.format(output_prefix))
+        plt.close()
+        
 ##########################################################################
 def main():
     filenames = {
@@ -462,19 +433,26 @@ def main():
         'rapid': 'data/line-3-w6-v2-minusbind-single-rapid.tsv',
         'deaddissoc': 'data/line-3-w6-v2-minusbind-single-deaddissoc.tsv'
     }
-    highlight_plot_indices = [    # Handpicked plots to be highlighted in different colors 
-        318,  # blue
-        84,   # orange 
-        786,  # green 
-        370,  # red
-        532,  # purple
-        105,  # brown
-        871   # pink
-    ]
     plot_histograms(
-        filenames, 'line-3-w6-v2-minusbind-single', highlight_plot_indices=None,
-        label_speed_thresholds=False, label_dissoc_thresholds=True,
-        label_speed_thresholds_from=None, label_dissoc_thresholds_from=2
+        filenames, 'line-3-w6-v2-minusbind-single', plot_main=True,
+        highlight_plot_indices=None, label_speed_thresholds=False,
+        label_dissoc_thresholds=True, label_speed_thresholds_from=None,
+        label_dissoc_thresholds_from=2
+    )
+    filenames = {
+        'logrates': 'data/line-3-w6-minusbind-single-logrates.tsv',
+        'probs': 'data/line-3-w6-minusbind-single-probs.tsv',
+        'specs': 'data/line-3-w6-minusbind-single-specs.tsv',
+        'cleave': 'data/line-3-w6-minusbind-single-cleave.tsv',
+        'unbind': 'data/line-3-w6-minusbind-single-unbind.tsv',
+        'rapid': 'data/line-3-w6-minusbind-single-rapid.tsv',
+        'deaddissoc': 'data/line-3-w6-minusbind-single-deaddissoc.tsv'
+    }
+    plot_histograms(
+        filenames, 'line-3-w6-minusbind-single', plot_main=False, 
+        highlight_plot_indices=None, label_speed_thresholds=False,
+        label_dissoc_thresholds=True, label_speed_thresholds_from=None,
+        label_dissoc_thresholds_from=2
     )
 
 ##########################################################################
