@@ -8,7 +8,7 @@
     "param_mode": 0,
     "error_mode": 1,
     "data_specified_as_times": false,
-    "n_init": 100,
+    "n_init": 200,
     "n_folds": 1,
     "cleave_error_weight": 1.0,
     "unbind_error_weight": 1.0,
