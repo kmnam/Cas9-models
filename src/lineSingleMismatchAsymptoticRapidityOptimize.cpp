@@ -1,14 +1,14 @@
 /**
  * Compute asymptotic rapidity tradeoff constants for the line-graph Cas9 
- * model with specifically chosen parameter values (d changing for various 
- * fixed choices of b and the terminal rates) with respect to single-mismatch
+ * model with specifically chosen parameter values (b changing for various 
+ * fixed choices of d and the terminal rates) with respect to single-mismatch
  * substrates. 
  *
  * **Authors:**
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/25/2023
+ *     1/26/2023
  */
 
 #include <iostream>
@@ -350,8 +350,8 @@ void runConstrainedSampling(const std::string poly_filename, const int n, const 
         MatrixXd logrates_i(m, D);
         for (int j = 0; j < m; ++j)
         {
-            logrates_i(j, 0) = logrates_reduced(i, 0);
-            logrates_i(j, 1) = logrates_reduced(i, 0) + range(j);
+            logrates_i(j, 0) = logrates_reduced(i, 0) + range(j);
+            logrates_i(j, 1) = logrates_reduced(i, 0);
             logrates_i(j, 2) = static_cast<double>(logbp);
             logrates_i(j, 3) = static_cast<double>(logdp);
             logrates_i(j, 4) = logrates_reduced(i, 1); 
