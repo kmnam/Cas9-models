@@ -414,6 +414,8 @@ def main():
         p_valid_i = []
         q_valid_i = []
         low_spec = (specs[:, i] < low_spec_threshold)
+        #dissoc_top500_idx = np.argsort(dead_dissoc[low_spec, i])[:500]
+        #logrates_valid = logrates[low_spec, :][dissoc_top500_idx]
         high_dissoc = (dead_dissoc[:, i] > dissoc_thresholds[i])
         logrates_valid = logrates[low_spec & high_dissoc, :]
         c_valid.append(logrates_valid[:, 0] - logrates_valid[:, 1])
@@ -467,12 +469,13 @@ def main():
     )
     
     # For each histogram, identify the upper limit of the uppermost bin in the
-    # second row from bottom 
+    # second (from bottom) row
     speed_threshold_indices = {}
-    for i in range(4, 20):
+    start_idx = 4
+    for i in range(start_idx, 20):       # For each mismatch position ...
         spec_within_range = (specs[:, i] >= spec_y_bin_edges[1])
         speed_threshold_indices[i] = np.nonzero(
-            spec_y_bin_edges > np.max(speeds[spec_within_range, i])
+            speed_x_bin_edges > np.max(cleave[spec_within_range, 0])
         )[0][0]
     speed_thresholds = {i: speed_x_bin_edges[speed_threshold_indices[i]] for i in range(4, 20)}
     print(speed_thresholds)
@@ -486,14 +489,15 @@ def main():
     cp_valid = [cp_total]
     p_valid = [p_total]
     q_valid = [q_total]
-    start_idx = 2
     for i in range(start_idx, 20):       # For each mismatch position ...
         c_valid_i = []
         cp_valid_i = []
         p_valid_i = []
         q_valid_i = []
         low_spec = (specs[:, i] < low_spec_threshold)
-        high_speed = (speeds[:, i] > speed_thresholds[i])
+        #speeds_top500_idx = np.argsort(cleave[low_spec, 0])[:500]
+        #logrates_valid = logrates[low_spec, :][speeds_top500_idx]
+        high_speed = (cleave[:, 0] > speed_thresholds[i])
         logrates_valid = logrates[low_spec & high_speed, :]
         c_valid.append(logrates_valid[:, 0] - logrates_valid[:, 1])
         cp_valid.append(logrates_valid[:, 2] - logrates_valid[:, 3])
