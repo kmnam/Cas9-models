@@ -569,7 +569,7 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
 {
     // Set up an SQPOptimizer instance
     const int N = constraints->getN();
-    const int D = 4; 
+    const int D = 3;
     SQPOptimizer<MainType>* opt = new SQPOptimizer<MainType>(constraints);
 
     // Sample a set of initial parameter points from the given polytope 
@@ -603,8 +603,8 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
         {
             // b, d, b', d' are assumed to have been already fit
             Matrix<MainType, Dynamic, 1> y(7); 
-            y.head(4) = fit_logrates;  //+ x(0) * Matrix<MainType, Dynamic, 1>::Ones(4);
-            y.tail(3) = x.tail(3);
+            y.head(4) = fit_logrates;
+            y.tail(3) = x;
             Matrix<MainType, Dynamic, 1> error = cleaveErrorAgainstData(
                 y, cleave_seqs, cleave_data, bind_conc
             );
@@ -635,8 +635,8 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
             search_verbose, zoom_verbose
         );
         Matrix<MainType, Dynamic, 1> y(7);
-        y.head(4) = fit_logrates;  //+ best_fits(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(4);
-        y.tail(3) = best_fits.row(i).tail(3); 
+        y.head(4) = fit_logrates;
+        y.tail(3) = best_fits.row(i); 
         residuals.row(i) = cleaveErrorAgainstData(y, cleave_seqs, cleave_data, bind_conc);
     }
     delete opt;
@@ -986,9 +986,9 @@ int main(int argc, char** argv)
      *  ------------------------------------------------------- */
     // Terminal cleavage and binding rates have pre-determined ranges
     MainType terminal_cleave_lograte_min = -4;
-    MainType terminal_cleave_lograte_max = 2;
-    MainType terminal_bind_lograte_min = 3;
-    MainType terminal_bind_lograte_max = 9;
+    MainType terminal_cleave_lograte_max = 4;
+    MainType terminal_bind_lograte_min = 0;
+    MainType terminal_bind_lograte_max = 8;
 
     // Get log(b/d)
     MainType log_b_by_d = fit_logrates(0) - fit_logrates(1); 
@@ -1011,32 +1011,28 @@ int main(int argc, char** argv)
     terminal_unbind_lograte_min = floor(terminal_unbind_lograte_min);
     terminal_unbind_lograte_max = ceil(terminal_unbind_lograte_max);
 
-    Matrix<mpq_rational, Dynamic, 2> param_bounds(4, 2); 
-    param_bounds << -2,  2,
-                    static_cast<mpq_rational>(terminal_unbind_lograte_min),
+    Matrix<mpq_rational, Dynamic, 2> param_bounds(3, 2); 
+    param_bounds << static_cast<mpq_rational>(terminal_unbind_lograte_min),
                     static_cast<mpq_rational>(terminal_unbind_lograte_max),
                     static_cast<mpq_rational>(terminal_cleave_lograte_min),
                     static_cast<mpq_rational>(terminal_cleave_lograte_max),
                     static_cast<mpq_rational>(terminal_bind_lograte_min),
                     static_cast<mpq_rational>(terminal_bind_lograte_max);
-    Matrix<mpq_rational, Dynamic, Dynamic> A(8, 4); 
-    Matrix<mpq_rational, Dynamic, 1> b(8);
-    A <<  1,  0,  0,  0,
-         -1,  0,  0,  0,
-          0,  1,  0,  0,
-          0, -1,  0,  0,
-          0,  0,  1,  0,
-          0,  0, -1,  0,
-          0,  0,  0,  1,
-          0,  0,  0, -1;
+    Matrix<mpq_rational, Dynamic, Dynamic> A(6, 3); 
+    Matrix<mpq_rational, Dynamic, 1> b(6);
+    A <<  1,  0,  0,
+         -1,  0,  0,
+          0,  1,  0,
+          0, -1,  0,
+          0,  0,  1,
+          0,  0, -1;
     b << param_bounds(0, 0), -param_bounds(0, 1),
          param_bounds(1, 0), -param_bounds(1, 1),
-         param_bounds(2, 0), -param_bounds(2, 1),
-         param_bounds(3, 0), -param_bounds(3, 1);
+         param_bounds(2, 0), -param_bounds(2, 1);
     Polytopes::LinearConstraints* constraints_2 = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo, A, b
     );
-    Matrix<mpq_rational, Dynamic, Dynamic> vertices_2(16, 4);
+    Matrix<mpq_rational, Dynamic, Dynamic> vertices_2(8, 3);
     int curr = 0; 
     for (int i = 0; i < 2; ++i)
     {
@@ -1044,14 +1040,10 @@ int main(int argc, char** argv)
         {
             for (int k = 0; k < 2; ++k)
             {
-                for (int m = 0; m < 2; ++m)
-                {
-                    vertices_2(curr, 0) = param_bounds(0, i);
-                    vertices_2(curr, 1) = param_bounds(1, j);
-                    vertices_2(curr, 2) = param_bounds(2, k);
-                    vertices_2(curr, 3) = param_bounds(3, m);
-                    curr++; 
-                }
+                vertices_2(curr, 0) = param_bounds(0, i);
+                vertices_2(curr, 1) = param_bounds(1, j);
+                vertices_2(curr, 2) = param_bounds(2, k);
+                curr++; 
             }
         }
     }
@@ -1099,8 +1091,8 @@ int main(int argc, char** argv)
 
         // Write each best-fit parameter vector ...
         for (int j = 0; j < 4; ++j)
-            outfile << fit_logrates(j) << '\t';   // + best_fits_cleave(i, 0) << '\t';
-        for (int j = 1; j < 4; ++j)
+            outfile << fit_logrates(j) << '\t';
+        for (int j = 0; j < 3; ++j)
             outfile << best_fits_cleave(i, j) << '\t';
 
         // ... along with the associated error against the corresponding data ... 
@@ -1108,8 +1100,8 @@ int main(int argc, char** argv)
 
         // ... along with the associated single-mismatch cleavage statistics
         Matrix<MainType, Dynamic, 1> y(7);
-        y.head(4) = fit_logrates;   //+ best_fits_cleave(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(4);
-        y.tail(3) = best_fits_cleave.row(i).tail(3);
+        y.head(4) = fit_logrates;
+        y.tail(3) = best_fits_cleave.row(i);
         Matrix<MainType, Dynamic, 8> fit_single_mismatch_stats = computeCleavageStats(
             y, single_mismatch_seqs, bind_conc
         );
