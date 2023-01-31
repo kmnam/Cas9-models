@@ -678,8 +678,6 @@ int main(int argc, char** argv)
     // Assign default values for parameters that were not specified 
     bool data_specified_as_times = false;
     int ninit = 100; 
-    MainType cleave_error_weight = 1;
-    MainType unbind_error_weight = 1;
     MainType cleave_pseudocount = 0;
     MainType unbind_pseudocount = 0;
     MainType bind_conc = 1e-7;    // TODO Write block for parsing user-defined value 
