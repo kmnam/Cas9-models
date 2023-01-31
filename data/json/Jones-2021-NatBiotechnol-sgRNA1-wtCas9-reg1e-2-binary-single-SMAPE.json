@@ -24,7 +24,7 @@
         "c2": 0.9,
         "line_search_max_iter": 10,
         "zoom_max_iter": 10,
-        "verbose": true,
+        "verbose": false,
         "line_search_verbose": false,
         "zoom_verbose": false
     }
