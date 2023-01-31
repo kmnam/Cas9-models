@@ -980,6 +980,13 @@ int main(int argc, char** argv)
     Eigen::Index min_idx; 
     errors_dissoc.minCoeff(&min_idx); 
     Matrix<MainType, Dynamic, Dynamic> fit_logrates = best_fits_dissoc.row(min_idx);
+    std::cout << "------------------------------------------------------\n";
+    std::cout << "R-loop rates: "
+              << fit_logrates(0) << " "
+              << fit_logrates(1) << " "
+              << fit_logrates(2) << " "
+              << fit_logrates(3) << std::endl;
+    std::cout << "------------------------------------------------------\n";
 
     /** ------------------------------------------------------- //
      *       DEFINE POLYTOPE FOR DETERMINING TERMINAL RATES     //
@@ -1010,6 +1017,15 @@ int main(int argc, char** argv)
     // Round to nearest integers
     terminal_unbind_lograte_min = floor(terminal_unbind_lograte_min);
     terminal_unbind_lograte_max = ceil(terminal_unbind_lograte_max);
+
+    std::cout << "Terminal parameter bounds: "
+              << terminal_unbind_lograte_min << " "
+              << terminal_unbind_lograte_max << " "
+              << terminal_cleave_lograte_min << " "
+              << terminal_cleave_lograte_max << " "
+              << terminal_bind_lograte_min << " "
+              << terminal_bind_lograte_max << std::endl; 
+    std::cout << "------------------------------------------------------\n";
 
     Matrix<mpq_rational, Dynamic, 2> param_bounds(3, 2); 
     param_bounds << static_cast<mpq_rational>(terminal_unbind_lograte_min),
