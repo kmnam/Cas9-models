@@ -4,7 +4,7 @@
     "unbind_data_filename":
         "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA1-Cas9HF1-ndABAs_exp-single.txt",
     "output_filename":
-        "data/Jones-2021-NatBiotechnol-fits-reg1e-4/Jones-2021-NatBiotechnol-fits-sgRNA1-Cas9HF1-reg1e-4-binary-single-SMAPE.tsv",
+        "data/Jones-2021-NatBiotechnol-fits-reg1e-2/Jones-2021-NatBiotechnol-fits-sgRNA1-Cas9HF1-reg1e-2-binary-single-SMAPE.tsv",
     "data_specified_as_times": false,
     "n_init": 20,
     "cleave_pseudocount": 1e-8,
@@ -19,7 +19,7 @@
         "qp_stepsize_tol": 1e-10,
         "quasi_newton_method": 1,
         "regularization_method": 2,
-        "regularization_weight": 1e-4,
+        "regularization_weight": 1e-2,
         "hessian_modify_max_iter": 10000,
         "c1": 1e-4,
         "c2": 0.9,
