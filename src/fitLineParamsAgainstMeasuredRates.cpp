@@ -1,7 +1,7 @@
 /**
- * Using line-search SQP, identify the set of line graph parameter vectors 
- * that yields each given set of specific dissociativities and (composite)
- * cleavage rates in the given data files.
+ * Using line-search SQP, identify the set of *position-specific* line graph
+ * parameter vectors that yields each given set of specific dissociativities
+ * and (composite) cleavage rates in the given data files.
  *
  * Abbreviations in the below comments:
  * - LG:   line graph
@@ -193,13 +193,6 @@ Matrix<MainType, Dynamic, 1> computeCleavageRateRatios(const Ref<const Matrix<Ma
         model->setEdgeLabels(i, match_rates); 
   
     // Compute composite cleavage timescale against perfect-match substrate
-    //PreciseType prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
-    //PreciseType cleave_rate_perfect = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
-    //PreciseType live_unbind_rate_perfect = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-    //PreciseType term = 1 / prob_perfect;
-    //PreciseType composite_cleave_time_perfect = (
-    //    (term / bind_rate) + (1 / cleave_rate_perfect) + ((term - 1) / live_unbind_rate_perfect)
-    //);
     PreciseType composite_cleave_time_perfect = model->getEntryToUpperExitTime(
         bind_rate, terminal_unbind_rate, terminal_cleave_rate
     );
@@ -215,10 +208,6 @@ Matrix<MainType, Dynamic, 1> computeCleavageRateRatios(const Ref<const Matrix<Ma
             else
                 model->setEdgeLabels(j, mismatch_rates);
         }
-        //PreciseType prob = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
-        //PreciseType cleave_rate = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
-        //PreciseType live_unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        //term = 1 / prob;
         PreciseType composite_cleave_time = model->getEntryToUpperExitTime(
             bind_rate, terminal_unbind_rate, terminal_cleave_rate
         );
@@ -285,11 +274,6 @@ Matrix<MainType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<MainTyp
     PreciseType prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
     PreciseType cleave_rate_perfect = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
     PreciseType dead_unbind_rate_perfect = model->getLowerExitRate(terminal_unbind_rate);
-    //PreciseType live_unbind_rate_perfect = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-    //PreciseType term = 1 / prob_perfect;
-    //PreciseType composite_cleave_time_perfect = (
-    //    (term / bind_rate) + (1 / cleave_rate_perfect) + ((term - 1) / live_unbind_rate_perfect)
-    //);
     PreciseType composite_cleave_time_perfect = model->getEntryToUpperExitTime(
         bind_rate, terminal_unbind_rate, terminal_cleave_rate
     );
@@ -309,9 +293,6 @@ Matrix<MainType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<MainTyp
         PreciseType prob = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         PreciseType cleave_rate = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
         PreciseType dead_unbind_rate = model->getLowerExitRate(terminal_unbind_rate); 
-        //PreciseType live_unbind_rate = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        //term = 1 / prob;
-        //PreciseType composite_cleave_time = (term / bind_rate) + (1 / cleave_rate) + ((term - 1) / live_unbind_rate);
         PreciseType composite_cleave_time = model->getEntryToUpperExitTime(
             bind_rate, terminal_unbind_rate, terminal_cleave_rate
         );
@@ -569,7 +550,7 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
 {
     // Set up an SQPOptimizer instance
     const int N = constraints->getN();
-    const int D = 3;
+    const int D = 4;
     SQPOptimizer<MainType>* opt = new SQPOptimizer<MainType>(constraints);
 
     // Sample a set of initial parameter points from the given polytope 
@@ -603,8 +584,8 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
         {
             // b, d, b', d' are assumed to have been already fit
             Matrix<MainType, Dynamic, 1> y(7); 
-            y.head(4) = fit_logrates;
-            y.tail(3) = x;
+            y.head(4) = fit_logrates + x(0) * Matrix<MainType, Dynamic, 1>::Ones(4);
+            y.tail(3) = x.tail(3);
             Matrix<MainType, Dynamic, 1> error = cleaveErrorAgainstData(
                 y, cleave_seqs, cleave_data, bind_conc
             );
@@ -635,8 +616,8 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
             search_verbose, zoom_verbose
         );
         Matrix<MainType, Dynamic, 1> y(7);
-        y.head(4) = fit_logrates;
-        y.tail(3) = best_fits.row(i); 
+        y.head(4) = fit_logrates + best_fits(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(4);
+        y.tail(3) = best_fits.row(i).tail(3); 
         residuals.row(i) = cleaveErrorAgainstData(y, cleave_seqs, cleave_data, bind_conc);
     }
     delete opt;
@@ -991,6 +972,12 @@ int main(int argc, char** argv)
     /** ------------------------------------------------------- //
      *       DEFINE POLYTOPE FOR DETERMINING TERMINAL RATES     //
      *  ------------------------------------------------------- */
+    const int D = 4; 
+
+    // Weight parameter has pre-determined range 
+    MainType weight_min = -4;
+    MainType weight_max = 4;
+
     // Terminal cleavage and binding rates have pre-determined ranges
     MainType terminal_cleave_lograte_min = -4;
     MainType terminal_cleave_lograte_max = 4;
@@ -1019,6 +1006,7 @@ int main(int argc, char** argv)
     terminal_unbind_lograte_max = ceil(terminal_unbind_lograte_max);
 
     std::cout << "Terminal parameter bounds: "
+              << weight_min << " " << weight_max << " "
               << terminal_unbind_lograte_min << " "
               << terminal_unbind_lograte_max << " "
               << terminal_cleave_lograte_min << " "
@@ -1027,28 +1015,36 @@ int main(int argc, char** argv)
               << terminal_bind_lograte_max << std::endl; 
     std::cout << "------------------------------------------------------\n";
 
-    Matrix<mpq_rational, Dynamic, 2> param_bounds(3, 2); 
-    param_bounds << static_cast<mpq_rational>(terminal_unbind_lograte_min),
+    Matrix<mpq_rational, Dynamic, 2> param_bounds(D, 2); 
+    param_bounds << static_cast<mpq_rational>(weight_min),
+                    static_cast<mpq_rational>(weight_max),
+                    static_cast<mpq_rational>(terminal_unbind_lograte_min),
                     static_cast<mpq_rational>(terminal_unbind_lograte_max),
                     static_cast<mpq_rational>(terminal_cleave_lograte_min),
                     static_cast<mpq_rational>(terminal_cleave_lograte_max),
                     static_cast<mpq_rational>(terminal_bind_lograte_min),
                     static_cast<mpq_rational>(terminal_bind_lograte_max);
-    Matrix<mpq_rational, Dynamic, Dynamic> A(6, 3); 
-    Matrix<mpq_rational, Dynamic, 1> b(6);
-    A <<  1,  0,  0,
-         -1,  0,  0,
-          0,  1,  0,
-          0, -1,  0,
-          0,  0,  1,
-          0,  0, -1;
-    b << param_bounds(0, 0), -param_bounds(0, 1),
-         param_bounds(1, 0), -param_bounds(1, 1),
-         param_bounds(2, 0), -param_bounds(2, 1);
+    Matrix<mpq_rational, Dynamic, Dynamic> A = Matrix<mpq_rational, Dynamic, Dynamic>::Zero(2 * D, D); 
+    Matrix<mpq_rational, Dynamic, 1> b(2 * D);
+    for (int i = 0; i < 2 * D; ++i)
+    {
+        int j = static_cast<int>(std::floor(i / 2)); 
+        if (i % 2 == 0)
+        {
+            A(i, j) = 1;
+            b(i) = param_bounds(j, 0);
+        }
+        else 
+        {
+            A(i, j) = -1;
+            b(i) = -param_bounds(j, 1);
+        }
+    }
+    std::cout << A << "\n -- \n" << b << "\n -- \n";
     Polytopes::LinearConstraints* constraints_2 = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo, A, b
     );
-    Matrix<mpq_rational, Dynamic, Dynamic> vertices_2(8, 3);
+    Matrix<mpq_rational, Dynamic, Dynamic> vertices_2(static_cast<int>(std::pow(2, D)), D);
     int curr = 0; 
     for (int i = 0; i < 2; ++i)
     {
@@ -1056,10 +1052,14 @@ int main(int argc, char** argv)
         {
             for (int k = 0; k < 2; ++k)
             {
-                vertices_2(curr, 0) = param_bounds(0, i);
-                vertices_2(curr, 1) = param_bounds(1, j);
-                vertices_2(curr, 2) = param_bounds(2, k);
-                curr++; 
+                for (int m = 0; m < 2; ++m)
+                {
+                    vertices_2(curr, 0) = param_bounds(0, i);
+                    vertices_2(curr, 1) = param_bounds(1, j);
+                    vertices_2(curr, 2) = param_bounds(2, k);
+                    vertices_2(curr, 3) = param_bounds(3, m);
+                    curr++; 
+                }
             }
         }
     }
@@ -1107,8 +1107,8 @@ int main(int argc, char** argv)
 
         // Write each best-fit parameter vector ...
         for (int j = 0; j < 4; ++j)
-            outfile << fit_logrates(j) << '\t';
-        for (int j = 0; j < 3; ++j)
+            outfile << fit_logrates(j) + best_fits_cleave(i, 0) << '\t';
+        for (int j = 1; j < 4; ++j)
             outfile << best_fits_cleave(i, j) << '\t';
 
         // ... along with the associated error against the corresponding data ... 
@@ -1116,8 +1116,8 @@ int main(int argc, char** argv)
 
         // ... along with the associated single-mismatch cleavage statistics
         Matrix<MainType, Dynamic, 1> y(7);
-        y.head(4) = fit_logrates;
-        y.tail(3) = best_fits_cleave.row(i);
+        y.head(4) = fit_logrates + best_fits_cleave(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(4);
+        y.tail(3) = best_fits_cleave.row(i).tail(3);
         Matrix<MainType, Dynamic, 8> fit_single_mismatch_stats = computeCleavageStats(
             y, single_mismatch_seqs, bind_conc
         );
