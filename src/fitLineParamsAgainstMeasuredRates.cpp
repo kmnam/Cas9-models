@@ -1040,7 +1040,6 @@ int main(int argc, char** argv)
             b(i) = -param_bounds(j, 1);
         }
     }
-    std::cout << A << "\n -- \n" << b << "\n -- \n";
     Polytopes::LinearConstraints* constraints_2 = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo, A, b
     );
