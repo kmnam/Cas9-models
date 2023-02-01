@@ -968,7 +968,7 @@ int main(int argc, char** argv)
     Matrix<MainType, Dynamic, 1> fit_residuals = residuals_dissoc.row(min_idx);
     MainType fit_error = errors_dissoc(min_idx);
     std::cout << "------------------------------------------------------\n";
-    std::cout << "R-loop rates: "
+    std::cout << "R-loop rates after dissoc fit: "
               << fit_logrates(0) << " "
               << fit_logrates(1) << " "
               << fit_logrates(2) << " "
