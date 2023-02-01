@@ -634,8 +634,8 @@ int main(int argc, char** argv)
     /** ------------------------------------------------------- //
      *       DEFINE POLYTOPE FOR DETERMINING b, d', b', d'      //
      *  ------------------------------------------------------- */
-    std::string poly_filename = "polytopes/line_diff1_b0-5_Rloop.poly";
-    std::string vert_filename = "polytopes/line_diff1_b0-5_Rloop.vert";
+    std::string poly_filename = "polytopes/line_4_Rloop.poly";
+    std::string vert_filename = "polytopes/line_4_Rloop.vert";
     Polytopes::LinearConstraints* constraints_1 = new Polytopes::LinearConstraints(Polytopes::InequalityType::GreaterThanOrEqualTo);
     constraints_1->parse(poly_filename);
     Matrix<mpq_rational, Dynamic, Dynamic> vertices_1 = Polytopes::parseVertexCoords(vert_filename);   
