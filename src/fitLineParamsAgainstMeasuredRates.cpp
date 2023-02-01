@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     1/31/2023
+ *     2/1/2023
  */
 
 #include <iostream>
@@ -656,7 +656,9 @@ int main(int argc, char** argv)
         throw std::runtime_error("Output file path must be specified");
     std::string cleave_infilename = json_data["cleave_data_filename"].as_string().c_str();
     std::string unbind_infilename = json_data["unbind_data_filename"].as_string().c_str();
-    std::string outfilename = json_data["output_filename"].as_string().c_str();
+    std::string outprefix = json_data["output_prefix"].as_string().c_str();
+    std::string outfilename = outprefix + "-main.tsv"; 
+    std::string residuals_filename = outprefix + "-residuals.tsv";
 
     // Assign default values for parameters that were not specified 
     bool data_specified_as_times = false;
@@ -963,6 +965,8 @@ int main(int argc, char** argv)
     Eigen::Index min_idx; 
     errors_dissoc.minCoeff(&min_idx); 
     Matrix<MainType, Dynamic, 1> fit_logrates = best_fits_dissoc.row(min_idx);
+    Matrix<MainType, Dynamic, 1> fit_residuals = residuals_dissoc.row(min_idx);
+    MainType fit_error = errors_dissoc(min_idx);
     std::cout << "------------------------------------------------------\n";
     std::cout << "R-loop rates: "
               << fit_logrates(0) << " "
@@ -1088,12 +1092,10 @@ int main(int argc, char** argv)
     Matrix<MainType, Dynamic, 1> errors_cleave = residuals_cleave.rowwise().sum();
 
     // Output the fits to file
-    std::stringstream header_ss; 
-    header_ss << "match_forward\tmatch_reverse\tmismatch_forward\tmismatch_reverse\t";
     std::ofstream outfile(outfilename); 
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-    outfile << "fit_attempt\t" << header_ss.str()
-            << "terminal_unbind_rate\tterminal_cleave_rate\t"
+    outfile << "fit_attempt\tmatch_forward\tmatch_reverse\tmismatch_forward\t"
+            << "mismatch_reverse\tterminal_unbind_rate\tterminal_cleave_rate\t"
             << "terminal_bind_rate\tdissoc_error\tcleave_error\t";
     for (int i = 0; i < length; ++i)
     {
@@ -1122,7 +1124,7 @@ int main(int argc, char** argv)
             outfile << best_fits_cleave(i, j) << '\t';
 
         // ... along with the associated error against the corresponding data ... 
-        outfile << errors_dissoc(i) << '\t' << errors_cleave(i) << '\t';
+        outfile << fit_error << '\t' << errors_cleave(i) << '\t';
 
         // ... along with the associated single-mismatch cleavage statistics
         Matrix<MainType, Dynamic, 1> y(7);
@@ -1142,6 +1144,31 @@ int main(int argc, char** argv)
         outfile << std::endl;
     }
     outfile.close();
+
+    // Output the optimal dissociativity residuals and cleavage rate ratio 
+    // residuals to file 
+    std::ofstream residuals_outfile(residuals_filename);
+    residuals_outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
+    residuals_outfile << "fit_dissoc\t";
+    for (int i = 0; i < ninit - 1; ++i)
+        residuals_outfile << "fit_" << i << '\t'; 
+    residuals_outfile << "fit_" << ninit - 1 << std::endl;
+    for (int i = 0; i < residuals_cleave.rows(); ++i)
+    {
+        // Output the sequence ... 
+        for (int j = 0; j < length; ++j)
+            residuals_outfile << (cleave_seqs(i, j) ? '1' : '0');
+        residuals_outfile << '\t';
+
+        // ... and each corresponding dissociativity residual ...
+        residuals_outfile << fit_residuals(i) << '\t';
+
+        // ... and each vector of cleavage rate residuals 
+        for (int j = 0; j < residuals_cleave.cols() - 1; ++j)
+            residuals_outfile << residuals_cleave(i, j) << '\t';
+        residuals_outfile << residuals_cleave(i, residuals_cleave.cols() - 1) << std::endl;
+    }
+    residuals_outfile.close();
 
     delete constraints_1;
     delete constraints_2;
