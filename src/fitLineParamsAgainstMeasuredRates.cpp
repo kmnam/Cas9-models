@@ -550,7 +550,7 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
 {
     // Set up an SQPOptimizer instance
     const int N = constraints->getN();
-    const int D = 4;
+    const int D = 5;
     SQPOptimizer<MainType>* opt = new SQPOptimizer<MainType>(constraints);
 
     // Sample a set of initial parameter points from the given polytope 
@@ -584,7 +584,8 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
         {
             // b, d, b', d' are assumed to have been already fit
             Matrix<MainType, Dynamic, 1> y(7); 
-            y.head(4) = fit_logrates + x(0) * Matrix<MainType, Dynamic, 1>::Ones(4);
+            y.head(2) = fit_logrates.head(2) + x(0) * Matrix<MainType, Dynamic, 1>::Ones(2);
+            y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + x(1) * Matrix<MainType, Dynamic, 1>::Ones(2);
             y.tail(3) = x.tail(3);
             Matrix<MainType, Dynamic, 1> error = cleaveErrorAgainstData(
                 y, cleave_seqs, cleave_data, bind_conc
@@ -616,7 +617,8 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
             search_verbose, zoom_verbose
         );
         Matrix<MainType, Dynamic, 1> y(7);
-        y.head(4) = fit_logrates + best_fits(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(4);
+        y.head(2) = fit_logrates.head(2) + best_fits(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(2);
+        y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + best_fits(i, 1) * Matrix<MainType, Dynamic, 1>::Ones(2);
         y.tail(3) = best_fits.row(i).tail(3); 
         residuals.row(i) = cleaveErrorAgainstData(y, cleave_seqs, cleave_data, bind_conc);
     }
@@ -960,7 +962,7 @@ int main(int argc, char** argv)
     // Find the parameter vector with the least sum-of-squares error 
     Eigen::Index min_idx; 
     errors_dissoc.minCoeff(&min_idx); 
-    Matrix<MainType, Dynamic, Dynamic> fit_logrates = best_fits_dissoc.row(min_idx);
+    Matrix<MainType, Dynamic, 1> fit_logrates = best_fits_dissoc.row(min_idx);
     std::cout << "------------------------------------------------------\n";
     std::cout << "R-loop rates: "
               << fit_logrates(0) << " "
@@ -972,9 +974,9 @@ int main(int argc, char** argv)
     /** ------------------------------------------------------- //
      *       DEFINE POLYTOPE FOR DETERMINING TERMINAL RATES     //
      *  ------------------------------------------------------- */
-    const int D = 4; 
+    const int D = 5; 
 
-    // Weight parameter has pre-determined range 
+    // Weight parameters have pre-determined range 
     MainType weight_min = -4;
     MainType weight_max = 4;
 
@@ -1007,6 +1009,7 @@ int main(int argc, char** argv)
 
     std::cout << "Terminal parameter bounds: "
               << weight_min << " " << weight_max << " "
+              << weight_min << " " << weight_max << " "
               << terminal_unbind_lograte_min << " "
               << terminal_unbind_lograte_max << " "
               << terminal_cleave_lograte_min << " "
@@ -1017,6 +1020,8 @@ int main(int argc, char** argv)
 
     Matrix<mpq_rational, Dynamic, 2> param_bounds(D, 2); 
     param_bounds << static_cast<mpq_rational>(weight_min),
+                    static_cast<mpq_rational>(weight_max),
+                    static_cast<mpq_rational>(weight_min),
                     static_cast<mpq_rational>(weight_max),
                     static_cast<mpq_rational>(terminal_unbind_lograte_min),
                     static_cast<mpq_rational>(terminal_unbind_lograte_max),
@@ -1053,11 +1058,15 @@ int main(int argc, char** argv)
             {
                 for (int m = 0; m < 2; ++m)
                 {
-                    vertices_2(curr, 0) = param_bounds(0, i);
-                    vertices_2(curr, 1) = param_bounds(1, j);
-                    vertices_2(curr, 2) = param_bounds(2, k);
-                    vertices_2(curr, 3) = param_bounds(3, m);
-                    curr++; 
+                    for (int p = 0; p < 2; ++p)
+                    {
+                        vertices_2(curr, 0) = param_bounds(0, i);
+                        vertices_2(curr, 1) = param_bounds(1, j);
+                        vertices_2(curr, 2) = param_bounds(2, k);
+                        vertices_2(curr, 3) = param_bounds(3, m);
+                        vertices_2(curr, 4) = param_bounds(4, p);
+                        curr++;
+                    }
                 }
             }
         }
@@ -1105,9 +1114,11 @@ int main(int argc, char** argv)
         outfile << i << '\t'; 
 
         // Write each best-fit parameter vector ...
-        for (int j = 0; j < 4; ++j)
+        for (int j = 0; j < 2; ++j)
             outfile << fit_logrates(j) + best_fits_cleave(i, 0) << '\t';
-        for (int j = 1; j < 4; ++j)
+        for (int j = 2; j < 4; ++j)
+            outfile << fit_logrates(j) + best_fits_cleave(i, 1) << '\t';
+        for (int j = 2; j < 5; ++j)
             outfile << best_fits_cleave(i, j) << '\t';
 
         // ... along with the associated error against the corresponding data ... 
@@ -1115,7 +1126,8 @@ int main(int argc, char** argv)
 
         // ... along with the associated single-mismatch cleavage statistics
         Matrix<MainType, Dynamic, 1> y(7);
-        y.head(4) = fit_logrates + best_fits_cleave(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(4);
+        y.head(2) = fit_logrates.head(2) + best_fits_cleave(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(2);
+        y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + best_fits_cleave(i, 1) * Matrix<MainType, Dynamic, 1>::Ones(2);
         y.tail(3) = best_fits_cleave.row(i).tail(3);
         Matrix<MainType, Dynamic, 8> fit_single_mismatch_stats = computeCleavageStats(
             y, single_mismatch_seqs, bind_conc
