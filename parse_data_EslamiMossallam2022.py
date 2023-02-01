@@ -39,11 +39,6 @@ reverse = np.array(
     ],
     dtype=np.float64
 )
-
-# Terminal rates 
-unbind_rate = 0.0132723
-cleave_rate = 2.39286
-
 length = 20
 fmt = '{:.6e}'
 
