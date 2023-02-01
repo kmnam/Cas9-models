@@ -652,8 +652,8 @@ int main(int argc, char** argv)
         json_data["cleave_data_filename"] = ""; 
     else if (!json_data.if_contains("unbind_data_filename"))
         json_data["unbind_data_filename"] = "";
-    if (!json_data.if_contains("output_filename"))
-        throw std::runtime_error("Output file path must be specified");
+    if (!json_data.if_contains("output_prefix"))
+        throw std::runtime_error("Output file prefix must be specified");
     std::string cleave_infilename = json_data["cleave_data_filename"].as_string().c_str();
     std::string unbind_infilename = json_data["unbind_data_filename"].as_string().c_str();
     std::string outprefix = json_data["output_prefix"].as_string().c_str();
