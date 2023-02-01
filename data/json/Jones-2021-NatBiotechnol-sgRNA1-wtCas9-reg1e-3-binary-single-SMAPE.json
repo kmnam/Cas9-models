@@ -3,10 +3,10 @@
         "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA1-wtCas9-cleave_rates-single.txt",
     "unbind_data_filename":
         "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA1-wtCas9-ndABAs_exp-single.txt",
-    "output_filename":
-        "data/Jones-2021-NatBiotechnol-fits-reg1e-3/Jones-2021-NatBiotechnol-fits-sgRNA1-wtCas9-reg1e-3-binary-single-SMAPE.tsv",
+    "output_prefix":
+        "data/Jones-2021-NatBiotechnol-fits-reg1e-3/Jones-2021-NatBiotechnol-fits-sgRNA1-wtCas9-reg1e-3-binary-single-SMAPE",
     "data_specified_as_times": false,
-    "n_init": 20,
+    "n_init": 5,
     "cleave_pseudocount": 1e-8,
     "unbind_pseudocount": 0.0,
     "sqp_config": {
@@ -26,7 +26,7 @@
         "line_search_max_iter": 5,
         "zoom_max_iter": 5,
         "qp_max_iter": 100,
-        "verbose": false,
+        "verbose": true,
         "line_search_verbose": false,
         "zoom_verbose": false
     }

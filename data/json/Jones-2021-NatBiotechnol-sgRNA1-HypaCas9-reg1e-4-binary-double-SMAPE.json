@@ -3,8 +3,8 @@
         "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA1-HypaCas9-cleave_rates-double.txt",
     "unbind_data_filename":
         "data/Jones-2021-NatBiotechnol-SI2-Cas9-sgRNA1-HypaCas9-ndABAs_exp-double.txt",
-    "output_filename":
-        "data/Jones-2021-NatBiotechnol-fits-reg1e-4/Jones-2021-NatBiotechnol-fits-sgRNA1-HypaCas9-reg1e-4-binary-double-SMAPE.tsv",
+    "output_prefix":
+        "data/Jones-2021-NatBiotechnol-fits-reg1e-4/Jones-2021-NatBiotechnol-fits-sgRNA1-HypaCas9-reg1e-4-binary-double-SMAPE",
     "data_specified_as_times": false,
     "n_init": 20,
     "cleave_pseudocount": 1e-8,
