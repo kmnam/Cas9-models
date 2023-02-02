@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     2/1/2023
+ *     2/2/2023
  */
 
 #include <iostream>
@@ -528,7 +528,7 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
 std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic> >
     fitLineParamsAgainstMeasuredRatesCleave(const Ref<const Matrix<MainType, Dynamic, 1> >& fit_logrates,
                                             Polytopes::LinearConstraints* constraints,
-                                            const Ref<const Matrix<mpq_rational, Dynamic, Dynamic> >& vertices,  
+                                            const Ref<const Matrix<mpq_rational, Dynamic, 2> >& bounds, 
                                             const Ref<const Matrix<MainType, Dynamic, 1> >& cleave_data, 
                                             const Ref<const MatrixXi>& cleave_seqs, 
                                             const MainType bind_conc, const int ninit,
@@ -553,26 +553,24 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
     const int D = 5;
     SQPOptimizer<MainType>* opt = new SQPOptimizer<MainType>(constraints);
 
-    // Sample a set of initial parameter points from the given polytope 
-    Delaunay_triangulation* tri = new Delaunay_triangulation(D); 
-    Matrix<MainType, Dynamic, Dynamic> init_points(ninit, D); 
-    Polytopes::triangulate(vertices, tri);
-    init_points = Polytopes::sampleFromConvexPolytope<MAIN_PRECISION>(tri, ninit, 0, rng);
-    delete tri;
-
-    // Get the vertices of the given polytope and extract the min/max bounds 
-    // of each parameter
-    Matrix<MainType, Dynamic, 2> bounds(D, 2); 
-    for (int i = 0; i < D; ++i)
+    // Sample a set of initial parameter points from the given polytope
+    Matrix<MainType, Dynamic, Dynamic> init_points(ninit, D);
+    boost::random::uniform_01<double> dist; 
+    for (int i = 0; i < ninit; ++i)
     {
-        mpq_rational min_param = vertices.col(i).minCoeff();
-        mpq_rational max_param = vertices.col(i).maxCoeff();
-        bounds(i, 0) = static_cast<MainType>(min_param); 
-        bounds(i, 1) = static_cast<MainType>(max_param);
+        // Start with a parameter point satisfying the given parametric bounds
+        Matrix<mpq_rational, Dynamic, 1> p(D);
+        for (int j = 0; j < D; ++j)
+        {
+            mpq_rational min = bounds(j, 0); 
+            mpq_rational max = bounds(j, 1);
+            p(j) = min + (max - min) * static_cast<mpq_rational>(dist(rng));
+        }
+        init_points.row(i) = p.cast<MainType>();
     }
-    Matrix<MainType, Dynamic, 1> regularize_bases = (bounds.col(0) + bounds.col(1)) / 2;
 
     // Define vector of regularization weights
+    Matrix<MainType, Dynamic, 1> regularize_bases = (bounds.col(0).cast<MainType>() + bounds.col(1).cast<MainType>()) / 2;
     Matrix<MainType, Dynamic, 1> regularize_weights(D);
     regularize_weights = regularize_weight * Matrix<MainType, Dynamic, 1>::Ones(D);
 
@@ -1052,36 +1050,13 @@ int main(int argc, char** argv)
     Polytopes::LinearConstraints* constraints_2 = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo, A, b
     );
-    Matrix<mpq_rational, Dynamic, Dynamic> vertices_2(static_cast<int>(std::pow(2, D)), D);
-    int curr = 0; 
-    for (int i = 0; i < 2; ++i)
-    {
-        for (int j = 0; j < 2; ++j)
-        {
-            for (int k = 0; k < 2; ++k)
-            {
-                for (int m = 0; m < 2; ++m)
-                {
-                    for (int p = 0; p < 2; ++p)
-                    {
-                        vertices_2(curr, 0) = param_bounds(0, i);
-                        vertices_2(curr, 1) = param_bounds(1, j);
-                        vertices_2(curr, 2) = param_bounds(2, k);
-                        vertices_2(curr, 3) = param_bounds(3, m);
-                        vertices_2(curr, 4) = param_bounds(4, p);
-                        curr++;
-                    }
-                }
-            }
-        }
-    }
 
     /** -------------------------------------------------------------- //
      *              FIT AGAINST GIVEN CLEAVAGE RATE DATA               //
      *  -------------------------------------------------------------- */ 
     std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic> > results_cleave;
     results_cleave = fitLineParamsAgainstMeasuredRatesCleave(
-        fit_logrates, constraints_2, vertices_2, cleave_data, cleave_seqs,
+        fit_logrates, constraints_2, param_bounds, cleave_data, cleave_seqs,
         bind_conc, ninit, rng, delta, beta, sqp_min_stepsize, max_iter, tol,
         x_tol, qp_stepsize_tol, quasi_newton, regularize, regularize_weight,
         hessian_modify_max_iter, c1, c2, line_search_max_iter, zoom_max_iter,
