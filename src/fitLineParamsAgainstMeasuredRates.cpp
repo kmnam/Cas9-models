@@ -556,7 +556,8 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
     // Sample a set of initial parameter points from the given polytope
     Matrix<MainType, Dynamic, Dynamic> init_points(ninit, D);
     boost::random::uniform_01<double> dist; 
-    for (int i = 0; i < ninit; ++i)
+    int nsample = 0;
+    while (nsample < ninit)
     {
         // Start with a parameter point satisfying the given parametric bounds
         Matrix<mpq_rational, Dynamic, 1> p(D);
@@ -566,7 +567,11 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
             mpq_rational max = bounds(j, 1);
             p(j) = min + (max - min) * static_cast<mpq_rational>(dist(rng));
         }
-        init_points.row(i) = p.cast<MainType>();
+        if (constraints->query(p))
+        {
+            init_points.row(nsample) = p.cast<MainType>();
+            nsample++;
+        }
     }
 
     // Define vector of regularization weights
@@ -1031,8 +1036,8 @@ int main(int argc, char** argv)
                     static_cast<mpq_rational>(terminal_cleave_lograte_max),
                     static_cast<mpq_rational>(terminal_bind_lograte_min),
                     static_cast<mpq_rational>(terminal_bind_lograte_max);
-    Matrix<mpq_rational, Dynamic, Dynamic> A = Matrix<mpq_rational, Dynamic, Dynamic>::Zero(2 * D, D); 
-    Matrix<mpq_rational, Dynamic, 1> b(2 * D);
+    Matrix<mpq_rational, Dynamic, Dynamic> A = Matrix<mpq_rational, Dynamic, Dynamic>::Zero(2 * D + 2, D); 
+    Matrix<mpq_rational, Dynamic, 1> b(2 * D + 2);
     for (int i = 0; i < 2 * D; ++i)
     {
         int j = static_cast<int>(std::floor(i / 2)); 
@@ -1047,6 +1052,12 @@ int main(int argc, char** argv)
             b(i) = -param_bounds(j, 1);
         }
     }
+    A(2 * D, 0) = 1;
+    A(2 * D, 1) = -1;
+    A(2 * D + 1, 0) = -1; 
+    A(2 * D + 1, 1) = 1;
+    b(2 * D) = static_cast<mpq_rational>(fit_logrates(2)) - static_cast<mpq_rational>(fit_logrates(0));
+    b(2 * D + 1) = static_cast<mpq_rational>(fit_logrates(1)) - static_cast<mpq_rational>(fit_logrates(3));
     Polytopes::LinearConstraints* constraints_2 = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo, A, b
     );
