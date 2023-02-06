@@ -177,7 +177,7 @@ int main(int argc, char** argv)
     std::function<bool(const Ref<const VectorXd>&)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return (x(0) <= 0.01 && x(1) <= 0.01); 
+            return (x(0) <= 0.01 || x(1) <= 0.01); 
         };
 
     /** ------------------------------------------------------- //
