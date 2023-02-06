@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     1/13/2023
+ *     2/6/2023
  */
 
 #include <iostream>
@@ -173,11 +173,11 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(const int po
 
 int main(int argc, char** argv)
 {
-    // Define filtering function that excludes all output points with y <= 0.1
+    // Define filtering function that restricts output to >= 0.01
     std::function<bool(const Ref<const VectorXd>&)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return (x(1) <= 0.1);
+            return (x(0) <= 0.01 && x(1) <= 0.01); 
         };
 
     /** ------------------------------------------------------- //
