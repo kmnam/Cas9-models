@@ -442,7 +442,7 @@ int main(int argc, char** argv)
         }
     }
     std::stringstream ss;
-    ss << outprefix << "-rapid-mm" << mismatch_pos << "-boundary";
+    ss << outprefix << "-invrapid-mm" << mismatch_pos << "-boundary";
 
     // Parse the given .poly file and store its contents as a string 
     std::ifstream infile(poly_filename);
