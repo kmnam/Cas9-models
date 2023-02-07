@@ -359,7 +359,7 @@ Matrix<MainType, Dynamic, 1> dissocErrorAgainstData(const Ref<const Matrix<MainT
  * Note that regularization, if desired, should be built into the optimizer
  * function/class with which this function will be used.
  *
- * @param logrates    Input vector of 5 LGPs.
+ * @param logrates    Input vector of 7 LGPs.
  * @param cleave_seqs Matrix of input sequences, with entries of 0 (match w.r.t.
  *                    perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
  *                    sequence).
