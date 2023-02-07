@@ -1,7 +1,7 @@
 /**
- * Using line-search SQP, identify the set of *position-specific* line graph
- * parameter vectors that yields each given set of specific dissociativities
- * and (composite) cleavage rates in the given data files.
+ * Using line-search SQP, identify the set of line graph parameter vectors
+ * that yields each given set of specific dissociativities and (composite)
+ * cleavage rates in the given data files.
  *
  * Abbreviations in the below comments:
  * - LG:   line graph
@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     2/2/2023
+ *     2/6/2023
  */
 
 #include <iostream>
@@ -29,6 +29,7 @@
                                    // boost/multiprecision/gmp.hpp, boostMultiprecisionEigen.hpp; 
                                    // additionally includes boost/multiprecision/mpfr.hpp
 #include <polytopes.hpp>           // Must be included after SQP.hpp
+#include <metropolis.hpp>
 #include <graphs/line.hpp>
 #include "../include/utils.hpp"
 
@@ -327,9 +328,12 @@ Matrix<MainType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<MainTyp
  * Note that regularization, if desired, should be built into the optimizer
  * function/class with which this function will be used.
  *
- * @param logrates
- * @param unbind_seqs
- * @param unbind_data
+ * @param logrates    Input vector of 5 LGPs.
+ * @param unbind_seqs Matrix of input sequences, with entries of 0 (match w.r.t.
+ *                    perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
+ *                    sequence).
+ * @param unbind_data Matrix of measured specific dissociativities for the given
+ *                    input sequences.
  * @returns Vector of residuals yielding the sum-of-squares errors. 
  */
 Matrix<MainType, Dynamic, 1> dissocErrorAgainstData(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
@@ -355,10 +359,13 @@ Matrix<MainType, Dynamic, 1> dissocErrorAgainstData(const Ref<const Matrix<MainT
  * Note that regularization, if desired, should be built into the optimizer
  * function/class with which this function will be used.
  *
- * @param logrates
- * @param cleave_seqs
- * @param cleave_data
- * @param bind_conc
+ * @param logrates    Input vector of 5 LGPs.
+ * @param cleave_seqs Matrix of input sequences, with entries of 0 (match w.r.t.
+ *                    perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
+ *                    sequence).
+ * @param cleave_data Matrix of measured composite cleavage rate ratios for 
+ *                    the given input sequences.
+ * @param bind_conc   Concentration of available Cas9.
  * @returns Vector of residuals yielding the sum-of-squares errors. 
  */
 Matrix<MainType, Dynamic, 1> cleaveErrorAgainstData(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
@@ -550,7 +557,7 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
 {
     // Set up an SQPOptimizer instance
     const int N = constraints->getN();
-    const int D = 5;
+    const int D = constraints->getD();
     SQPOptimizer<MainType>* opt = new SQPOptimizer<MainType>(constraints);
 
     // Sample a set of initial parameter points from the given polytope
@@ -560,8 +567,9 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
     while (nsample < ninit)
     {
         // Start with a parameter point satisfying the given parametric bounds
-        Matrix<mpq_rational, Dynamic, 1> p(D);
-        for (int j = 0; j < D; ++j)
+        // and with the four weights set to zero 
+        Matrix<mpq_rational, Dynamic, 1> p = Matrix<mpq_rational, Dynamic, 1>::Zero(D);
+        for (int j = 4; j < D; ++j)
         {
             mpq_rational min = bounds(j, 0); 
             mpq_rational max = bounds(j, 1);
@@ -587,8 +595,9 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
         {
             // b, d, b', d' are assumed to have been already fit
             Matrix<MainType, Dynamic, 1> y(7); 
-            y.head(2) = fit_logrates.head(2) + x(0) * Matrix<MainType, Dynamic, 1>::Ones(2);
-            y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + x(1) * Matrix<MainType, Dynamic, 1>::Ones(2);
+            y.head(4) = fit_logrates + x.head(4);
+            //y.head(2) = fit_logrates.head(2) + x(0) * Matrix<MainType, Dynamic, 1>::Ones(2);
+            //y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + x(1) * Matrix<MainType, Dynamic, 1>::Ones(2);
             y.tail(3) = x.tail(3);
             Matrix<MainType, Dynamic, 1> error = cleaveErrorAgainstData(
                 y, cleave_seqs, cleave_data, bind_conc
@@ -620,8 +629,9 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
             search_verbose, zoom_verbose
         );
         Matrix<MainType, Dynamic, 1> y(7);
-        y.head(2) = fit_logrates.head(2) + best_fits(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(2);
-        y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + best_fits(i, 1) * Matrix<MainType, Dynamic, 1>::Ones(2);
+        y.head(4) = fit_logrates + best_fits.row(i).head(4);
+        //y.head(2) = fit_logrates.head(2) + best_fits(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(2);
+        //y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + best_fits(i, 1) * Matrix<MainType, Dynamic, 1>::Ones(2);
         y.tail(3) = best_fits.row(i).tail(3); 
         residuals.row(i) = cleaveErrorAgainstData(y, cleave_seqs, cleave_data, bind_conc);
     }
@@ -981,11 +991,20 @@ int main(int argc, char** argv)
     /** ------------------------------------------------------- //
      *       DEFINE POLYTOPE FOR DETERMINING TERMINAL RATES     //
      *  ------------------------------------------------------- */
-    const int D = 5; 
+    const int D = 7; 
 
     // Weight parameters have pre-determined range 
     MainType weight_min = -4;
     MainType weight_max = 4;
+    MainType eps = 1e-3;
+    MainType phi = 1;
+    MainType weight_diff_min_01 = -max(eps, phi * abs(fit_logrates(0) - fit_logrates(1))); 
+    MainType weight_diff_max_01 = max(eps, phi * abs(fit_logrates(0) - fit_logrates(1)));
+    MainType weight_diff_min_23 = -max(eps, phi * abs(fit_logrates(2) - fit_logrates(3))); 
+    MainType weight_diff_max_23 = max(eps, phi * abs(fit_logrates(2) - fit_logrates(3)));
+    //std::cout << weight_diff_min_01 << " " << weight_diff_max_01 << " "
+    //          << weight_diff_min_23 << " " << weight_diff_max_23 << std::endl;
+
 
     // Terminal cleavage and binding rates have pre-determined ranges
     MainType terminal_cleave_lograte_min = -4;
@@ -1017,6 +1036,8 @@ int main(int argc, char** argv)
     std::cout << "Terminal parameter bounds: "
               << weight_min << " " << weight_max << " "
               << weight_min << " " << weight_max << " "
+              << weight_min << " " << weight_max << " "
+              << weight_min << " " << weight_max << " "
               << terminal_unbind_lograte_min << " "
               << terminal_unbind_lograte_max << " "
               << terminal_cleave_lograte_min << " "
@@ -1030,14 +1051,18 @@ int main(int argc, char** argv)
                     static_cast<mpq_rational>(weight_max),
                     static_cast<mpq_rational>(weight_min),
                     static_cast<mpq_rational>(weight_max),
+                    static_cast<mpq_rational>(weight_min),
+                    static_cast<mpq_rational>(weight_max),
+                    static_cast<mpq_rational>(weight_min),
+                    static_cast<mpq_rational>(weight_max),
                     static_cast<mpq_rational>(terminal_unbind_lograte_min),
                     static_cast<mpq_rational>(terminal_unbind_lograte_max),
                     static_cast<mpq_rational>(terminal_cleave_lograte_min),
                     static_cast<mpq_rational>(terminal_cleave_lograte_max),
                     static_cast<mpq_rational>(terminal_bind_lograte_min),
                     static_cast<mpq_rational>(terminal_bind_lograte_max);
-    Matrix<mpq_rational, Dynamic, Dynamic> A = Matrix<mpq_rational, Dynamic, Dynamic>::Zero(2 * D + 2, D); 
-    Matrix<mpq_rational, Dynamic, 1> b(2 * D + 2);
+    Matrix<mpq_rational, Dynamic, Dynamic> A = Matrix<mpq_rational, Dynamic, Dynamic>::Zero(2 * D + 6, D); 
+    Matrix<mpq_rational, Dynamic, 1> b(2 * D + 6);
     for (int i = 0; i < 2 * D; ++i)
     {
         int j = static_cast<int>(std::floor(i / 2)); 
@@ -1052,12 +1077,24 @@ int main(int argc, char** argv)
             b(i) = -param_bounds(j, 1);
         }
     }
-    A(2 * D, 0) = 1;
+    A(2 * D, 0) = 1;         // weight for b - weight for d >= weight_diff_min_01
     A(2 * D, 1) = -1;
-    A(2 * D + 1, 0) = -1; 
+    A(2 * D + 1, 0) = -1;    // weight for d - weight for b >= -weight_diff_max_01
     A(2 * D + 1, 1) = 1;
-    b(2 * D) = static_cast<mpq_rational>(fit_logrates(2)) - static_cast<mpq_rational>(fit_logrates(0));
-    b(2 * D + 1) = static_cast<mpq_rational>(fit_logrates(1)) - static_cast<mpq_rational>(fit_logrates(3));
+    A(2 * D + 2, 2) = 1;     // weight for b' - weight for d' >= weight_diff_min_23
+    A(2 * D + 2, 3) = -1;
+    A(2 * D + 3, 2) = -1;    // weight for d' - weight for b' >= -weight_diff_max_23
+    A(2 * D + 3, 3) = 1; 
+    A(2 * D + 4, 0) = 1;     // weight for b - weight for b' >= fit_logrates(2) - fit_logrates(0)
+    A(2 * D + 4, 2) = -1;
+    A(2 * D + 5, 1) = -1;    // weight for d' - weight for d >= fit_logrates(1) - fit_logrates(3)
+    A(2 * D + 5, 3) = 1; 
+    b(2 * D) = static_cast<mpq_rational>(weight_diff_min_01);
+    b(2 * D + 1) = static_cast<mpq_rational>(-weight_diff_max_01);
+    b(2 * D + 2) = static_cast<mpq_rational>(weight_diff_min_23);
+    b(2 * D + 3) = static_cast<mpq_rational>(-weight_diff_max_23);
+    b(2 * D + 4) = static_cast<mpq_rational>(fit_logrates(2)) - static_cast<mpq_rational>(fit_logrates(0));
+    b(2 * D + 5) = static_cast<mpq_rational>(fit_logrates(1)) - static_cast<mpq_rational>(fit_logrates(3));
     Polytopes::LinearConstraints* constraints_2 = new Polytopes::LinearConstraints(
         Polytopes::InequalityType::GreaterThanOrEqualTo, A, b
     );
@@ -1076,6 +1113,18 @@ int main(int argc, char** argv)
     Matrix<MainType, Dynamic, Dynamic> best_fits_cleave = results_cleave.first;
     Matrix<MainType, Dynamic, Dynamic> residuals_cleave = results_cleave.second;
     Matrix<MainType, Dynamic, 1> errors_cleave = residuals_cleave.rowwise().sum();
+
+    /** -------------------------------------------------------------- //
+     *             RE-COMPUTE DISSOC RESIDUALS FOR NEW FITS            //
+     *  -------------------------------------------------------------- */
+    for (int i = 0; i < ninit; ++i)
+    {
+        Matrix<MainType, Dynamic, 1> new_fit_logrates_i(7); 
+        new_fit_logrates_i.head(4) = fit_logrates + best_fits_cleave.row(i).head(4);
+        new_fit_logrates_i.tail(3) = best_fits_cleave.row(i).tail(3); 
+        residuals_dissoc.row(i) = dissocErrorAgainstData(new_fit_logrates_i, unbind_seqs, unbind_data);
+    } 
+    errors_dissoc = residuals_dissoc.rowwise().sum();
 
     // Output the fits to file
     std::ofstream outfile(outfilename); 
@@ -1102,20 +1151,25 @@ int main(int argc, char** argv)
         outfile << i << '\t'; 
 
         // Write each best-fit parameter vector ...
+        /*
         for (int j = 0; j < 2; ++j)
             outfile << fit_logrates(j) + best_fits_cleave(i, 0) << '\t';
         for (int j = 2; j < 4; ++j)
             outfile << fit_logrates(j) + best_fits_cleave(i, 1) << '\t';
-        for (int j = 2; j < 5; ++j)
+        */
+        for (int j = 0; j < 4; ++j)
+            outfile << fit_logrates(j) + best_fits_cleave(i, j) << '\t';
+        for (int j = 4; j < 7; ++j)
             outfile << best_fits_cleave(i, j) << '\t';
 
         // ... along with the associated error against the corresponding data ... 
-        outfile << fit_error << '\t' << errors_cleave(i) << '\t';
+        outfile << errors_dissoc(i) << '\t' << errors_cleave(i) << '\t';
 
         // ... along with the associated single-mismatch cleavage statistics
         Matrix<MainType, Dynamic, 1> y(7);
-        y.head(2) = fit_logrates.head(2) + best_fits_cleave(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(2);
-        y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + best_fits_cleave(i, 1) * Matrix<MainType, Dynamic, 1>::Ones(2);
+        y.head(4) = fit_logrates + best_fits_cleave.row(i).head(4); 
+        //y.head(2) = fit_logrates.head(2) + best_fits_cleave(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(2);
+        //y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + best_fits_cleave(i, 1) * Matrix<MainType, Dynamic, 1>::Ones(2);
         y.tail(3) = best_fits_cleave.row(i).tail(3);
         Matrix<MainType, Dynamic, 8> fit_single_mismatch_stats = computeCleavageStats(
             y, single_mismatch_seqs, bind_conc
