@@ -650,9 +650,6 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
             for (int i = 0; i < length + 1; ++i)
                 y(Eigen::seqN(2 * i, 2)) = fit_logrates(Eigen::seqN(2 * i, 2)) + x(i) * Matrix<MainType, Dynamic, 1>::Ones(2);
             y.tail(3) = x.tail(3);
-            std::cout << fit_logrates.transpose() << "\n--\n";
-            std::cout << x.transpose() << "\n--\n";
-            std::cout << y.transpose() << "\n--\n"; 
             Matrix<MainType, Dynamic, 1> error = cleaveErrorAgainstData(
                 y, cleave_seqs, cleave_data, bind_conc
             );
