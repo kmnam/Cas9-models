@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     2/6/2023
+ *     2/8/2023
  */
 
 #include <iostream>
@@ -1017,14 +1017,6 @@ int main(int argc, char** argv)
     // Weight parameters have pre-determined range 
     MainType weight_min = -4;
     MainType weight_max = 4;
-    /*
-    MainType eps = 1e-3;
-    MainType phi = 1;
-    MainType weight_diff_min_01 = -max(eps, phi * abs(fit_logrates(0) - fit_logrates(1))); 
-    MainType weight_diff_max_01 = max(eps, phi * abs(fit_logrates(0) - fit_logrates(1)));
-    MainType weight_diff_min_23 = -max(eps, phi * abs(fit_logrates(2) - fit_logrates(3))); 
-    MainType weight_diff_max_23 = max(eps, phi * abs(fit_logrates(2) - fit_logrates(3)));
-    */
 
     // Terminal cleavage and binding rates have pre-determined ranges
     MainType terminal_cleave_lograte_min = -4;
@@ -1054,8 +1046,6 @@ int main(int argc, char** argv)
     terminal_unbind_lograte_max = ceil(terminal_unbind_lograte_max);
 
     std::cout << "Terminal parameter bounds: "
-              //<< weight_min << " " << weight_max << " "
-              //<< weight_min << " " << weight_max << " "
               << weight_min << " " << weight_max << " "
               << weight_min << " " << weight_max << " "
               << terminal_unbind_lograte_min << " "
@@ -1071,18 +1061,12 @@ int main(int argc, char** argv)
                     static_cast<mpq_rational>(weight_max),
                     static_cast<mpq_rational>(weight_min),
                     static_cast<mpq_rational>(weight_max),
-                    //static_cast<mpq_rational>(weight_min),
-                    //static_cast<mpq_rational>(weight_max),
-                    //static_cast<mpq_rational>(weight_min),
-                    //static_cast<mpq_rational>(weight_max),
                     static_cast<mpq_rational>(terminal_unbind_lograte_min),
                     static_cast<mpq_rational>(terminal_unbind_lograte_max),
                     static_cast<mpq_rational>(terminal_cleave_lograte_min),
                     static_cast<mpq_rational>(terminal_cleave_lograte_max),
                     static_cast<mpq_rational>(terminal_bind_lograte_min),
                     static_cast<mpq_rational>(terminal_bind_lograte_max);
-    //Matrix<mpq_rational, Dynamic, Dynamic> A = Matrix<mpq_rational, Dynamic, Dynamic>::Zero(2 * D + 6, D); 
-    //Matrix<mpq_rational, Dynamic, 1> b(2 * D + 6);
     Matrix<mpq_rational, Dynamic, Dynamic> A = Matrix<mpq_rational, Dynamic, Dynamic>::Zero(2 * D + 2, D); 
     Matrix<mpq_rational, Dynamic, 1> b(2 * D + 2);
     for (int i = 0; i < 2 * D; ++i)
@@ -1099,32 +1083,10 @@ int main(int argc, char** argv)
             b(i) = -param_bounds(j, 1);
         }
     }
-    /*
-    A(2 * D, 0) = 1;         // weight for b - weight for d >= weight_diff_min_01
-    A(2 * D, 1) = -1;
-    A(2 * D + 1, 0) = -1;    // weight for d - weight for b >= -weight_diff_max_01
-    A(2 * D + 1, 1) = 1;
-    A(2 * D + 2, 2) = 1;     // weight for b' - weight for d' >= weight_diff_min_23
-    A(2 * D + 2, 3) = -1;
-    A(2 * D + 3, 2) = -1;    // weight for d' - weight for b' >= -weight_diff_max_23
-    A(2 * D + 3, 3) = 1;
-    A(2 * D + 4, 0) = 1;     // weight for b - weight for b' >= fit_logrates(2) - fit_logrates(0)
-    A(2 * D + 4, 2) = -1;
-    A(2 * D + 5, 1) = -1;    // weight for d' - weight for d >= fit_logrates(1) - fit_logrates(3)
-    A(2 * D + 5, 3) = 1;
-    */
     A(2 * D, 0) = 1;         // weight for b/d - weight for b'/d' >= fit_logrates(2) - fit_logrates(0)
     A(2 * D, 1) = -1;
     A(2 * D + 1, 0) = -1;    // weight for b'/d' - weight for b/d >= fit_logrates(1) - fit_logrates(3)
     A(2 * D + 1, 1) = 1;
-    /*
-    b(2 * D) = static_cast<mpq_rational>(weight_diff_min_01);
-    b(2 * D + 1) = static_cast<mpq_rational>(-weight_diff_max_01);
-    b(2 * D + 2) = static_cast<mpq_rational>(weight_diff_min_23);
-    b(2 * D + 3) = static_cast<mpq_rational>(-weight_diff_max_23);
-    b(2 * D + 4) = static_cast<mpq_rational>(fit_logrates(2)) - static_cast<mpq_rational>(fit_logrates(0));
-    b(2 * D + 5) = static_cast<mpq_rational>(fit_logrates(1)) - static_cast<mpq_rational>(fit_logrates(3));
-    */
     b(2 * D) = static_cast<mpq_rational>(fit_logrates(2)) - static_cast<mpq_rational>(fit_logrates(0));
     b(2 * D + 1) = static_cast<mpq_rational>(fit_logrates(1)) - static_cast<mpq_rational>(fit_logrates(3));
     Polytopes::LinearConstraints* constraints_2 = new Polytopes::LinearConstraints(
@@ -1147,20 +1109,8 @@ int main(int argc, char** argv)
     Matrix<MainType, Dynamic, 1> errors_cleave = residuals_cleave.rowwise().sum();
 
     /** -------------------------------------------------------------- //
-     *             RE-COMPUTE DISSOC RESIDUALS FOR NEW FITS            //
-     *  -------------------------------------------------------------- */
-    /*
-    for (int i = 0; i < ninit; ++i)
-    {
-        Matrix<MainType, Dynamic, 1> new_fit_logrates_i(7); 
-        new_fit_logrates_i.head(4) = fit_logrates + best_fits_cleave.row(i).head(4);
-        new_fit_logrates_i.tail(3) = best_fits_cleave.row(i).tail(3); 
-        residuals_dissoc.row(i) = dissocErrorAgainstData(new_fit_logrates_i, unbind_seqs, unbind_data);
-    } 
-    errors_dissoc = residuals_dissoc.rowwise().sum();
-    */
-
-    // Output the fits to file
+     *                        OUTPUT FITS TO FILE                      //
+     *  -------------------------------------------------------------- */ 
     std::ofstream outfile(outfilename); 
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     outfile << "fit_attempt\tmatch_forward\tmatch_reverse\tmismatch_forward\t"
@@ -1191,17 +1141,12 @@ int main(int argc, char** argv)
             outfile << fit_logrates(j) + best_fits_cleave(i, 1) << '\t';
         for (int j = 2; j < 5; ++j)
             outfile << best_fits_cleave(i, j) << '\t';
-        //for (int j = 0; j < 4; ++j)
-        //    outfile << fit_logrates(j) + best_fits_cleave(i, j) << '\t';
-        //for (int j = 4; j < 7; ++j)
-        //    outfile << best_fits_cleave(i, j) << '\t';
 
         // ... along with the associated error against the corresponding data ... 
         outfile << errors_dissoc(i) << '\t' << errors_cleave(i) << '\t';
 
         // ... along with the associated single-mismatch cleavage statistics
         Matrix<MainType, Dynamic, 1> y(7);
-        //y.head(4) = fit_logrates + best_fits_cleave.row(i).head(4); 
         y.head(2) = fit_logrates.head(2) + best_fits_cleave(i, 0) * Matrix<MainType, Dynamic, 1>::Ones(2);
         y(Eigen::seqN(2, 2)) = fit_logrates.tail(2) + best_fits_cleave(i, 1) * Matrix<MainType, Dynamic, 1>::Ones(2);
         y.tail(3) = best_fits_cleave.row(i).tail(3);
@@ -1223,11 +1168,15 @@ int main(int argc, char** argv)
     // residuals to file 
     std::ofstream residuals_outfile(residuals_filename);
     residuals_outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-    residuals_outfile << "fit_dissoc\t";
+    residuals_outfile << "seq\tfit_dissoc\t";
     for (int i = 0; i < ninit - 1; ++i)
         residuals_outfile << "fit_" << i << '\t'; 
     residuals_outfile << "fit_" << ninit - 1 << std::endl;
-    for (int i = 0; i < residuals_cleave.rows(); ++i)
+    residuals_outfile << "total\t" << fit_error << '\t';
+    for (int i = 0; i < ninit - 1; ++i)
+        residuals_outfile << residuals_cleave.row(i).sum() << '\t';
+    residuals_outfile << residuals_cleave.row(ninit - 1).sum() << std::endl;
+    for (int i = 0; i < residuals_cleave.cols(); ++i)
     {
         // Output the sequence ... 
         for (int j = 0; j < length; ++j)
@@ -1238,9 +1187,9 @@ int main(int argc, char** argv)
         residuals_outfile << fit_residuals(i) << '\t';
 
         // ... and each vector of cleavage rate residuals 
-        for (int j = 0; j < residuals_cleave.cols() - 1; ++j)
-            residuals_outfile << residuals_cleave(i, j) << '\t';
-        residuals_outfile << residuals_cleave(i, residuals_cleave.cols() - 1) << std::endl;
+        for (int j = 0; j < residuals_cleave.rows() - 1; ++j)
+            residuals_outfile << residuals_cleave(j, i) << '\t';
+        residuals_outfile << residuals_cleave(residuals_cleave.rows() - 1, i) << std::endl;
     }
     residuals_outfile.close();
 
