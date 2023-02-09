@@ -29,7 +29,6 @@
                                    // boost/multiprecision/gmp.hpp, boostMultiprecisionEigen.hpp; 
                                    // additionally includes boost/multiprecision/mpfr.hpp
 #include <polytopes.hpp>           // Must be included after SQP.hpp
-#include <metropolis.hpp>
 #include <graphs/line.hpp>
 #include "../include/utils.hpp"
 
