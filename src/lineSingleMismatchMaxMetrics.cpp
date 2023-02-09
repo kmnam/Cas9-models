@@ -557,7 +557,8 @@ int main(int argc, char** argv)
      *                       MAXIMIZE EACH METRIC                      //
      *  -------------------------------------------------------------- */
     VectorXd max_activity_params(6); 
-    VectorXd max_speed_params(6); 
+    VectorXd max_speed_params(6);
+    VectorXd max_spec_params(length, 6);
     MatrixXd max_rapid_params(length, 6); 
     MatrixXd min_rapid_params(length, 6);
     MatrixXd max_dissoc_params(length, 6);
@@ -601,6 +602,23 @@ int main(int argc, char** argv)
     {
         VectorXi seq = VectorXi::Ones(length);
         seq(i) = 0;
+
+        // Maximize specificity 
+        optima = maximizeMetric(
+            [&seq](const Ref<const VectorXd>& x) -> double
+            {
+                return static_cast<double>(-computeSpecificity(x, seq)); 
+            },
+            constraints, vertices, n_init, rng, delta, beta, sqp_min_stepsize,
+            sqp_max_iter, sqp_tol, sqp_tol, qp_stepsize_tol, hessian_modify_max_iter,
+            c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, sqp_verbose,
+            sqp_line_search_verbose, sqp_zoom_verbose
+        );
+        VectorXd max_spec(n_init); 
+        for (int j = 0; j < n_init; ++j)
+            max_spec(j) = static_cast<double>(computeSpecificity(optima.row(j), seq));
+        max_spec.maxCoeff(&max_idx);
+        max_spec_params.row(i) = optima.row(max_idx);
 
         // Maximize rapidity with respect to single-mismatch substrate with
         // mismatch at position i
@@ -656,11 +674,47 @@ int main(int argc, char** argv)
         max_dissoc.maxCoeff(&max_idx);
         max_dissoc_params.row(i) = optima.row(max_idx);
     }
-    std::cout << max_activity_params << "\n--\n";
-    std::cout << max_speed_params << "\n--\n";
-    std::cout << max_rapid_params << "\n--\n";
-    std::cout << min_rapid_params << "\n--\n";
-    std::cout << max_dissoc_params << "\n--\n";
+
+    // Output maximized values to file 
+    std::ofstream outfile("data/maximized-metrics.tsv");
+    outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
+    outfile << "activity\t";
+    for (int i = 0; i < 5; ++i)
+        outfile << max_activity_params(i) << '\t';
+    outfile << max_activity_params(5) << std::endl;
+    outfile << "speed\t"; 
+    for (int i = 0; i < 5; ++i)
+        outfile << max_speed_params(i) << '\t'; 
+    outfile << max_speed_params(5) << std::endl; 
+    for (int i = 0; i < length; ++i)
+    {
+        outfile << "spec_mm" << i << '\t';
+        for (int j = 0; j < 5; ++j)
+            outfile << max_spec_params(j) << '\t';
+        outfile << max_spec_params(5) << std::endl;
+    }
+    for (int i = 0; i < length; ++i)
+    {
+        outfile << "maxrapid_mm" << i << '\t';
+        for (int j = 0; j < 5; ++j)
+            outfile << max_rapid_params(j) << '\t';
+        outfile << max_rapid_params(5) << std::endl; 
+    }
+    for (int i = 0; i < length; ++i)
+    {
+        outfile << "minrapid_mm" << i << '\t';
+        for (int j = 0; j < 5; ++j)
+            outfile << min_rapid_params(j) << '\t';
+        outfile << min_rapid_params(5) << std::endl; 
+    }
+    for (int i = 0; i < length; ++i)
+    {
+        outfile << "dissoc_mm" << i << '\t';
+        for (int j = 0; j < 5; ++j)
+            outfile << max_dissoc_params(j) << '\t';
+        outfile << max_dissoc_params(5) << std::endl;
+    }
+    outfile.close();
 
     delete constraints;
     return 0;
