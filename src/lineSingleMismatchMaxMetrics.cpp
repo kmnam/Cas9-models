@@ -414,9 +414,15 @@ int main(int argc, char** argv)
     std::string poly_filename = json_data["poly_filename"].as_string().c_str();
     std::string vert_filename = json_data["vert_filename"].as_string().c_str();
     std::string outprefix = json_data["output_prefix"].as_string().c_str();
+    int n_init = 100;
+    if (json_data.if_contains("n_init"))
+    {
+        n_init = json_data["n_init"].as_int64();
+        if (n_init <= 0)
+            throw std::runtime_error("Invalid value for n_init specified");
+    }
 
     // Parse SQP configurations
-    int n_init = 100;    // TODO Include in JSON parsing 
     int sqp_max_iter = 1000;
     double delta = 1e-8; 
     double beta = 1e-4;
@@ -693,29 +699,29 @@ int main(int argc, char** argv)
     {
         outfile << "spec_mm" << i << '\t';
         for (int j = 0; j < 5; ++j)
-            outfile << max_spec_params(j) << '\t';
-        outfile << max_spec_params(5) << std::endl;
+            outfile << max_spec_params(i, j) << '\t';
+        outfile << max_spec_params(i, 5) << std::endl;
     }
     for (int i = 0; i < length; ++i)
     {
         outfile << "maxrapid_mm" << i << '\t';
         for (int j = 0; j < 5; ++j)
-            outfile << max_rapid_params(j) << '\t';
-        outfile << max_rapid_params(5) << std::endl; 
+            outfile << max_rapid_params(i, j) << '\t';
+        outfile << max_rapid_params(i, 5) << std::endl; 
     }
     for (int i = 0; i < length; ++i)
     {
         outfile << "minrapid_mm" << i << '\t';
         for (int j = 0; j < 5; ++j)
-            outfile << min_rapid_params(j) << '\t';
-        outfile << min_rapid_params(5) << std::endl; 
+            outfile << min_rapid_params(i, j) << '\t';
+        outfile << min_rapid_params(i, 5) << std::endl; 
     }
     for (int i = 0; i < length; ++i)
     {
         outfile << "deaddissoc_mm" << i << '\t';
         for (int j = 0; j < 5; ++j)
-            outfile << max_dissoc_params(j) << '\t';
-        outfile << max_dissoc_params(5) << std::endl;
+            outfile << max_dissoc_params(i, j) << '\t';
+        outfile << max_dissoc_params(i, 5) << std::endl;
     }
     outfile.close();
 
