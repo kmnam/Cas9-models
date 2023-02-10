@@ -1,9 +1,13 @@
 """
+Plot boxplots of parameter values obeying particular properties with respect
+to activity, specificity, rapidity, and dissociativity from the two-dimensional
+histograms of sampled parameter vectors. 
+
 Authors:
     Kee-Myoung Nam
 
 Last updated:
-    1/22/2023
+    2/10/2023
 """
 import numpy as np
 import pandas as pd
@@ -377,7 +381,7 @@ def main():
     axes[2].set_ylabel(r"$\log_{10}(b/d')$")
     axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
     plt.tight_layout()
-    plt.savefig('plots/line_4_diff1_combined_single-negrapid-boxplot.pdf')
+    plt.savefig('plots/line_4_diff1_combined_single-invrapid-boxplot.pdf')
     plt.close()
 
     # ---------------------------------------------------------------- #
