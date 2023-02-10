@@ -120,14 +120,9 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
 
     # Pick plots to highlight if not already specified 
     if plot_main and highlight_plot_indices is None:
-        highlight_plot_indices = []
-        rng = np.random.default_rng(37)
-        highlight_plot_indices.append(rng.integers(0, 500, None))
-        rng = np.random.default_rng(11)
-        highlight_plot_indices.append(rng.integers(0, 500, None))
-        rng = np.random.default_rng(64)
-        highlight_plot_indices.append(rng.integers(0, 500, None))
-        highlight_plot_indices += [
+        highlight_plot_indices = [
+            probs[:500, 1].argmax(),
+            np.power(10, -specs[:500, 19]).argmin(),
             np.abs(probs[:500, 6] - probs[:500, 5]).argmax(),
             np.abs(probs[:500, 13] - probs[:500, 12]).argmax(),
             np.abs(np.power(10, -specs[:500, 19]) - 0.6).argmin(),
@@ -267,9 +262,9 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
     plt.savefig('plots/{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
 
-    # Then plot the histograms for mismatch positions 4, 9, 14, 19 ...
+    # Then plot the histograms for mismatch positions 0, 6, 12, 19 ...
     if plot_main:
-        indices = [4, 9, 14, 19]
+        indices = [0, 6, 12, 19]
         _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
             speeds, specs, 20,
             r'$\sigma_{*}(\mathbf{u}^{\mathrm{P}})$',
@@ -279,7 +274,7 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
         if label_speed_thresholds:
             for i, k in enumerate(indices):
                 key = '1{}'.format(i)
-                if speed_thresholds[k] is not None and k >= label_speed_thresholds_from:
+                if k >= label_speed_thresholds_from and speed_thresholds[k] is not None:
                     xlim = axes_main[key].get_xlim()
                     axes_main[key].plot(
                         [speed_thresholds[k], speed_thresholds[k]],
@@ -381,9 +376,9 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
     plt.savefig('plots/{}-spec-vs-deaddissoc-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
 
-    # Then plot the histograms for mismatch positions 2, 10, 16, 19 ...
+    # Then plot the histograms for mismatch positions 0, 6, 12, 19 ...
     if plot_main:
-        indices = [2, 10, 16, 19]
+        indices = [0, 6, 12, 19]
         _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
             specs, dead_dissoc, 20,
             r'$\log_{10}(\phi(\mathbf{u}^{\mathrm{P}}) / \phi(\mathbf{u}^M))$',
@@ -425,34 +420,19 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
 ##########################################################################
 def main():
     filenames = {
-        'logrates': 'data/line-3-w6-v2-minusbind-single-logrates.tsv',
-        'probs': 'data/line-3-w6-v2-minusbind-single-probs.tsv',
-        'specs': 'data/line-3-w6-v2-minusbind-single-specs.tsv',
-        'cleave': 'data/line-3-w6-v2-minusbind-single-cleave.tsv',
-        'unbind': 'data/line-3-w6-v2-minusbind-single-unbind.tsv',
-        'rapid': 'data/line-3-w6-v2-minusbind-single-rapid.tsv',
-        'deaddissoc': 'data/line-3-w6-v2-minusbind-single-deaddissoc.tsv'
+        'logrates': 'data/line_4_diff1_combined_single-logrates.tsv',
+        'probs': 'data/line_4_diff1_combined_single-probs.tsv',
+        'specs': 'data/line_4_diff1_combined_single-specs.tsv',
+        'cleave': 'data/line_4_diff1_combined_single-cleave.tsv',
+        'unbind': 'data/line_4_diff1_combined_single-unbind.tsv',
+        'rapid': 'data/line_4_diff1_combined_single-rapid.tsv',
+        'deaddissoc': 'data/line_4_diff1_combined_single-deaddissoc.tsv'
     }
     plot_histograms(
-        filenames, 'line-3-w6-v2-minusbind-single', plot_main=True,
-        highlight_plot_indices=None, label_speed_thresholds=False,
-        label_dissoc_thresholds=True, label_speed_thresholds_from=None,
-        label_dissoc_thresholds_from=2
-    )
-    filenames = {
-        'logrates': 'data/line-3-w6-minusbind-single-logrates.tsv',
-        'probs': 'data/line-3-w6-minusbind-single-probs.tsv',
-        'specs': 'data/line-3-w6-minusbind-single-specs.tsv',
-        'cleave': 'data/line-3-w6-minusbind-single-cleave.tsv',
-        'unbind': 'data/line-3-w6-minusbind-single-unbind.tsv',
-        'rapid': 'data/line-3-w6-minusbind-single-rapid.tsv',
-        'deaddissoc': 'data/line-3-w6-minusbind-single-deaddissoc.tsv'
-    }
-    plot_histograms(
-        filenames, 'line-3-w6-minusbind-single', plot_main=False, 
+        filenames, 'line_4_diff1_combined_single', plot_main=True, 
         highlight_plot_indices=None, label_speed_thresholds=True,
-        label_dissoc_thresholds=True, label_speed_thresholds_from=4,
-        label_dissoc_thresholds_from=2
+        label_dissoc_thresholds=True, label_speed_thresholds_from=1,
+        label_dissoc_thresholds_from=3
     )
 
 ##########################################################################
