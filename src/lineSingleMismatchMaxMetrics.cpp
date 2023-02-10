@@ -564,7 +564,7 @@ int main(int argc, char** argv)
      *  -------------------------------------------------------------- */
     VectorXd max_activity_params(6); 
     VectorXd max_speed_params(6);
-    VectorXd max_spec_params(length, 6);
+    MatrixXd max_spec_params(length, 6);
     MatrixXd max_rapid_params(length, 6); 
     MatrixXd min_rapid_params(length, 6);
     MatrixXd max_dissoc_params(length, 6);
