@@ -603,7 +603,8 @@ int main(int argc, char** argv)
         VectorXi seq = VectorXi::Ones(length);
         seq(i) = 0;
 
-        // Maximize specificity 
+        // Maximize specificity with respect to single-mismatch substrate with 
+        // mismatch at position i 
         optima = maximizeMetric(
             [&seq](const Ref<const VectorXd>& x) -> double
             {
@@ -675,8 +676,10 @@ int main(int argc, char** argv)
         max_dissoc_params.row(i) = optima.row(max_idx);
     }
 
-    // Output maximized values to file 
-    std::ofstream outfile("data/maximized-metrics.tsv");
+    // Output maximized values to file
+    std::stringstream ss; 
+    ss << outprefix << "-maximized-metrics.tsv"; 
+    std::ofstream outfile(ss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     outfile << "activity\t";
     for (int i = 0; i < 5; ++i)
