@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     2/9/2023
+ *     2/10/2023
  */
 
 #include <iostream>
@@ -709,7 +709,7 @@ int main(int argc, char** argv)
     }
     for (int i = 0; i < length; ++i)
     {
-        outfile << "dissoc_mm" << i << '\t';
+        outfile << "deaddissoc_mm" << i << '\t';
         for (int j = 0; j < 5; ++j)
             outfile << max_dissoc_params(j) << '\t';
         outfile << max_dissoc_params(5) << std::endl;
