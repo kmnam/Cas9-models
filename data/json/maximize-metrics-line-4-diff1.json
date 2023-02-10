@@ -1,7 +1,7 @@
 {
     "poly_filename": "polytopes/line_4_diff1_combined.poly",
     "vert_filename": "polytopes/line_4_diff1_combined.vert",
-    "output_prefix": "data/boundaries/line_4_diff1_combined_single/activity/mm0/line_4_diff1_combined_single",
+    "output_prefix": "data/boundaries/line_4_diff1_combined_single",
     "n_init": 100,
     "sqp_config": {
         "delta": 1e-8,
