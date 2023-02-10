@@ -44,15 +44,15 @@ def main():
     # ---------------------------------------------------------------- # 
     # Parse the output metrics for single-mismatch substrates  
     # ---------------------------------------------------------------- #
-    logrates = np.loadtxt('data/line-3-w6-v2-minusbind-single-logrates.tsv')
-    probs = np.loadtxt('data/line-3-w6-v2-minusbind-single-probs.tsv')
-    specs = np.loadtxt('data/line-3-w6-v2-minusbind-single-specs.tsv')
-    cleave = np.loadtxt('data/line-3-w6-v2-minusbind-single-cleave.tsv')
-    unbind = np.loadtxt('data/line-3-w6-v2-minusbind-single-unbind.tsv')
-    rapid = np.loadtxt('data/line-3-w6-v2-minusbind-single-rapid.tsv')
-    dead_dissoc = np.loadtxt('data/line-3-w6-v2-minusbind-single-deaddissoc.tsv')
-    ratio_min = -6
-    ratio_max = 6
+    logrates = np.loadtxt('data/line_4_diff1_combined_single-logrates.tsv')
+    probs = np.loadtxt('data/line_4_diff1_combined_single-probs.tsv')
+    specs = np.loadtxt('data/line_4_diff1_combined_single-specs.tsv')
+    cleave = np.loadtxt('data/line_4_diff1_combined_single-cleave.tsv')
+    unbind = np.loadtxt('data/line_4_diff1_combined_single-unbind.tsv')
+    rapid = np.loadtxt('data/line_4_diff1_combined_single-rapid.tsv')
+    dead_dissoc = np.loadtxt('data/line_4_diff1_combined_single-deaddissoc.tsv')
+    ratio_min = -1
+    ratio_max = 1
     
     # Cleavage probabilities on perfect-match substrates
     activities = np.tile(probs[:, 0].reshape((probs.shape[0]), 1), 20)
@@ -131,7 +131,7 @@ def main():
     axes[2].set_ylabel(r"$\log_{10}(b/d')$")
     axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
     plt.tight_layout()
-    plt.savefig('plots/line-3-w6-v2-minusbind-single-lowspec-boxplot.pdf')
+    plt.savefig('plots/line_4_diff1_combined_single-lowspec-boxplot.pdf')
     plt.close()
 
     # High activity only
@@ -186,7 +186,7 @@ def main():
     axes[2].set_ylabel(r"$\log_{10}(b/d')$")
     axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
     plt.tight_layout()
-    plt.savefig('plots/line-3-w6-v2-minusbind-single-highactivity-boxplot.pdf')
+    plt.savefig('plots/line_4_diff1_combined_single-highactivity-boxplot.pdf')
     plt.close()
 
     # Both high activity and low specificity
@@ -242,7 +242,7 @@ def main():
     axes[2].set_ylabel(r"$\log_{10}(b/d')$")
     axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
     plt.tight_layout()
-    plt.savefig('plots/line-3-w6-v2-minusbind-single-highactivity-lowspec-boxplot.pdf')
+    plt.savefig('plots/line_4_diff1_combined_single-highactivity-lowspec-boxplot.pdf')
     plt.close()
 
     # ---------------------------------------------------------------- #
@@ -313,7 +313,7 @@ def main():
     axes[2].set_ylabel(r"$\log_{10}(b/d')$")
     axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
     plt.tight_layout()
-    plt.savefig('plots/line-3-w6-v2-minusbind-single-highrapid-boxplot.pdf')
+    plt.savefig('plots/line_4_diff1_combined_single-highrapid-boxplot.pdf')
     plt.close()
 
     # ---------------------------------------------------------------- #
@@ -377,7 +377,7 @@ def main():
     axes[2].set_ylabel(r"$\log_{10}(b/d')$")
     axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
     plt.tight_layout()
-    plt.savefig('plots/line-3-w6-v2-minusbind-single-negrapid-boxplot.pdf')
+    plt.savefig('plots/line_4_diff1_combined_single-negrapid-boxplot.pdf')
     plt.close()
 
     # ---------------------------------------------------------------- #
@@ -391,12 +391,13 @@ def main():
     # For each histogram, identify the upper limit of the uppermost bin in the
     # second column 
     dissoc_threshold_indices = {}
-    for i in range(2, 20):
+    start_idx = 3
+    for i in range(start_idx, 20):
         spec_within_range = (specs[:, i] >= spec_x_bin_edges[1])
         dissoc_threshold_indices[i] = np.nonzero(
             dissoc_y_bin_edges > np.max(dead_dissoc[spec_within_range, i])
         )[0][0]
-    dissoc_thresholds = {i: dissoc_y_bin_edges[dissoc_threshold_indices[i]] for i in range(2, 20)}
+    dissoc_thresholds = {i: dissoc_y_bin_edges[dissoc_threshold_indices[i]] for i in range(start_idx, 20)}
 
     # ---------------------------------------------------------------- #
     # Get distributions of parameter ratios for parameter vectors that yield
@@ -407,7 +408,6 @@ def main():
     cp_valid = [cp_total]
     p_valid = [p_total]
     q_valid = [q_total]
-    start_idx = 2
     for i in range(start_idx, 20):       # For each mismatch position ...
         c_valid_i = []
         cp_valid_i = []
@@ -449,17 +449,17 @@ def main():
     axes[2].set_ylabel(r"$\log_{10}(b/d')$")
     axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
     plt.tight_layout()
-    plt.savefig('plots/line-3-w6-v2-minusbind-single-highdissoc-boxplot.pdf')
+    plt.savefig('plots/line_4_diff1_combined_single-highdissoc-boxplot.pdf')
     plt.close()
 
     # ---------------------------------------------------------------- #
     # Get histograms of speed and specificity for all mismatch positions 
     # ---------------------------------------------------------------- #
-    logrates = np.loadtxt('data/line-3-w6-minusbind-single-logrates.tsv')
-    specs = np.loadtxt('data/line-3-w6-minusbind-single-specs.tsv')
-    cleave = np.loadtxt('data/line-3-w6-minusbind-single-cleave.tsv')
-    ratio_min = -6
-    ratio_max = 6
+    logrates = np.loadtxt('data/line_4_diff1_combined_single-logrates.tsv')
+    specs = np.loadtxt('data/line_4_diff1_combined_single-specs.tsv')
+    cleave = np.loadtxt('data/line_4_diff1_combined_single-cleave.tsv')
+    ratio_min = -1
+    ratio_max = 1
     
     # Cleavage rates on perfect-match substrates 
     speeds = np.tile(cleave[:, 0].reshape((cleave.shape[0]), 1), 20)
@@ -471,13 +471,13 @@ def main():
     # For each histogram, identify the upper limit of the uppermost bin in the
     # second (from bottom) row
     speed_threshold_indices = {}
-    start_idx = 4
+    start_idx = 1
     for i in range(start_idx, 20):       # For each mismatch position ...
         spec_within_range = (specs[:, i] >= spec_y_bin_edges[1])
         speed_threshold_indices[i] = np.nonzero(
             speed_x_bin_edges > np.max(cleave[spec_within_range, 0])
         )[0][0]
-    speed_thresholds = {i: speed_x_bin_edges[speed_threshold_indices[i]] for i in range(4, 20)}
+    speed_thresholds = {i: speed_x_bin_edges[speed_threshold_indices[i]] for i in range(start_idx, 20)}
     print(speed_thresholds)
 
     # ---------------------------------------------------------------- #
@@ -530,7 +530,7 @@ def main():
     axes[2].set_ylabel(r"$\log_{10}(b/d')$")
     axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
     plt.tight_layout()
-    plt.savefig('plots/line-3-w6-minusbind-single-highspeed-boxplot.pdf')
+    plt.savefig('plots/line_4_diff1_combined_single-highspeed-boxplot.pdf')
     plt.close()
 
 ###########################################################################
