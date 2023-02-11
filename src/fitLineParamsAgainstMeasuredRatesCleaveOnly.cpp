@@ -420,8 +420,8 @@ int main(int argc, char** argv)
     /** ------------------------------------------------------- //
      *       DEFINE POLYTOPE FOR DETERMINING b, d', b', d'      //
      *  ------------------------------------------------------- */
-    std::string poly_filename = "polytopes/line_4_diff1_plusbind.poly";
-    std::string vert_filename = "polytopes/line_4_diff1_plusbind.vert";
+    std::string poly_filename = "polytopes/line_3_diff1_plusbind.poly";
+    std::string vert_filename = "polytopes/line_3_diff1_plusbind.vert";
     Polytopes::LinearConstraints* constraints = new Polytopes::LinearConstraints(Polytopes::InequalityType::GreaterThanOrEqualTo);
     constraints->parse(poly_filename);
     Matrix<mpq_rational, Dynamic, Dynamic> vertices = Polytopes::parseVertexCoords(vert_filename);   

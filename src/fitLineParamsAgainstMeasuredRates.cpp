@@ -667,8 +667,8 @@ int main(int argc, char** argv)
     /** ------------------------------------------------------- //
      *       DEFINE POLYTOPE FOR DETERMINING b, d', b', d'      //
      *  ------------------------------------------------------- */
-    std::string poly_filename = "polytopes/line_4_Rloop.poly";
-    std::string vert_filename = "polytopes/line_4_Rloop.vert";
+    std::string poly_filename = "polytopes/line_3_Rloop.poly";
+    std::string vert_filename = "polytopes/line_3_Rloop.vert";
     Polytopes::LinearConstraints* constraints_1 = new Polytopes::LinearConstraints(Polytopes::InequalityType::GreaterThanOrEqualTo);
     constraints_1->parse(poly_filename);
     Matrix<mpq_rational, Dynamic, Dynamic> vertices_1 = Polytopes::parseVertexCoords(vert_filename);   
@@ -1015,14 +1015,14 @@ int main(int argc, char** argv)
     const int D = 5; 
 
     // Weight parameters have pre-determined range 
-    MainType weight_min = -4;
-    MainType weight_max = 4;
+    MainType weight_min = -3;
+    MainType weight_max = 3;
 
     // Terminal cleavage and binding rates have pre-determined ranges
     MainType terminal_cleave_lograte_min = -4;
-    MainType terminal_cleave_lograte_max = 4;
-    MainType terminal_bind_lograte_min = 0;
-    MainType terminal_bind_lograte_max = 8;
+    MainType terminal_cleave_lograte_max = 2;
+    MainType terminal_bind_lograte_min = 3;
+    MainType terminal_bind_lograte_max = 9;
 
     // Get log(b/d)
     MainType log_b_by_d = fit_logrates(0) - fit_logrates(1); 
