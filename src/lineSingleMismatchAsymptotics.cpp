@@ -6,7 +6,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/25/2023
+ *     2/11/2023
  */
 
 #include <iostream>
@@ -762,14 +762,14 @@ int main(int argc, char** argv)
     const int n = std::stoi(argv[3]);
     std::stringstream ss; 
     std::unordered_map<int, mpq_rational> fixed_values;
-    fixed_values[0] = 5;
-    fixed_values[1] = -5;
+    fixed_values[0] = 3;
+    fixed_values[1] = -3;
     ss << prefix << "-largematch";
     std::string prefix2 = ss.str();
     runConstrainedSampling(poly_filename, n, fixed_values, prefix2);
     fixed_values.clear();
-    fixed_values[3] = 5;
-    fixed_values[2] = -5;
+    fixed_values[3] = 3;
+    fixed_values[2] = -3;
     ss.clear(); 
     ss.str(std::string());
     ss << prefix << "-smallmismatch";
