@@ -6,7 +6,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     2/11/2023
+ *     2/15/2023
  */
 
 #include <iostream>
@@ -599,10 +599,6 @@ void runConstrainedSampling(const std::string poly_filename, const int n,
         specs.row(i) = stats.col(4).tail(length);
         rapid.row(i) = stats.col(5).tail(length);
     }
-    std::cout << specs << std::endl; 
-    std::cout << "--\n";
-    std::cout << rapid << std::endl;
-    std::cout << "--\n";
 
     // Write sampled parameter combinations to file
     std::ostringstream oss;
@@ -695,8 +691,6 @@ void runConstrainedSampling(const std::string poly_filename, const int n,
                 logrates_i, logrates(i, 0), logrates(i, 1)
             );
         }
-        std::cout << asymp_stats << std::endl; 
-        std::cout << "--\n";  
 
         // Write matrix of asymptotic activities and specificities
         oss << prefix << "-asymp-activities-specs.tsv";  
@@ -727,8 +721,6 @@ void runConstrainedSampling(const std::string poly_filename, const int n,
                 logrates_i, logrates(i, 2), logrates(i, 3)
             ).transpose();
         }
-        std::cout << asymp_tradeoff_rapid << std::endl;
-        std::cout << "--\n";
 
         // Write matrix of asymptotic rapidity tradeoff constants
         oss << prefix << "-asymp-rapid.tsv";  
