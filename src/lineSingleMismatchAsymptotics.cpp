@@ -763,17 +763,17 @@ int main(int argc, char** argv)
     const mpq_rational p(argv[4]);
     std::stringstream ss; 
     std::unordered_map<int, mpq_rational> fixed_values;
-    fixed_values[0] = p;
-    fixed_values[1] = -p;
-    ss << prefix << "-largematch-exp" << p;
+    fixed_values[0] = p / 2;
+    fixed_values[1] = -p / 2;
+    ss << prefix << "-largematch-diff" << p;
     std::string prefix2 = ss.str();
     runConstrainedSampling(poly_filename, n, fixed_values, prefix2);
     fixed_values.clear();
-    fixed_values[3] = p;
-    fixed_values[2] = -p;
+    fixed_values[3] = p / 2;
+    fixed_values[2] = -p / 2;
     ss.clear(); 
     ss.str(std::string());
-    ss << prefix << "-smallmismatch-exp" << p;
+    ss << prefix << "-smallmismatch-diff" << p;
     prefix2 = ss.str();
     runConstrainedSampling(poly_filename, n, fixed_values, prefix2);
 
