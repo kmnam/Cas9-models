@@ -14,7 +14,7 @@
     "n_keep_origbound": 10000,
     "n_mutate_origbound": 400,
     "n_pull_origbound": 400,
-    "alpha_percentile": 1.0,
+    "alpha_percentile": 0.1,
     "verbose": true,
     "traversal_verbose": false,
     "write_pulled_points": true,
