@@ -12,7 +12,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  * 
  * **Last updated:**
- *     2/6/2023
+ *     2/15/2023
  */
 
 #include <iostream>
@@ -217,6 +217,7 @@ int main(int argc, char** argv)
     int n_keep_origbound = 10000;
     int n_mutate_origbound = 400;
     int n_pull_origbound = 400;
+    double alpha_percentile = 1.0;
     bool verbose = true;
     bool traversal_verbose = true;  
     bool write_pulled_points = true;
@@ -294,6 +295,10 @@ int main(int argc, char** argv)
             throw std::runtime_error(
                 "Invalid number of unsimplified boundary vertices to pull per pull iteration (n_pull_origbound) specified"
             );
+    }
+    if (json_data.if_contains("alpha_percentile"))
+    {
+        alpha_percentile = json_data["alpha_percentile"].as_double();
     }
     if (json_data.if_contains("verbose"))
     {
@@ -469,8 +474,8 @@ int main(int argc, char** argv)
         n_pull_origbound, delta, beta, min_stepsize, hessian_modify_max_iter,
         ss.str(), RegularizationMethod::NOREG, VectorXd::Zero(finder->getD()),
         VectorXd::Zero(finder->getD()), QuadraticProgramSolveMethod::USE_CUSTOM_SOLVER,
-        c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, verbose,
-        sqp_verbose, sqp_line_search_verbose, sqp_zoom_verbose,
+        c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, alpha_percentile,
+        verbose, sqp_verbose, sqp_line_search_verbose, sqp_zoom_verbose,
         traversal_verbose, write_pulled_points 
     );
 
