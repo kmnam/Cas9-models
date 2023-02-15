@@ -760,19 +760,20 @@ int main(int argc, char** argv)
     const std::string poly_filename = argv[1];
     const std::string prefix = argv[2];
     const int n = std::stoi(argv[3]);
+    const mpq_rational p(argv[4]);
     std::stringstream ss; 
     std::unordered_map<int, mpq_rational> fixed_values;
-    fixed_values[0] = 3;
-    fixed_values[1] = -3;
-    ss << prefix << "-largematch";
+    fixed_values[0] = p;
+    fixed_values[1] = -p;
+    ss << prefix << "-largematch-exp" << p;
     std::string prefix2 = ss.str();
     runConstrainedSampling(poly_filename, n, fixed_values, prefix2);
     fixed_values.clear();
-    fixed_values[3] = 3;
-    fixed_values[2] = -3;
+    fixed_values[3] = p;
+    fixed_values[2] = -p;
     ss.clear(); 
     ss.str(std::string());
-    ss << prefix << "-smallmismatch";
+    ss << prefix << "-smallmismatch-exp" << p;
     prefix2 = ss.str();
     runConstrainedSampling(poly_filename, n, fixed_values, prefix2);
 
