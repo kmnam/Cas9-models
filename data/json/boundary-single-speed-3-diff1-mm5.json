@@ -23,7 +23,7 @@
         "beta": 1e-4,
         "min_stepsize": 1e-7,
         "max_iter": 100,
-        "tol": 1e-6,
+        "tol": 1e-5,
         "qp_stepsize_tol": 1e-8,
         "hessian_modify_max_iter": 10000,
         "c1": 1e-4,
