@@ -4,7 +4,7 @@
     "mismatch_position": 5,
     "output_prefix": "data/boundaries/line_3_diff1_combined_single/speed/mm5/line_3_diff1_combined_single",
     "n_init": 40000,
-    "tol": 1e-5,
+    "tol": 1e-6,
     "min_step_iter": 100,
     "max_step_iter": 200,
     "min_pull_iter": 100,
