@@ -175,11 +175,11 @@ std::function<VectorXd(const Ref<const VectorXd>&)> getCleavageFunc(const int po
 
 int main(int argc, char** argv)
 {
-    // Define filtering function that restricts output to >= 0.01
+    // Define filtering function that restricts output to >= 0.1
     std::function<bool(const Ref<const VectorXd>&)> filter
         = [](const Ref<const VectorXd>& x)
         {
-            return (x(0) < 0.01);
+            return (x(0) < 0.1);
         };
 
     /** ------------------------------------------------------- //
