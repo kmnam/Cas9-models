@@ -125,8 +125,8 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
             np.power(10, -specs[:500, 19]).argmin(),
             np.abs(probs[:500, 6] - probs[:500, 5]).argmax(),
             np.abs(probs[:500, 13] - probs[:500, 12]).argmax(),
-            np.abs(np.power(10, -specs[:500, 19]) - 0.6).argmin(),
-            np.abs(np.power(10, -specs[:500, 12]) - np.power(10, -specs[:500, 11])).argmax(),
+            #np.abs(np.power(10, -specs[:500, 19]) - 0.6).argmin(),
+            #np.abs(np.power(10, -specs[:500, 12]) - np.power(10, -specs[:500, 11])).argmax(),
         ]
 
     ######################################################################
@@ -157,11 +157,11 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
         for i, j in enumerate(highlight_plot_indices):
             axes_main['A0'].plot(
                 list(range(20)), probs[j, 1:], c=palette[i], marker=None, zorder=1,
-                linewidth=2
+                linewidth=3
             )
             axes_main['A1'].plot(
                 list(range(20)), np.power(10.0, -specs[j, :]), c=palette[i],
-                marker=None, zorder=1, linewidth=2
+                marker=None, zorder=1, linewidth=3
             )
         axes_main['A0'].set_xlim([-0.5, 19.5])
         axes_main['A0'].set_xlabel(r'$m$', size=10)
@@ -420,16 +420,16 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
 ##########################################################################
 def main():
     filenames = {
-        'logrates': 'data/line_4_diff1_combined_single-logrates.tsv',
-        'probs': 'data/line_4_diff1_combined_single-probs.tsv',
-        'specs': 'data/line_4_diff1_combined_single-specs.tsv',
-        'cleave': 'data/line_4_diff1_combined_single-cleave.tsv',
-        'unbind': 'data/line_4_diff1_combined_single-unbind.tsv',
-        'rapid': 'data/line_4_diff1_combined_single-rapid.tsv',
-        'deaddissoc': 'data/line_4_diff1_combined_single-deaddissoc.tsv'
+        'logrates': 'data/line_3_diff1_combined_single-logrates.tsv',
+        'probs': 'data/line_3_diff1_combined_single-probs.tsv',
+        'specs': 'data/line_3_diff1_combined_single-specs.tsv',
+        'cleave': 'data/line_3_diff1_combined_single-cleave.tsv',
+        'unbind': 'data/line_3_diff1_combined_single-unbind.tsv',
+        'rapid': 'data/line_3_diff1_combined_single-rapid.tsv',
+        'deaddissoc': 'data/line_3_diff1_combined_single-deaddissoc.tsv'
     }
     plot_histograms(
-        filenames, 'line_4_diff1_combined_single', plot_main=True, 
+        filenames, 'line_3_diff1_combined_single', plot_main=True, 
         highlight_plot_indices=None, label_speed_thresholds=True,
         label_dissoc_thresholds=True, label_speed_thresholds_from=1,
         label_dissoc_thresholds_from=3
