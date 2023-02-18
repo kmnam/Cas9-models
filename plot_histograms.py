@@ -125,6 +125,7 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
             np.power(10, -specs[:500, 19]).argmin(),
             np.abs(probs[:500, 6] - probs[:500, 5]).argmax(),
             np.abs(probs[:500, 13] - probs[:500, 12]).argmax(),
+            np.abs(probs[:500, 17] - probs[:500, 16]).argmax()
             #np.abs(np.power(10, -specs[:500, 19]) - 0.6).argmin(),
             #np.abs(np.power(10, -specs[:500, 12]) - np.power(10, -specs[:500, 11])).argmax(),
         ]
