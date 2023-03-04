@@ -1,7 +1,7 @@
 /**
- * Using line-search SQP, identify the set of *position-specific* line graph
- * parameter vectors that yields each given set of specific dissociativities
- * in the given data file.
+ * Using line-search SQP, identify the set of line graph parameter vectors
+ * that yields each given set of apparent binding affinities in the given data
+ * files.
  *
  * Abbreviations in the below comments:
  * - LG:   line graph
@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     2/6/2023
+ *     3/3/2023
  */
 
 #include <iostream>
@@ -82,7 +82,7 @@ std::vector<int> sampleWithReplacement(const int n, const int k, boost::random::
 }
 
 /**
- * Compute the specific dissociativity on all given matched/mismatched sequences
+ * Compute the apparent binding affinity on all matched/mismatched sequences
  * specified in the given matrix of complementarity patterns, for the given LG.
  *
  * Here, `logrates` is assumed to contain *5* entries:
@@ -97,8 +97,8 @@ std::vector<int> sampleWithReplacement(const int n, const int k, boost::random::
  *                  perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
  *                  sequence).
  */
-Matrix<MainType, Dynamic, 1> computeDissociativity(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
-                                                   const Ref<const MatrixXi>& seqs)
+Matrix<MainType, Dynamic, 1> computeApparentBindingAffinity(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
+                                                            const Ref<const MatrixXi>& seqs)
 {
     // Array of DNA/RNA match parameters
     std::pair<PreciseType, PreciseType> match_rates = std::make_pair(
@@ -135,7 +135,7 @@ Matrix<MainType, Dynamic, 1> computeDissociativity(const Ref<const Matrix<MainTy
                 model->setEdgeLabels(j, mismatch_rates);
         }
         
-        // Compute *inverse* specific dissociativity: rate on perfect / rate on mismatched
+        // Compute *inverse* apparent binding affinity: rate on perfect / rate on mismatched
         PreciseType unbind_rate = model->getLowerExitRate(terminal_unbind_rate);
         stats(i) = log10(unbind_rate_perfect) - log10(unbind_rate);
     }
@@ -145,24 +145,27 @@ Matrix<MainType, Dynamic, 1> computeDissociativity(const Ref<const Matrix<MainTy
 }
 
 /**
- * Compute the *unregularized* sum-of-squares error between a set of specific
- * dissociativities inferred from the given LGPs and a set of experimentally
- * determined dissociativities. 
+ * Compute the *unregularized* sum-of-squares error between a set of apparent
+ * binding affinities inferred from the given LGPs and a set of experimentally
+ * determined apparent binding affinities.
  *
  * Note that regularization, if desired, should be built into the optimizer
  * function/class with which this function will be used.
  *
- * @param logrates
- * @param unbind_seqs
- * @param unbind_data
+ * @param logrates    Input vector of 5 LGPs.
+ * @param unbind_seqs Matrix of input sequences, with entries of 0 (match w.r.t.
+ *                    perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
+ *                    sequence).
+ * @param unbind_data Matrix of measured apparent binding affinities for the 
+ *                    given input sequences. 
  * @returns Vector of residuals yielding the sum-of-squares errors. 
  */
 Matrix<MainType, Dynamic, 1> dissocErrorAgainstData(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
                                                     const Ref<const MatrixXi>& unbind_seqs,
                                                     const Ref<const Matrix<MainType, Dynamic, 1> >& unbind_data)
 {
-    // Compute dissociativities for the given complementarity patterns
-    Matrix<MainType, Dynamic, 1> stats = computeDissociativity(logrates, unbind_seqs);
+    // Compute apparent binding affinities for the given complementarity patterns
+    Matrix<MainType, Dynamic, 1> stats = computeApparentBindingAffinity(logrates, unbind_seqs);
     for (int i = 0; i < stats.size(); ++i)    // Convert to linear scale 
         stats(i) = pow(ten_main, stats(i)); 
 
@@ -173,31 +176,50 @@ Matrix<MainType, Dynamic, 1> dissocErrorAgainstData(const Ref<const Matrix<MainT
 }
 
 /**
- * @param constraints
- * @param vertices
- * @param unbind_data
- * @param unbind_seqs
- * @param ninit
- * @param rng
- * @param delta
- * @param beta
- * @param sqp_min_stepsize
- * @param max_iter
- * @param tol
- * @param x_tol
- * @param qp_stepsize_tol
+ * @param constraints             Constraints defining input polytope.
+ * @param vertices                Vertex coordinates of input polytope.
+ * @param unbind_data             Matrix of measured apparent binding affinities.
+ * @param unbind_seqs             Matrix of input sequences. 
+ * @param ninit                   Number of fitting attempts. 
+ * @param rng                     Random number generator. 
+ * @param delta                   Increment for finite-differences 
+ *                                approximation during each SQP iteration.
+ * @param beta                    Increment for Hessian matrix modification
+ *                                (for ensuring positive semi-definiteness).
+ * @param sqp_min_stepsize        Minimum allowed stepsize during each
+ *                                SQP iteration. 
+ * @param max_iter                Maximum number of iterations for SQP. 
+ * @param tol                     Tolerance for assessing convergence in 
+ *                                output value in SQP. 
+ * @param x_tol                   Tolerance for assessing convergence in 
+ *                                input value in SQP.
+ * @param qp_stepsize_tol         Tolerance for assessing whether a
+ *                                stepsize during each QP is zero (during 
+ *                                each SQP iteration).
  * @param quasi_newton
- * @param regularize
- * @param regularize_weight
- * @param hessian_modify_max_iter
- * @param c1
- * @param c2
- * @param line_search_max_iter
- * @param zoom_max_iter
- * @param qp_max_iter
- * @param verbose
- * @param search_verbose
- * @param zoom_verbose
+ * @param regularize              Regularization method: `NOREG`, `L1`,
+ *                                or `L2`.
+ * @param regularize_weight       Regularization weight. If `regularize`
+ *                                is `NOREG`, then this value is ignored.
+ * @param hessian_modify_max_iter Maximum number of Hessian matrix
+ *                                modification iterations (for ensuring
+ *                                positive semi-definiteness).  
+ * @param c1                      Pre-factor for testing Armijo's 
+ *                                condition during each SQP iteration.
+ * @param c2                      Pre-factor for testing the curvature 
+ *                                condition during each SQP iteration.
+ * @param line_search_max_iter    Maximum number of line search iterations
+ *                                during each SQP iteration.
+ * @param zoom_max_iter           Maximum number of zoom iterations
+ *                                during each SQP iteration.
+ * @param qp_max_iter             Maximum number of iterations during 
+ *                                each QP (during each SQP iteration). 
+ * @param verbose                 If true, output intermittent messages
+ *                                during SQP to `stdout`.
+ * @param search_verbose          If true, output intermittent messages
+ *                                in `lineSearch()` during SQP to `stdout`.
+ * @param zoom_verbose            If true, output intermittent messages
+ *                                in `zoom()` during SQP to `stdout`.
  */
 std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic> >
     fitLineParamsAgainstMeasuredRatesDissoc(Polytopes::LinearConstraints* constraints,
@@ -296,10 +318,10 @@ int main(int argc, char** argv)
     boost::random::mt19937 rng(1234567890);
 
     /** ------------------------------------------------------- //
-     *       DEFINE POLYTOPE FOR DETERMINING b, d', b', d'      //
+     *       DEFINE POLYTOPE FOR DETERMINING b, d, b', d'       //
      *  ------------------------------------------------------- */
-    std::string poly_filename = "polytopes/line_4_Rloop.poly";
-    std::string vert_filename = "polytopes/line_4_Rloop.vert";
+    std::string poly_filename = "polytopes/line_3_Rloop.poly";
+    std::string vert_filename = "polytopes/line_3_Rloop.vert";
     Polytopes::LinearConstraints* constraints_1 = new Polytopes::LinearConstraints(Polytopes::InequalityType::GreaterThanOrEqualTo);
     constraints_1->parse(poly_filename);
     Matrix<mpq_rational, Dynamic, Dynamic> vertices_1 = Polytopes::parseVertexCoords(vert_filename);   
@@ -311,7 +333,7 @@ int main(int argc, char** argv)
 
     // Check that input/output file paths were specified 
     if (!json_data.if_contains("unbind_data_filename"))
-        throw std::runtime_error("Dataset must be specified");
+        throw std::runtime_error("Apparent binding affinity dataset must be specified");
     if (!json_data.if_contains("output_prefix"))
         throw std::runtime_error("Output file prefix must be specified");
     std::string unbind_infilename = json_data["unbind_data_filename"].as_string().c_str();
@@ -338,7 +360,7 @@ int main(int argc, char** argv)
     {
         unbind_pseudocount = static_cast<MainType>(json_data["unbind_pseudocount"].as_double()); 
         if (unbind_pseudocount < 0)
-            throw std::runtime_error("Invalid unbinding rate pseudocount specified");
+            throw std::runtime_error("Invalid apparent binding affinity pseudocount specified");
     }
     
     // Parse SQP configurations
@@ -478,19 +500,17 @@ int main(int argc, char** argv)
         }
     }
 
-    // Parse measured dead unbinding rates, along with the mismatched sequences
-    // on which they were measured 
+    // Parse measured apparent binding affinities, along with the mismatched
+    // sequences on which they were measured 
     int n_unbind_data = 0;
     MatrixXi unbind_seqs = MatrixXi::Zero(0, length); 
     Matrix<MainType, Dynamic, 1> unbind_data = Matrix<MainType, Dynamic, 1>::Zero(0);
     
-    // Parse the input file of unbinding rates
+    // Parse the input file of apparent binding affinities 
     std::ifstream infile;
     std::string line, token;
     infile.open(unbind_infilename);
-
-    // Parse each subsequent line in the file 
-    while (std::getline(infile, line))
+    while (std::getline(infile, line)) 
     {
         std::stringstream ss;
         ss << line;
@@ -510,7 +530,7 @@ int main(int argc, char** argv)
                 unbind_seqs(n_unbind_data - 1, j) = 1;
         } 
 
-        // The second entry is the ndABA (specific dissociativity) being parsed 
+        // The second entry is the apparent binding affinity being parsed
         std::getline(ss, token, '\t');
         try
         {
@@ -523,16 +543,21 @@ int main(int argc, char** argv)
     }
     infile.close();
 
-    // Exit if no unbinding rates were specified 
+    // Exit if no apparent binding affinities were specified 
     if (n_unbind_data == 0)
-        throw std::runtime_error("Unbinding rate dataset is empty");
+        throw std::runtime_error("Apparent binding affinity dataset is empty");
 
-    // Also invert all parsed ndABAs (i.e., specific dissociativities)
+    // Invert all parsed apparent binding affinities 
     if (unbind_data.size() > 0)
         unbind_data = unbind_data.array().pow(-1).matrix();
     
-    // Add pseudocounts to the unbinding rates 
+    // Add pseudocounts
     unbind_data += unbind_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_unbind_data);
+
+    // Define matrix of single-mismatch DNA sequences relative to the 
+    // perfect-match sequence for cleavage rates
+    MatrixXi single_mismatch_seqs;
+    single_mismatch_seqs = MatrixXi::Ones(length, length) - MatrixXi::Identity(length, length); 
 
     /** -------------------------------------------------------------- //
      *              FIT AGAINST GIVEN DISSOCIATIVITY DATA              //
@@ -549,49 +574,19 @@ int main(int argc, char** argv)
     Matrix<MainType, Dynamic, Dynamic> residuals_dissoc = results_dissoc.second;
     Matrix<MainType, Dynamic, 1> errors_dissoc = residuals_dissoc.rowwise().sum();
 
-    // Output the fits to file
-    std::ofstream outfile(outfilename); 
-    outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-    outfile << "fit_attempt\tmatch_forward\tmatch_reverse\tmismatch_forward\t"
-            << "mismatch_reverse\tdissoc_error\n";
-    int pos = outfile.tellp();
-    outfile.seekp(pos - 1);
-    outfile << std::endl;  
-    for (int i = 0; i < ninit; ++i)
-    {
-        outfile << i << '\t'; 
-
-        // Write each best-fit parameter vector ...
-        for (int j = 0; j < 4; ++j)
-            outfile << best_fits_dissoc(i, j) << '\t';
-
-        // ... along with the associated error against the corresponding data 
-        outfile << errors_dissoc(i) << std::endl;
-    }
-    outfile.close();
-
-    // Output the dissociativity residuals to file 
-    std::ofstream residuals_outfile(residuals_filename);
-    residuals_outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
-    for (int i = 0; i < ninit - 1; ++i)
-        residuals_outfile << "fit_" << i << '\t'; 
-    residuals_outfile << "fit_" << ninit - 1 << std::endl;
-    for (int i = 0; i < residuals_dissoc.rows(); ++i)
-    {
-        // Output the sequence ... 
-        for (int j = 0; j < length; ++j)
-            residuals_outfile << (unbind_seqs(i, j) ? '1' : '0');
-        residuals_outfile << '\t';
-
-        // ... and each vector of dissociativity residuals
-        for (int j = 0; j < residuals_dissoc.cols() - 1; ++j)
-            residuals_outfile << residuals_dissoc(i, j) << '\t';
-        residuals_outfile << residuals_dissoc(i, residuals_dissoc.cols() - 1) << std::endl;
-    }
-    residuals_outfile.close();
+    // Find the parameter vector with the least sum-of-squares error 
+    Eigen::Index min_idx; 
+    errors_dissoc.minCoeff(&min_idx); 
+    Matrix<MainType, Dynamic, 1> fit_logrates = best_fits_dissoc.row(min_idx);
+    Matrix<MainType, Dynamic, 1> fit_residuals = residuals_dissoc.row(min_idx);
+    MainType fit_error = errors_dissoc(min_idx);
+    std::cout << "------------------------------------------------------\n";
+    std::cout << "R-loop rate log-ratios after fit: "
+              << fit_logrates(0) - fit_logrates(1) << " "
+              << fit_logrates(2) - fit_logrates(3) << std::endl;
+    std::cout << "------------------------------------------------------\n";
 
     delete constraints_1;
-    delete constraints_2;
     return 0;
 } 
 
