@@ -18,7 +18,7 @@ Jones_filenames = [
     for variant in ['wtCas9', 'eCas9', 'HypaCas9', 'Cas9HF1']
 ]
 ocr_values = {}
-aba_values = {}
+ndaba_values = {}
 pseudocount = 1e-8      # Add pseudocount of 1e-8 to each value 
 for filename in Jones_filenames:
     if 'cleave_rates' in filename:
@@ -34,11 +34,11 @@ for filename in Jones_filenames:
             f.readline()    # Skip the first line, which contains the on-target sequence
             for line in f:
                 _, pattern, rate = line.split()
-                if pattern not in aba_values:
-                    aba_values[pattern] = []
+                if pattern not in ndaba_values:
+                    ndaba_values[pattern] = []
                 # Note that all ndABAs are given in linear scale and needs to 
                 # be converted to log-scale (base 10) for comparisons
-                aba_values[pattern].append(np.log10(float(rate)) + pseudocount)
+                ndaba_values[pattern].append(np.log10(float(rate)) + pseudocount)
 
 # Parse the Boyle et al. 2017 dataset of dead unbinding rates 
 Boyle_filename = 'data/Boyle-2017-PNAS-SD3-dissoc-10nM-seqs.txt'
@@ -141,7 +141,7 @@ unbind_values = {
 values_prefix = sys.argv[1]
 values_filenames = [
     '{}-{}.tsv'.format(values_prefix, suffix) for suffix in 
-    ['ocr', 'rcomp', 'rdiss', 'aba', 'unbind']
+    ['ocr', 'rcomp', 'rdiss', 'ndaba', 'unbind']
 ]
 for filename in values_filenames:
     data = pd.read_csv(filename, sep='\t', index_col=None, header=0)
@@ -177,14 +177,14 @@ for filename in values_filenames:
                 min(rdiss_values[pattern]), max(rdiss_values[pattern]),
                 data_min[pattern], data_max[pattern]
             )
-    elif filename.endswith('aba.tsv'):
-        for pattern in aba_values:
+    elif filename.endswith('ndaba.tsv'):
+        for pattern in ndaba_values:
             contained = all(
-                j > data_min[pattern] and j < data_max[pattern] for j in aba_values[pattern]
+                j > data_min[pattern] and j < data_max[pattern] for j in ndaba_values[pattern]
             )
             print(
-                'aba:', pattern, contained, 
-                min(aba_values[pattern]), max(aba_values[pattern]),
+                'ndaba:', pattern, contained, 
+                min(ndaba_values[pattern]), max(ndaba_values[pattern]),
                 data_min[pattern], data_max[pattern]
             )
     elif filename.endswith('unbind.tsv'):
