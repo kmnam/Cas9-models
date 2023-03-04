@@ -1,7 +1,7 @@
 /**
  * Using line-search SQP, identify the set of line graph parameter vectors
- * that yields each given set of specific dissociativities and (composite)
- * cleavage rates in the given data files.
+ * that yields each given set of overall cleavage rates in the given data
+ * files.  
  *
  * Abbreviations in the below comments:
  * - LG:   line graph
@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     2/8/2023
+ *     3/3/2023
  */
 
 #include <iostream>
@@ -64,7 +64,7 @@ typename Derived::Scalar logsumexp(const MatrixBase<Derived>& logx,
 }
 
 /**
- * Compute the composite cleavage rate ratios on all given matched/mismatched
+ * Compute the overall cleavage rate ratios on all matched/mismatched
  * sequences specified in the given matrix of complementarity patterns, for
  * the given LG.
  *
@@ -111,12 +111,12 @@ Matrix<MainType, Dynamic, 1> computeCleavageRateRatios(const Ref<const Matrix<Ma
     for (int i = 0; i < length; ++i)
         model->setEdgeLabels(i, match_rates); 
   
-    // Compute composite cleavage timescale against perfect-match substrate
-    PreciseType composite_cleave_time_perfect = model->getEntryToUpperExitTime(
+    // Compute overall cleavage timescale against perfect-match substrate
+    PreciseType overall_cleave_time_perfect = model->getEntryToUpperExitTime(
         bind_rate, terminal_unbind_rate, terminal_cleave_rate
     );
 
-    // Compute composite cleavage timescale against each given mismatched substrate
+    // Compute overall cleavage timescale against each given mismatched substrate
     Matrix<PreciseType, Dynamic, 1> stats(seqs.rows());  
     for (int i = 0; i < seqs.rows(); ++i)
     {
@@ -127,13 +127,13 @@ Matrix<MainType, Dynamic, 1> computeCleavageRateRatios(const Ref<const Matrix<Ma
             else
                 model->setEdgeLabels(j, mismatch_rates);
         }
-        PreciseType composite_cleave_time = model->getEntryToUpperExitTime(
+        PreciseType overall_cleave_time = model->getEntryToUpperExitTime(
             bind_rate, terminal_unbind_rate, terminal_cleave_rate
         );
         
-        // Compute *inverse* composite cleavage rate ratio: rate on mismatched / rate on perfect,
+        // Compute *inverse* overall cleavage rate ratio: rate on mismatched / rate on perfect,
         // or time on perfect / time on mismatched
-        stats(i) = log10(composite_cleave_time_perfect) - log10(composite_cleave_time);
+        stats(i) = log10(overall_cleave_time_perfect) - log10(overall_cleave_time);
     }
 
     delete model;
@@ -142,9 +142,8 @@ Matrix<MainType, Dynamic, 1> computeCleavageRateRatios(const Ref<const Matrix<Ma
 
 /**
  * Compute the cleavage probability, cleavage rate, dead unbinding rate, 
- * composite cleavage rate, and all associated normalized statistics on all
- * given mismatched sequences specified in the given matrix of complementarity
- * patterns, for the given LG.
+ * overall cleavage rate, and all associated normalized statistics on all
+ * specified complementarity patterns for the given LG.
  *
  * Here, `logrates` is assumed to contain 7 entries:
  * 1) forward rate at DNA-RNA matches,
@@ -161,7 +160,7 @@ Matrix<MainType, Dynamic, 1> computeCleavageRateRatios(const Ref<const Matrix<Ma
  *                  sequence).
  * @param bind_conc Concentration of available Cas9. 
  */
-Matrix<MainType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
+Matrix<MainType, Dynamic, 7> computeCleavageStats(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
                                                   const Ref<const MatrixXi>& seqs,
                                                   const MainType bind_conc) 
 {
@@ -193,13 +192,13 @@ Matrix<MainType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<MainTyp
     PreciseType prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
     PreciseType cleave_rate_perfect = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
     PreciseType dead_unbind_rate_perfect = model->getLowerExitRate(terminal_unbind_rate);
-    PreciseType composite_cleave_time_perfect = model->getEntryToUpperExitTime(
+    PreciseType overall_cleave_time_perfect = model->getEntryToUpperExitTime(
         bind_rate, terminal_unbind_rate, terminal_cleave_rate
     );
 
-    // Compute dead unbinding rate and composite cleavage rate against each
+    // Compute dead unbinding rate and overall cleavage rate against each
     // given mismatched substrate
-    Matrix<PreciseType, Dynamic, 8> stats(seqs.rows(), 8);  
+    Matrix<PreciseType, Dynamic, 7> stats(seqs.rows(), 7);  
     for (int i = 0; i < seqs.rows(); ++i)
     {
         for (int j = 0; j < length; ++j)
@@ -212,13 +211,13 @@ Matrix<MainType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<MainTyp
         PreciseType prob = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
         PreciseType cleave_rate = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
         PreciseType dead_unbind_rate = model->getLowerExitRate(terminal_unbind_rate); 
-        PreciseType composite_cleave_time = model->getEntryToUpperExitTime(
+        PreciseType overall_cleave_time = model->getEntryToUpperExitTime(
             bind_rate, terminal_unbind_rate, terminal_cleave_rate
         );
         stats(i, 0) = prob; 
         stats(i, 1) = cleave_rate; 
         stats(i, 2) = dead_unbind_rate; 
-        stats(i, 3) = composite_cleave_time;
+        stats(i, 3) = overall_cleave_time;
 
         // Compute cleavage specificity: prob on perfect / prob on mismatched
         stats(i, 4) = log10(prob_perfect) - log10(prob);
@@ -226,12 +225,9 @@ Matrix<MainType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<MainTyp
         // Compute specific rapidity: rate on perfect / rate on mismatched 
         stats(i, 5) = log10(cleave_rate_perfect) - log10(cleave_rate);  
 
-        // Compute specific dissociativity: rate on mismatched / rate on perfect
-        stats(i, 6) = log10(dead_unbind_rate) - log10(dead_unbind_rate_perfect);
-
-        // Compute composite cleavage rate ratio: rate on perfect / rate on mismatched
+        // Compute overall cleavage rate ratio: rate on perfect / rate on mismatched
         // or time on mismatched / time on perfect
-        stats(i, 7) = log10(composite_cleave_time) - log10(composite_cleave_time_perfect);
+        stats(i, 6) = log10(overall_cleave_time) - log10(overall_cleave_time_perfect);
     }
 
     delete model;
@@ -239,9 +235,9 @@ Matrix<MainType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<MainTyp
 }
 
 /**
- * Compute the *unregularized* sum-of-squares error between a set of composite
+ * Compute the *unregularized* sum-of-squares error between a set of overall
  * cleavage rate ratios inferred from the given LGPs and a set of experimentally
- * determined composite cleavage rates. 
+ * determined overall cleavage rates. 
  *
  * Note that regularization, if desired, should be built into the optimizer
  * function/class with which this function will be used.
@@ -250,7 +246,7 @@ Matrix<MainType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<MainTyp
  * @param cleave_seqs Matrix of input sequences, with entries of 0 (match w.r.t.
  *                    perfect-match sequence) or 1 (mismatch w.r.t. perfect-match
  *                    sequence).
- * @param cleave_data Matrix of measured composite cleavage rate ratios for 
+ * @param cleave_data Matrix of measured overall cleavage rate ratios for 
  *                    the given input sequences.
  * @param bind_conc   Concentration of available Cas9.
  * @returns Vector of residuals yielding the sum-of-squares errors. 
@@ -260,7 +256,7 @@ Matrix<MainType, Dynamic, 1> cleaveErrorAgainstData(const Ref<const Matrix<MainT
                                                     const Ref<const Matrix<MainType, Dynamic, 1> >& cleave_data,
                                                     const MainType bind_conc)
 {
-    // Compute dissociativities for the given complementarity patterns
+    // Compute overall cleavage rate ratios for the given complementarity patterns
     Matrix<MainType, Dynamic, 1> stats = computeCleavageRateRatios(logrates, cleave_seqs, bind_conc);
     for (int i = 0; i < stats.size(); ++i)    // Convert to linear scale 
         stats(i) = pow(ten_main, stats(i)); 
@@ -274,7 +270,7 @@ Matrix<MainType, Dynamic, 1> cleaveErrorAgainstData(const Ref<const Matrix<MainT
 /**
  * @param constraints             Constraints defining input polytope.
  * @param vertices                Vertex coordinates of input polytope.
- * @param cleave_data             Matrix of measured composite cleavage
+ * @param cleave_data             Matrix of measured overall cleavage
  *                                rate ratios.
  * @param cleave_seqs             Matrix of input sequences.
  * @param bind_conc               Concentration of available Cas9.
@@ -418,7 +414,7 @@ int main(int argc, char** argv)
     boost::random::mt19937 rng(1234567890);
 
     /** ------------------------------------------------------- //
-     *       DEFINE POLYTOPE FOR DETERMINING b, d', b', d'      //
+     *       DEFINE POLYTOPE FOR DETERMINING b, d, b', d'       //
      *  ------------------------------------------------------- */
     std::string poly_filename = "polytopes/line_3_diff1_plusbind.poly";
     std::string vert_filename = "polytopes/line_3_diff1_plusbind.vert";
@@ -432,16 +428,11 @@ int main(int argc, char** argv)
     boost::json::object json_data = parseConfigFile(argv[1]).as_object();
 
     // Check that input/output file paths were specified 
-    if (!json_data.if_contains("cleave_data_filename") && !json_data.if_contains("unbind_data_filename"))
-        throw std::runtime_error("At least one dataset must be specified");
-    else if (!json_data.if_contains("cleave_data_filename"))
-        json_data["cleave_data_filename"] = ""; 
-    else if (!json_data.if_contains("unbind_data_filename"))
-        json_data["unbind_data_filename"] = "";
+    if (!json_data.if_contains("cleave_data_filename"))
+        throw std::runtime_error("Cleavage rate dataset must be specified");
     if (!json_data.if_contains("output_prefix"))
         throw std::runtime_error("Output file prefix must be specified");
     std::string cleave_infilename = json_data["cleave_data_filename"].as_string().c_str();
-    std::string unbind_infilename = json_data["unbind_data_filename"].as_string().c_str();
     std::string outprefix = json_data["output_prefix"].as_string().c_str();
     std::string outfilename = outprefix + "-main.tsv"; 
     std::string residuals_filename = outprefix + "-residuals.tsv";
@@ -450,7 +441,6 @@ int main(int argc, char** argv)
     bool data_specified_as_times = false;
     int ninit = 100; 
     MainType cleave_pseudocount = 0;
-    MainType unbind_pseudocount = 0;
     MainType bind_conc = 1e-7;    // TODO Write block for parsing user-defined value 
     if (json_data.if_contains("data_specified_as_times"))
     {
@@ -467,12 +457,6 @@ int main(int argc, char** argv)
         cleave_pseudocount = static_cast<MainType>(json_data["cleave_pseudocount"].as_double()); 
         if (cleave_pseudocount < 0)
             throw std::runtime_error("Invalid cleavage rate pseudocount specified");
-    }
-    if (json_data.if_contains("unbind_pseudocount"))
-    {
-        unbind_pseudocount = static_cast<MainType>(json_data["unbind_pseudocount"].as_double()); 
-        if (unbind_pseudocount < 0)
-            throw std::runtime_error("Invalid unbinding rate pseudocount specified");
     }
     
     // Parse SQP configurations
@@ -618,60 +602,55 @@ int main(int argc, char** argv)
     MatrixXi cleave_seqs = MatrixXi::Zero(0, length); 
     Matrix<MainType, Dynamic, 1> cleave_data = Matrix<MainType, Dynamic, 1>::Zero(0); 
     
-    // Parse the input file of (composite) cleavage rates, if one is given 
+    // Parse the input file of overall cleavage rates
     std::ifstream infile;
     std::string line, token;
-    if (cleave_infilename.size() > 0)
+    infile.open(cleave_infilename);
+    while (std::getline(infile, line))
     {
-        infile.open(cleave_infilename);
+        std::stringstream ss;
+        ss << line;
+        std::getline(ss, token, '\t');
+        n_cleave_data++;
+        cleave_seqs.conservativeResize(n_cleave_data, length);  
+        cleave_data.conservativeResize(n_cleave_data);
 
-        // Parse each subsequent line in the file 
-        while (std::getline(infile, line))
+        // Parse the sequence, character by character
+        if (token.size() != length)
+            throw std::runtime_error("Parsed input sequence of invalid length (!= 20)"); 
+        for (int j = 0; j < length; ++j)
         {
-            std::stringstream ss;
-            ss << line;
-            std::getline(ss, token, '\t');
-            n_cleave_data++;
-            cleave_seqs.conservativeResize(n_cleave_data, length);  
-            cleave_data.conservativeResize(n_cleave_data);
-
-            // Parse the sequence, character by character
-            if (token.size() != length)
-                throw std::runtime_error("Parsed input sequence of invalid length (!= 20)"); 
-            for (int j = 0; j < length; ++j)
-            {
-                if (token[j] == '0')
-                    cleave_seqs(n_cleave_data - 1, j) = 0; 
-                else
-                    cleave_seqs(n_cleave_data - 1, j) = 1;
-            }
-
-            // The second entry is the cleavage rate
-            std::getline(ss, token, '\t'); 
-            try
-            {
-                cleave_data(n_cleave_data - 1) = MainType(token);
-            }
-            catch (const std::out_of_range& e)
-            {
-                cleave_data(n_cleave_data - 1) = 0; 
-            }
+            if (token[j] == '0')
+                cleave_seqs(n_cleave_data - 1, j) = 0; 
+            else
+                cleave_seqs(n_cleave_data - 1, j) = 1;
         }
-        infile.close();
-    }
 
-    // Exit if no cleavage rates were specified 
+        // The second entry is the cleavage rate
+        std::getline(ss, token, '\t'); 
+        try
+        {
+            cleave_data(n_cleave_data - 1) = MainType(token);
+        }
+        catch (const std::out_of_range& e)
+        {
+            cleave_data(n_cleave_data - 1) = 0; 
+        }
+    }
+    infile.close();
+
+    // Exit if no overall cleavage rates were specified 
     if (n_cleave_data == 0)
         throw std::runtime_error("Cleavage rate dataset is empty");
 
     // Assume that the cleavage rate for the perfect-match substrate is
     // specified first ...
     //
-    // ... and thus normalize all composite cleavage rates and invert
+    // ... and thus normalize all overall cleavage rates and invert
     if (cleave_data.size() > 0)
     {
         for (int i = 1; i < cleave_data.size(); ++i)
-            cleave_data(i) = cleave_data(i) / cleave_data(0);   // inverse composite cleavage rate ratio 
+            cleave_data(i) = cleave_data(i) / cleave_data(0);   // inverse overall cleavage rate ratio 
                                                                 // = rate on mismatched / rate on perfect
         cleave_data(0) = 1;
     }
@@ -710,11 +689,10 @@ int main(int argc, char** argv)
         outfile << "mm" << i << "_prob\t"
                 << "mm" << i << "_cleave\t"
                 << "mm" << i << "_unbind\t"
-                << "mm" << i << "_compcleave\t"
+                << "mm" << i << "_oct\t"
                 << "mm" << i << "_spec\t"
                 << "mm" << i << "_rapid\t"
-                << "mm" << i << "_deaddissoc\t"
-                << "mm" << i << "_ccratio\t";
+                << "mm" << i << "_octratio\t";
     }
     int pos = outfile.tellp();
     outfile.seekp(pos - 1);
@@ -731,12 +709,12 @@ int main(int argc, char** argv)
         outfile << errors(i) << '\t';
 
         // ... along with the associated single-mismatch cleavage statistics
-        Matrix<MainType, Dynamic, 8> fit_single_mismatch_stats = computeCleavageStats(
+        Matrix<MainType, Dynamic, 7> fit_single_mismatch_stats = computeCleavageStats(
             best_fits.row(i), single_mismatch_seqs, bind_conc
         );
         for (int j = 0; j < fit_single_mismatch_stats.rows(); ++j)
         {
-            for (int k = 0; k < 8; ++k)
+            for (int k = 0; k < 7; ++k)
                 outfile << fit_single_mismatch_stats(j, k) << '\t';
         }
         pos = outfile.tellp();
@@ -745,8 +723,7 @@ int main(int argc, char** argv)
     }
     outfile.close();
 
-    // Output the optimal dissociativity residuals and cleavage rate ratio 
-    // residuals to file 
+    // Output the optimal cleavage rate ratio residuals to file 
     std::ofstream residuals_outfile(residuals_filename);
     residuals_outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     residuals_outfile << "seq\t";
