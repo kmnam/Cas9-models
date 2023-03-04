@@ -11,7 +11,7 @@
  *     Kee-Myoung Nam, Department of Systems Biology, Harvard Medical School
  *
  * **Last updated:**
- *     1/15/2023
+ *     3/4/2023
  */
 
 #include <iostream>
@@ -40,8 +40,9 @@ const PreciseType ten("10");
 boost::random::mt19937 rng(1234567890);
 
 /**
- * Compute the cleavage probabilities, cleavage rates, dead unbinding rates,
- * and live unbinding rates of randomly parametrized line-graph Cas9 models
+ * Compute the cleavage probabilities, conditional cleavage rates, dead
+ * unbinding rates, R-loop completion rates, R-loop dissolution rates, and
+ * overall cleavage rates of randomly parametrized line-graph Cas9 models
  * against a given matrix of single- and multi-mismatch substrates (binary 
  * complementarity patterns). 
  *
@@ -78,13 +79,10 @@ Matrix<PreciseType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<bool
     stats(0, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
     stats(0, 2) = model->getLowerExitRate(terminal_unbind_rate);
     stats(0, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-    stats(0, 4) = pow(model->getUpperEndToEndTime(), -1);    // R-loop completion rate 
-    stats(0, 5) = pow(model->getLowerEndToEndTime(), -1);    // R-loop dissolution rate
+    stats(0, 4) = pow(model->getUpperEndToEndTime(), -1);
+    stats(0, 5) = pow(model->getLowerEndToEndTime(), -1);
+    stats(0, 6) = pow(model->getEntryToUpperExitTime(bind_rate, terminal_unbind_rate, terminal_cleave_rate), -1); 
     
-    // Compute the composite cleavage rate on the perfect-match substrate 
-    PreciseType term = 1 / stats(0, 0);
-    stats(0, 6) = 1 / ((term / bind_rate) + (1 / stats(0, 1)) + ((term - 1) / stats(0, 3))); 
-
     // Introduce mismatches as defined and re-compute the four output metrics 
     for (int j = 0; j < patterns.rows(); ++j)
     {
@@ -99,11 +97,10 @@ Matrix<PreciseType, Dynamic, 8> computeCleavageStats(const Ref<const Matrix<bool
         stats(j+1, 1) = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
         stats(j+1, 2) = model->getLowerExitRate(terminal_unbind_rate);
         stats(j+1, 3) = model->getLowerExitRate(terminal_unbind_rate, terminal_cleave_rate);
-        term = 1 / stats(j+1, 0);
-        stats(j+1, 6) = 1 / ((term / bind_rate) + (1 / stats(j+1, 1)) + ((term - 1) / stats(j+1, 3))); 
-        stats(j+1, 7) = log10(stats(j+1, 2)) - log10(stats(0, 2));
         stats(j+1, 4) = pow(model->getUpperEndToEndTime(), -1); 
         stats(j+1, 5) = pow(model->getLowerEndToEndTime(), -1);
+        stats(j+1, 6) = pow(model->getEntryToUpperExitTime(bind_rate, terminal_unbind_rate, terminal_cleave_rate), -1);
+        stats(j+1, 7) = log10(stats(j+1, 2)) - log10(stats(0, 2));
     }
 
     delete model;
@@ -157,8 +154,8 @@ int main(int argc, char** argv)
     Matrix<PreciseType, Dynamic, Dynamic> dead_unbind_rates(n, m + 1);
     Matrix<PreciseType, Dynamic, Dynamic> completion_rates(n, m + 1);
     Matrix<PreciseType, Dynamic, Dynamic> dissolution_rates(n, m + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> comp_cleave_rates(n, m + 1);
-    Matrix<PreciseType, Dynamic, Dynamic> dead_dissoc(n, m);
+    Matrix<PreciseType, Dynamic, Dynamic> overall_cleave_rates(n, m + 1);
+    Matrix<PreciseType, Dynamic, Dynamic> ndabas(n, m);
     for (int i = 0; i < n; ++i)
     {
         Matrix<PreciseType, Dynamic, 8> stats = computeCleavageStats(patterns, params.row(i), bind_conc);
@@ -167,8 +164,8 @@ int main(int argc, char** argv)
         dead_unbind_rates.row(i) = stats.col(2);
         completion_rates.row(i) = stats.col(4);
         dissolution_rates.row(i) = stats.col(5);
-        comp_cleave_rates.row(i) = stats.col(6);
-        dead_dissoc.row(i) = stats.col(7).tail(m); 
+        overall_cleave_rates.row(i) = stats.col(6);
+        ndabas.row(i) = stats.col(7).tail(m); 
     }
 
     // Write sampled log-rates to file
@@ -291,7 +288,7 @@ int main(int argc, char** argv)
     oss.str(std::string());
 
     // Write matrix of R-loop completion rates
-    oss << argv[3] << "-Rcompletion.tsv";
+    oss << argv[3] << "-rcomp.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -324,7 +321,7 @@ int main(int argc, char** argv)
     oss.str(std::string());
 
     // Write matrix of R-loop dissolution rates
-    oss << argv[3] << "-Rdissolution.tsv";
+    oss << argv[3] << "-rdiss.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -356,8 +353,8 @@ int main(int argc, char** argv)
     oss.clear();
     oss.str(std::string());
 
-    // Write matrix of composite cleavage rates 
-    oss << argv[3] << "-compcleave.tsv";
+    // Write matrix of overall cleavage rates
+    oss << argv[3] << "-ocr.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -380,17 +377,17 @@ int main(int argc, char** argv)
         {
             for (int j = 0; j < m; ++j)
             {
-                outfile << comp_cleave_rates(i, j) << "\t";
+                outfile << overall_cleave_rates(i, j) << "\t";
             }
-            outfile << comp_cleave_rates(i, m) << std::endl;
+            outfile << overall_cleave_rates(i, m) << std::endl;
         }
     }
     outfile.close();
     oss.clear();
     oss.str(std::string());
 
-    // Write matrix of dead specific dissociativities 
-    oss << argv[3] << "-deaddissoc.tsv";
+    // Write matrix of apparent binding affinities
+    oss << argv[3] << "-ndaba.tsv";
     outfile.open(oss.str());
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (outfile.is_open())
@@ -413,9 +410,9 @@ int main(int argc, char** argv)
         {
             for (int j = 0; j < m - 1; ++j)
             {
-                outfile << dead_dissoc(i, j) << "\t"; 
+                outfile << ndabas(i, j) << "\t";
             }
-            outfile << dead_dissoc(i, m - 1) << std::endl; 
+            outfile << ndabas(i, m - 1) << std::endl; 
         }
     }
     outfile.close();
