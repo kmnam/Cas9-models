@@ -3,7 +3,7 @@ Authors:
     Kee-Myoung Nam
 
 Last updated:
-    1/20/2023
+    3/6/2023
 """
 import numpy as np
 import pandas as pd
@@ -110,7 +110,7 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
     cleave = np.loadtxt(filenames['cleave'])
     unbind = np.loadtxt(filenames['unbind'])
     rapid = np.loadtxt(filenames['rapid'])
-    dead_dissoc = np.loadtxt(filenames['deaddissoc'])
+    #dead_dissoc = np.loadtxt(filenames['deaddissoc'])
 
     # Cleavage probabilities on perfect-match substrates
     activities = np.tile(probs[:, 0].reshape((probs.shape[0]), 1), 20)
@@ -118,7 +118,8 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
     # Cleavage rates on perfect-match substrates 
     speeds = np.tile(cleave[:, 0].reshape((cleave.shape[0]), 1), 20)
 
-    # Pick plots to highlight if not already specified 
+    # Pick plots to highlight if not already specified
+    """
     if plot_main and highlight_plot_indices is None:
         highlight_plot_indices = [
             probs[:500, 1].argmax(),
@@ -129,11 +130,13 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
             #np.abs(np.power(10, -specs[:500, 19]) - 0.6).argmin(),
             #np.abs(np.power(10, -specs[:500, 12]) - np.power(10, -specs[:500, 11])).argmax(),
         ]
+    """
 
     ######################################################################
     # ---------------------------------------------------------------- #
     # Plot how cleavage probability depends on mismatch position ...
     # ---------------------------------------------------------------- #
+    """
     if plot_main:
         # First plot cleavage probability and specificity for 500 handpicked
         # parameter combinations ...
@@ -178,8 +181,9 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
         axes_main['A1'].set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
         axes_main['A1'].set_yticklabels(['0.0', '0.2', '0.4', '0.6', '0.8', '1.0'], size=8)
         axes_main['A1'].set_ylabel(r'$\phi(\mathbf{u}^{\{m\}}) \,/\, \phi(\mathbf{u}^{\mathrm{P}})$', size=10)
-
-        # Then plot the histograms for mismatch positions 0, 6, 12, 19 ...
+    """
+    # Then plot the histograms for mismatch positions 0, 6, 12, 19 ...
+    if plot_main:
         _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
             activities, specs, 20,
             r'$\phi(\mathbf{u}^{\mathrm{P}})$',
@@ -322,6 +326,7 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
     plt.savefig('plots/{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
 
+    """
     # ------------------------------------------------------------------------------- #
     # Plot how specificity and specific dissociativity change with mismatch position
     # ------------------------------------------------------------------------------- #
@@ -376,8 +381,10 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
     plt.tight_layout()
     plt.savefig('plots/{}-spec-vs-deaddissoc-by-mismatch-all.pdf'.format(output_prefix))
     plt.close()
+    """
 
     # Then plot the histograms for mismatch positions 0, 6, 12, 19 ...
+    """
     if plot_main:
         indices = [0, 6, 12, 19]
         _, x_bin_edges, y_bin_edges = plot_metrics_by_mismatch_2d(
@@ -407,6 +414,8 @@ def plot_histograms(filenames, output_prefix, plot_main=False,
                         size=9,
                         color='red'
                     )
+    """
+    if plot_main:
         plt.subplots_adjust(
             left=0.1,
             right=0.9,
@@ -427,7 +436,7 @@ def main():
         'cleave': 'data/line_3_diff1_combined_single-cleave.tsv',
         'unbind': 'data/line_3_diff1_combined_single-unbind.tsv',
         'rapid': 'data/line_3_diff1_combined_single-rapid.tsv',
-        'deaddissoc': 'data/line_3_diff1_combined_single-deaddissoc.tsv'
+        #'deaddissoc': 'data/line_3_diff1_combined_single-deaddissoc.tsv'
     }
     plot_histograms(
         filenames, 'line_3_diff1_combined_single', plot_main=True, 
