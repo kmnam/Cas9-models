@@ -236,14 +236,15 @@ def plot_histograms(filenames, output_prefix, label_speed_thresholds=False,
 ##########################################################################
 def main():
     filenames = {
-        'logrates': 'data/line_3_diff1_combined_single-logrates-subset.tsv',
-        'probs': 'data/line_3_diff1_combined_single-probs-subset.tsv',
-        'specs': 'data/line_3_diff1_combined_single-specs-subset.tsv',
-        'cleave': 'data/line_3_diff1_combined_single-cleave-subset.tsv',
-        'rapid': 'data/line_3_diff1_combined_single-rapid-subset.tsv',
+        'logrates': 'data/line-3-diff1-combined-single-logrates.tsv',
+        'probs': 'data/line-3-diff1-combined-single-probs.tsv',
+        'specs': 'data/line-3-diff1-combined-single-specs.tsv',
+        'cleave': 'data/line-3-diff1-combined-single-cleave.tsv',
+        'rapid': 'data/line-3-diff1-combined-single-rapid.tsv',
     }
     plot_histograms(
-        filenames, 'line_3_diff1_combined_single', label_speed_thresholds=False,
+        filenames, 'line-3-diff1-combined-single',
+        label_speed_thresholds=False,
         label_speed_thresholds_from=1
     )
 
