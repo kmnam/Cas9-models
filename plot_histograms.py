@@ -19,13 +19,13 @@ def plot_metrics_by_mismatch_2d(xvals, yvals, nbins, xlabel, ylabel, axes,
                                 annotate_fmt=r'$M = \{{ {} \}}$'):
     # First identify the min/max x- and y-values over all mismatch positions
     if xmin is None:
-        xmin = round(np.min(xvals[:, indices]))
+        xmin = np.min(xvals[:, indices])
     if xmax is None:
-        xmax = round(np.max(xvals[:, indices]))
+        xmax = np.max(xvals[:, indices])
     if ymin is None:
-        ymin = round(np.min(yvals[:, indices]))
+        ymin = np.min(yvals[:, indices])
     if ymax is None:
-        ymax = round(np.max(yvals[:, indices]))
+        ymax = np.max(yvals[:, indices])
 
     # Maintain all plotted 2-D histograms and their bin edges
     x_bin_edges = np.linspace(xmin, xmax, nbins + 1)
