@@ -43,7 +43,8 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, axes,
             yvals_subset = yvals[subset_in_bin, i]
             subset_to_plot = np.argsort(yvals_subset)[::-1][:npoints_per_bin] 
             axes[j].scatter(
-                xvals_subset[subset_to_plot], yvals_subset[subset_to_plot]
+                xvals_subset[subset_to_plot], yvals_subset[subset_to_plot],
+                c=color, alpha=alpha
             )
         if type(j) == str:
             if j.startswith(str(max_row)):
@@ -94,7 +95,7 @@ def plot_scatter(filenames, output_prefix):
         figsize=(12, 14)
     )
     plot_metrics_by_mismatch_scatter(
-        activities, specs, 100,
+        activities, specs, 50,
         r'$\mathrm{Prob}(\mathbf{u}^{\mathrm{P}})$',
         r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
         axes, npoints_per_bin=1, indices=list(range(20)), xmin=0, ymin=0,
@@ -110,7 +111,7 @@ def plot_scatter(filenames, output_prefix):
         figsize=(12, 14)
     )
     plot_metrics_by_mismatch_scatter(
-        speeds, specs, 100,
+        speeds, specs, 50,
         r'$\mathrm{Rate}(\mathbf{u}^{\mathrm{P}})$',
         r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
         axes, npoints_per_bin=1, indices=list(range(20)), ymin=0,
@@ -126,7 +127,7 @@ def plot_scatter(filenames, output_prefix):
         figsize=(12, 14)
     )
     plot_metrics_by_mismatch_scatter(
-        specs, rapid, 100,
+        specs, rapid, 50,
         r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
         r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^M))}$',
         axes, npoints_per_bin=1, indices=list(range(20)), xmin=0,
@@ -142,7 +143,7 @@ def plot_scatter(filenames, output_prefix):
         figsize=(12, 5)
     )
     plot_metrics_by_mismatch_scatter(
-        specs, rapid, 100,
+        specs, rapid, 50,
         r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
         r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^M))}$',
         axes, npoints_per_bin=1, indices=[5, 7, 9, 11, 13, 15, 17, 19], xmin=0,
@@ -155,11 +156,11 @@ def plot_scatter(filenames, output_prefix):
 ##########################################################################
 def main():
     filenames = {
-        'logrates': 'data/line-3-combined-single-logrates-subset.tsv',
-        'probs': 'data/line-3-combined-single-probs-subset.tsv',
-        'specs': 'data/line-3-combined-single-specs-subset.tsv',
-        'cleave': 'data/line-3-combined-single-cleave-subset.tsv',
-        'rapid': 'data/line-3-combined-single-rapid-subset.tsv',
+        'logrates': 'data/line-3-combined-single-logrates.tsv',
+        'probs': 'data/line-3-combined-single-probs.tsv',
+        'specs': 'data/line-3-combined-single-specs.tsv',
+        'cleave': 'data/line-3-combined-single-cleave.tsv',
+        'rapid': 'data/line-3-combined-single-rapid.tsv',
     }
     plot_scatter(filenames, 'line-3-combined-single')
 
