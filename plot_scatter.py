@@ -44,7 +44,7 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, axes,
             subset_to_plot = np.argsort(yvals_subset)[::-1][:npoints_per_bin] 
             axes[j].scatter(
                 xvals_subset[subset_to_plot], yvals_subset[subset_to_plot],
-                c=color, alpha=alpha
+                color=color, alpha=alpha
             )
         if type(j) == str:
             if j.startswith(str(max_row)):
