@@ -68,7 +68,7 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng, a
     axes_xmax = max(axes[j].get_xlim()[1] for j in ax_indices)
     axes_ymin = min(axes[j].get_ylim()[0] for j in ax_indices)
     axes_ymax = max(axes[j].get_ylim()[1] for j in ax_indices)
-    for j in ax_indices:
+    for i, j in zip(indices, ax_indices):
         # While equalizing all axes limits, also add padding to the upper
         # side of each y-axis and add annotation on the top-right
         axes[j].set_xlim(left=axes_xmin, right=axes_xmax)
