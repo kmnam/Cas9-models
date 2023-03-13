@@ -14,7 +14,6 @@ import seaborn as sns
 def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng, axes,
                                      npoints_per_bin=1, indices=list(range(20)),
                                      ax_indices=[(i, j) for i in range(5) for j in range(4)],
-                                     alpha=1.0, color=sns.color_palette()[0],
                                      xmin=None, xmax=None, ymin=None, ymax=None,
                                      labelsize=12, ticklabelsize=8, cbar_ticklabelsize=8,
                                      annotate_fmt=r'$M = \{{ {} \}}$'):
@@ -44,12 +43,13 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng, a
             subset_to_plot = np.argsort(yvals_subset)[::-1][:npoints_per_bin] 
             axes[j].scatter(
                 xvals_subset[subset_to_plot], yvals_subset[subset_to_plot],
-                color=color, alpha=alpha, zorder=1
+                color=sns.color_palette()[0], alpha=1.0, zorder=1
             )
-        # Then plot a random subsample of 1000 points 
-        idx = rng.choice(xvals.shape[0], 1000) 
+        # Then plot a random subsample of 10000 points 
+        idx = rng.choice(xvals.shape[0], 10000) 
         axes[j].scatter(
-            xvals[idx, i], yvals[idx, i], color=color, alpha=0.5*alpha, zorder=0
+            xvals[idx, i], yvals[idx, i], color=sns.color_palette('pastel')[0],
+            alpha=1.0, zorder=0, rasterized=True
         )
         if type(j) == str:
             if j.startswith(str(max_row)):
@@ -109,7 +109,7 @@ def plot_scatter(filenames, output_prefix):
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
     )
     plt.tight_layout()
-    plt.savefig('plots/{}-prob-by-mismatch-all.pdf'.format(output_prefix))
+    plt.savefig('plots/{}-prob-by-mismatch-all.pdf'.format(output_prefix), dpi=600)
     plt.close()
 
     # Plot how speed and specificity change with mismatch position
@@ -125,7 +125,7 @@ def plot_scatter(filenames, output_prefix):
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
     )
     plt.tight_layout()
-    plt.savefig('plots/{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix))
+    plt.savefig('plots/{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix), dpi=600)
     plt.close()
 
     # Plot how specificity and specific rapidity change with mismatch position
@@ -141,13 +141,13 @@ def plot_scatter(filenames, output_prefix):
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)]
     )
     plt.tight_layout()
-    plt.savefig('plots/{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix))
+    plt.savefig('plots/{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix), dpi=600)
     plt.close()
 
     # Plot a subset of plots for mismatch positions 5, 7, 9, 11, 13, 15, 17, 19
     fig, axes = plt.subplot_mosaic(
         [['{}{}'.format(i, j) for j in range(4)] for i in range(2)],
-        figsize=(12, 5)
+        figsize=(12, 6)
     )
     plot_metrics_by_mismatch_scatter(
         specs, rapid, 50,
@@ -157,17 +157,17 @@ def plot_scatter(filenames, output_prefix):
         ax_indices=['{}{}'.format(i, j) for i in range(2) for j in range(4)]
     )
     plt.tight_layout()
-    plt.savefig('plots/{}-spec-vs-rapid-by-mismatch-main.pdf'.format(output_prefix))
+    plt.savefig('plots/{}-spec-vs-rapid-by-mismatch-main.pdf'.format(output_prefix), dpi=600)
     plt.close()
 
 ##########################################################################
 def main():
     filenames = {
-        'logrates': 'data/line-3-combined-single-logrates.tsv',
-        'probs': 'data/line-3-combined-single-probs.tsv',
-        'specs': 'data/line-3-combined-single-specs.tsv',
-        'cleave': 'data/line-3-combined-single-cleave.tsv',
-        'rapid': 'data/line-3-combined-single-rapid.tsv',
+        'logrates': 'data/line-3-combined-single-logrates-subset.tsv',
+        'probs': 'data/line-3-combined-single-probs-subset.tsv',
+        'specs': 'data/line-3-combined-single-specs-subset.tsv',
+        'cleave': 'data/line-3-combined-single-cleave-subset.tsv',
+        'rapid': 'data/line-3-combined-single-rapid-subset.tsv',
     }
     plot_scatter(filenames, 'line-3-combined-single')
 
