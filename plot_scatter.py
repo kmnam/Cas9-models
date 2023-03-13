@@ -63,11 +63,17 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng, a
                 axes[j].set_ylabel(ylabel, size=labelsize)
         axes[j].tick_params(axis='both', labelsize=ticklabelsize)
 
-        # Add padding to the upper side of the y-axis and add an 
-        # annotation on the top-right
-        ax_ymin, ax_ymax = axes[j].get_ylim()
+    # Equalize all axes limits 
+    axes_xmin = min(axes[j].get_xlim()[0] for j in ax_indices)
+    axes_xmax = max(axes[j].get_xlim()[1] for j in ax_indices)
+    axes_ymin = min(axes[j].get_ylim()[0] for j in ax_indices)
+    axes_ymax = max(axes[j].get_ylim()[1] for j in ax_indices)
+    for j in ax_indices:
+        # While equalizing all axes limits, also add padding to the upper
+        # side of each y-axis and add annotation on the top-right
+        axes[j].set_xlim(left=axes_xmin, right=axes_xmax)
         axes[j].set_ylim(
-            bottom=ax_ymin, top=(ax_ymin + 1.1 * (ax_ymax - ax_ymin))
+            bottom=axes_ymin, top=(axes_ymin + 1.1 * (axes_ymax - axes_ymin))
         )
         axes[j].annotate(
             annotate_fmt.format(str(i)),
