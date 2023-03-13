@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 ##########################################################################
-def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, axes,
+def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng, axes,
                                      npoints_per_bin=1, indices=list(range(20)),
                                      ax_indices=[(i, j) for i in range(5) for j in range(4)],
                                      alpha=1.0, color=sns.color_palette()[0],
@@ -44,8 +44,13 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, axes,
             subset_to_plot = np.argsort(yvals_subset)[::-1][:npoints_per_bin] 
             axes[j].scatter(
                 xvals_subset[subset_to_plot], yvals_subset[subset_to_plot],
-                color=color, alpha=alpha
+                color=color, alpha=alpha, zorder=1
             )
+        # Then plot a random subsample of 1000 points 
+        idx = rng.choice(xvals.shape[0], 1000) 
+        axes[j].scatter(
+            xvals[idx, i], yvals[idx, i], color=color, alpha=0.5*alpha, zorder=0
+        )
         if type(j) == str:
             if j.startswith(str(max_row)):
                 axes[j].set_xlabel(xlabel, size=labelsize)
@@ -75,6 +80,8 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, axes,
 
 ##########################################################################
 def plot_scatter(filenames, output_prefix):
+    rng = np.random.default_rng(1234567890)
+
     # Parse the output metrics for single-mismatch substrates  
     logrates = np.loadtxt(filenames['logrates'])
     probs = np.loadtxt(filenames['probs'])
@@ -98,7 +105,7 @@ def plot_scatter(filenames, output_prefix):
         activities, specs, 50,
         r'$\mathrm{Prob}(\mathbf{u}^{\mathrm{P}})$',
         r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
-        axes, npoints_per_bin=1, indices=list(range(20)), xmin=0, ymin=0,
+        rng, axes, npoints_per_bin=1, indices=list(range(20)), xmin=0, ymin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
     )
     plt.tight_layout()
@@ -114,7 +121,7 @@ def plot_scatter(filenames, output_prefix):
         speeds, specs, 50,
         r'$\mathrm{Rate}(\mathbf{u}^{\mathrm{P}})$',
         r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
-        axes, npoints_per_bin=1, indices=list(range(20)), ymin=0,
+        rng, axes, npoints_per_bin=1, indices=list(range(20)), ymin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
     )
     plt.tight_layout()
@@ -130,7 +137,7 @@ def plot_scatter(filenames, output_prefix):
         specs, rapid, 50,
         r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
         r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^M))}$',
-        axes, npoints_per_bin=1, indices=list(range(20)), xmin=0,
+        rng, axes, npoints_per_bin=1, indices=list(range(20)), xmin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)]
     )
     plt.tight_layout()
@@ -146,7 +153,7 @@ def plot_scatter(filenames, output_prefix):
         specs, rapid, 50,
         r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
         r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^M))}$',
-        axes, npoints_per_bin=1, indices=[5, 7, 9, 11, 13, 15, 17, 19], xmin=0,
+        rng, axes, npoints_per_bin=1, indices=[5, 7, 9, 11, 13, 15, 17, 19], xmin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(2) for j in range(4)]
     )
     plt.tight_layout()
