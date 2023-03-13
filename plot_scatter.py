@@ -168,14 +168,15 @@ def plot_scatter(filenames, output_prefix):
 
 ##########################################################################
 def main():
-    filenames = {
-        'logrates': 'data/line-3-combined-single-logrates-subset.tsv',
-        'probs': 'data/line-3-combined-single-probs-subset.tsv',
-        'specs': 'data/line-3-combined-single-specs-subset.tsv',
-        'cleave': 'data/line-3-combined-single-cleave-subset.tsv',
-        'rapid': 'data/line-3-combined-single-rapid-subset.tsv',
-    }
-    plot_scatter(filenames, 'line-3-combined-single')
+    for i in range(2, 6):
+        filenames = {
+            'logrates': 'data/line-{}-combined-single-logrates.tsv'.format(i),
+            'probs': 'data/line-{}-combined-single-probs.tsv'.format(i),
+            'specs': 'data/line-{}-combined-single-specs.tsv'.format(i),
+            'cleave': 'data/line-{}-combined-single-cleave.tsv'.format(i),
+            'rapid': 'data/line-{}-combined-single-rapid.tsv'.format(i),
+        }
+        plot_scatter(filenames, 'line-{}-combined-single'.format(i))
 
 ##########################################################################
 if __name__ == '__main__':
