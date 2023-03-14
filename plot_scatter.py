@@ -3,7 +3,7 @@ Authors:
     Kee-Myoung Nam
 
 Last updated:
-    3/12/2023
+    3/14/2023
 """
 import numpy as np
 import pandas as pd
@@ -115,7 +115,10 @@ def plot_scatter(filenames, output_prefix):
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
     )
     plt.tight_layout()
-    plt.savefig('plots/{}-prob-by-mismatch-all.pdf'.format(output_prefix), dpi=600)
+    plt.savefig(
+        'plots/{}-prob-by-mismatch-all.pdf'.format(output_prefix),
+        dpi=600, transparent=True
+    )
     plt.close()
 
     # Plot how speed and specificity change with mismatch position
@@ -131,7 +134,10 @@ def plot_scatter(filenames, output_prefix):
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
     )
     plt.tight_layout()
-    plt.savefig('plots/{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix), dpi=600)
+    plt.savefig(
+        'plots/{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix),
+        dpi=600, transparent=True
+    )
     plt.close()
 
     # Plot how specificity and specific rapidity change with mismatch position
@@ -147,7 +153,10 @@ def plot_scatter(filenames, output_prefix):
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)]
     )
     plt.tight_layout()
-    plt.savefig('plots/{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix), dpi=600)
+    plt.savefig(
+        'plots/{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix),
+        dpi=600, transparent=True
+    )
     plt.close()
 
     # Plot a subset of plots for mismatch positions 5, 7, 9, 11, 13, 15, 17, 19
@@ -163,7 +172,10 @@ def plot_scatter(filenames, output_prefix):
         ax_indices=['{}{}'.format(i, j) for i in range(2) for j in range(4)]
     )
     plt.tight_layout()
-    plt.savefig('plots/{}-spec-vs-rapid-by-mismatch-main.pdf'.format(output_prefix), dpi=600)
+    plt.savefig(
+        'plots/{}-spec-vs-rapid-by-mismatch-main.pdf'.format(output_prefix),
+        dpi=600, transparent=True
+    )
     plt.close()
 
 ##########################################################################
