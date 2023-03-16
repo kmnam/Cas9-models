@@ -3,7 +3,7 @@ Authors:
     Kee-Myoung Nam
 
 Last updated:
-    3/14/2023
+    3/16/2023
 """
 import numpy as np
 import pandas as pd
@@ -11,12 +11,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 ##########################################################################
-def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng, axes,
-                                     npoints_per_bin=1, indices=list(range(20)),
+def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng,
+                                     axes, npoints_per_bin=1, plot_subsample=True,
+                                     color=sns.color_palette()[0],
+                                     color_subsample=sns.color_palette('pastel')[0],
+                                     indices=list(range(20)),
                                      ax_indices=[(i, j) for i in range(5) for j in range(4)],
                                      xmin=None, xmax=None, ymin=None, ymax=None,
                                      labelsize=12, ticklabelsize=8, cbar_ticklabelsize=8,
-                                     annotate_fmt=r'$M = \{{ {} \}}$'):
+                                     adjust_axes=True, annotate_fmt=None):
     # First identify the min/max x- and y-values over all mismatch positions
     if xmin is None:
         xmin = np.min(xvals[:, indices])
@@ -29,6 +32,7 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng, a
 
     # Divide the x-axis into bins 
     x_bin_edges = np.linspace(xmin, xmax, nbins + 1)
+    print(x_bin_edges)
 
     # Produce scatterplots for each mismatch position 
     max_row = max(int(c[0]) for c in ax_indices)
@@ -43,14 +47,15 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng, a
             subset_to_plot = np.argsort(yvals_subset)[::-1][:npoints_per_bin] 
             axes[j].scatter(
                 xvals_subset[subset_to_plot], yvals_subset[subset_to_plot],
-                color=sns.color_palette()[0], alpha=1.0, zorder=1
+                color=color, alpha=1.0, zorder=1
             )
-        # Then plot a random subsample of 10000 points 
-        idx = rng.choice(xvals.shape[0], 10000) 
-        axes[j].scatter(
-            xvals[idx, i], yvals[idx, i], color=sns.color_palette('pastel')[0],
-            alpha=1.0, zorder=0, rasterized=True
-        )
+        # Then plot a random subsample of 10000 points
+        if plot_subsample:
+            idx = rng.choice(xvals.shape[0], 10000) 
+            axes[j].scatter(
+                xvals[idx, i], yvals[idx, i], color=color_subsample,
+                alpha=1.0, zorder=0, rasterized=True
+            )
         if type(j) == str:
             if j.startswith(str(max_row)):
                 axes[j].set_xlabel(xlabel, size=labelsize)
@@ -63,37 +68,49 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng, a
                 axes[j].set_ylabel(ylabel, size=labelsize)
         axes[j].tick_params(axis='both', labelsize=ticklabelsize)
 
-    # Equalize all axes limits 
-    axes_xmin = min(axes[j].get_xlim()[0] for j in ax_indices)
-    axes_xmax = max(axes[j].get_xlim()[1] for j in ax_indices)
-    axes_ymin = min(axes[j].get_ylim()[0] for j in ax_indices)
-    axes_ymax = max(axes[j].get_ylim()[1] for j in ax_indices)
-    for i, j in zip(indices, ax_indices):
-        # While equalizing all axes limits, also add padding to the upper
-        # side of each y-axis and add annotation on the top-right
-        axes[j].set_xlim(left=axes_xmin, right=axes_xmax)
-        axes[j].set_ylim(
-            bottom=axes_ymin, top=(axes_ymin + 1.1 * (axes_ymax - axes_ymin))
-        )
-        axes[j].annotate(
-            annotate_fmt.format(str(i)),
-            xy=(0.98, 0.96),
-            xycoords='axes fraction',
-            horizontalalignment='right',
-            verticalalignment='top',
-            size=10
-        )
+    # Equalize all axes limits if desired 
+    if adjust_axes:
+        axes_xmin = min(axes[j].get_xlim()[0] for j in ax_indices)
+        axes_xmax = max(axes[j].get_xlim()[1] for j in ax_indices)
+        axes_ymin = min(axes[j].get_ylim()[0] for j in ax_indices)
+        axes_ymax = max(axes[j].get_ylim()[1] for j in ax_indices)
+        for i, j in zip(indices, ax_indices):
+            # While equalizing all axes limits, also add padding to the upper
+            # side of each y-axis and add annotation on the top-right
+            axes[j].set_xlim(left=axes_xmin, right=axes_xmax)
+            if annotate_fmt is None:
+                axes[j].set_ylim(bottom=axes_ymin, top=axes_ymax)
+            else:
+                axes[j].set_ylim(
+                    bottom=axes_ymin, top=(axes_ymin + 1.1 * (axes_ymax - axes_ymin))
+                )
+                axes[j].annotate(
+                    annotate_fmt.format(str(i)),
+                    xy=(0.98, 0.96),
+                    xycoords='axes fraction',
+                    horizontalalignment='right',
+                    verticalalignment='top',
+                    size=10
+                )
 
 ##########################################################################
-def plot_scatter(filenames, output_prefix):
+def main():
     rng = np.random.default_rng(1234567890)
-
-    # Parse the output metrics for single-mismatch substrates  
-    logrates = np.loadtxt(filenames['logrates'])
-    probs = np.loadtxt(filenames['probs'])
-    specs = np.loadtxt(filenames['specs'])
-    cleave = np.loadtxt(filenames['cleave'])
-    rapid = np.loadtxt(filenames['rapid'])
+    
+    # Parse the output metrics for single-mismatch substrates
+    filename_fmts = {
+        'logrates': 'data/line-{}-combined-single-logrates-subset.tsv',
+        'probs': 'data/line-{}-combined-single-probs-subset.tsv',
+        'specs': 'data/line-{}-combined-single-specs-subset.tsv',
+        'cleave': 'data/line-{}-combined-single-cleave-subset.tsv',
+        'rapid': 'data/line-{}-combined-single-rapid-subset.tsv'
+    }
+    output_prefix_fmt = 'plots/line-{}-combined-single'
+    logrates = np.loadtxt(filename_fmts['logrates'].format(3))
+    probs = np.loadtxt(filename_fmts['probs'].format(3))
+    specs = np.loadtxt(filename_fmts['specs'].format(3))
+    cleave = np.loadtxt(filename_fmts['cleave'].format(3))
+    rapid = np.loadtxt(filename_fmts['rapid'].format(3))
 
     # Cleavage probabilities on perfect-match substrates
     activities = np.tile(probs[:, 0].reshape((probs.shape[0]), 1), 20)
@@ -110,13 +127,14 @@ def plot_scatter(filenames, output_prefix):
     plot_metrics_by_mismatch_scatter(
         activities, specs, 50,
         r'$\mathrm{Prob}(\mathbf{u}^{\mathrm{P}})$',
-        r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
+        r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^{\{m\}}))}$',
         rng, axes, npoints_per_bin=1, indices=list(range(20)), xmin=0, ymin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
+        annotate_fmt=r'$m = {}$'
     )
     plt.tight_layout()
     plt.savefig(
-        'plots/{}-prob-by-mismatch-all.pdf'.format(output_prefix),
+        '{}-prob-by-mismatch-all.pdf'.format(output_prefix_fmt.format(3)),
         dpi=600, transparent=True
     )
     plt.close()
@@ -129,13 +147,14 @@ def plot_scatter(filenames, output_prefix):
     plot_metrics_by_mismatch_scatter(
         speeds, specs, 50,
         r'$\mathrm{Rate}(\mathbf{u}^{\mathrm{P}})$',
-        r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
+        r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^{\{m\}}))}$',
         rng, axes, npoints_per_bin=1, indices=list(range(20)), ymin=0,
         ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
+        annotate_fmt=r'$m = {}$'
     )
     plt.tight_layout()
     plt.savefig(
-        'plots/{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix),
+        '{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix_fmt.format(3)),
         dpi=600, transparent=True
     )
     plt.close()
@@ -147,14 +166,15 @@ def plot_scatter(filenames, output_prefix):
     )
     plot_metrics_by_mismatch_scatter(
         specs, rapid, 50,
-        r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
-        r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^M))}$',
+        r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^{\{m\}}))}$',
+        r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^{\{m\}}))}$',
         rng, axes, npoints_per_bin=1, indices=list(range(20)), xmin=0,
-        ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)]
+        ax_indices=['{}{}'.format(i, j) for i in range(5) for j in range(4)],
+        annotate_fmt=r'$m = {}$'
     )
     plt.tight_layout()
     plt.savefig(
-        'plots/{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix),
+        '{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix_fmt.format(3)),
         dpi=600, transparent=True
     )
     plt.close()
@@ -166,30 +186,110 @@ def plot_scatter(filenames, output_prefix):
     )
     plot_metrics_by_mismatch_scatter(
         specs, rapid, 50,
-        r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^M))}$',
-        r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^M))}$',
+        r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^{\{m\}}))}$',
+        r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^{\{m\}}))}$',
         rng, axes, npoints_per_bin=1, indices=[5, 7, 9, 11, 13, 15, 17, 19], xmin=0,
-        ax_indices=['{}{}'.format(i, j) for i in range(2) for j in range(4)]
+        ax_indices=['{}{}'.format(i, j) for i in range(2) for j in range(4)],
+        annotate_fmt=r'$m = {}$'
     )
     plt.tight_layout()
     plt.savefig(
-        'plots/{}-spec-vs-rapid-by-mismatch-main.pdf'.format(output_prefix),
+        '{}-spec-vs-rapid-by-mismatch-main.pdf'.format(output_prefix_fmt.format(3)),
         dpi=600, transparent=True
     )
     plt.close()
 
-##########################################################################
-def main():
-    for i in range(2, 6):
-        filenames = {
-            'logrates': 'data/line-{}-combined-single-logrates.tsv'.format(i),
-            'probs': 'data/line-{}-combined-single-probs.tsv'.format(i),
-            'specs': 'data/line-{}-combined-single-specs.tsv'.format(i),
-            'cleave': 'data/line-{}-combined-single-cleave.tsv'.format(i),
-            'rapid': 'data/line-{}-combined-single-rapid.tsv'.format(i),
-        }
-        plot_scatter(filenames, 'line-{}-combined-single'.format(i))
+    ######################################################################
+    # Plot output metrics from *all* parametric polytopes 
+    fig1, axes1 = plt.subplot_mosaic(
+        [['{}{}'.format(i, j) for j in range(4)] for i in range(5)],
+        figsize=(12, 14)
+    )
+    fig2, axes2 = plt.subplot_mosaic(
+        [['{}{}'.format(i, j) for j in range(4)] for i in range(5)],
+        figsize=(12, 14)
+    )
+    fig3, axes3 = plt.subplot_mosaic(
+        [['{}{}'.format(i, j) for j in range(4)] for i in range(5)],
+        figsize=(12, 14)
+    )
+    colors = [
+        sns.color_palette('colorblind')[3],
+        sns.color_palette('colorblind')[0],
+        sns.color_palette('colorblind')[1],
+        sns.color_palette('colorblind')[2]
+    ]
+    colors_subsample = [
+        sns.color_palette('pastel')[3],
+        sns.color_palette('pastel')[0],
+        sns.color_palette('pastel')[1],
+        sns.color_palette('pastel')[2]
+    ]
+    for i, j in enumerate(range(2, 6)):
+        # Parse the output metrics for single-mismatch substrates
+        logrates = np.loadtxt(filename_fmts['logrates'].format(j))
+        probs = np.loadtxt(filename_fmts['probs'].format(j))
+        specs = np.loadtxt(filename_fmts['specs'].format(j))
+        cleave = np.loadtxt(filename_fmts['cleave'].format(j))
+        rapid = np.loadtxt(filename_fmts['rapid'].format(j))
+
+        # Cleavage probabilities on perfect-match substrates
+        activities = np.tile(probs[:, 0].reshape((probs.shape[0]), 1), 20)
+
+        # Cleavage rates on perfect-match substrates 
+        speeds = np.tile(cleave[:, 0].reshape((cleave.shape[0]), 1), 20)
+
+        plot_metrics_by_mismatch_scatter(
+            activities, specs, 50,
+            r'$\mathrm{Prob}(\mathbf{u}^{\mathrm{P}})$',
+            r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^{\{m\}}))}$',
+            rng, axes1, npoints_per_bin=1, plot_subsample=False,
+            color=colors[i], color_subsample=colors_subsample[i],
+            indices=list(range(20)), xmin=0, ymin=0,
+            ax_indices=['{}{}'.format(p, q) for p in range(5) for q in range(4)],
+            adjust_axes=(j == 5), annotate_fmt=(None if j < 5 else r'$m = {}$') 
+        )
+        plot_metrics_by_mismatch_scatter(
+            speeds, specs, 50,
+            r'$\mathrm{Rate}(\mathbf{u}^{\mathrm{P}})$',
+            r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^{\{m\}}))}$',
+            rng, axes2, npoints_per_bin=1, plot_subsample=False,
+            color=colors[i], color_subsample=colors_subsample[i], 
+            indices=list(range(20)), ymin=0,
+            ax_indices=['{}{}'.format(p, q) for p in range(5) for q in range(4)],
+            adjust_axes=(j == 5), annotate_fmt=(None if j < 5 else r'$m = {}$')
+        )
+        plot_metrics_by_mismatch_scatter(
+            specs, rapid, 50,
+            r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^{\{m\}}))}$',
+            r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^{\{m\}}))}$',
+            rng, axes3, npoints_per_bin=1, plot_subsample=False,
+            color=colors[i], color_subsample=colors_subsample[i],
+            indices=list(range(20)), xmin=0,
+            ax_indices=['{}{}'.format(p, q) for p in range(5) for q in range(4)],
+            adjust_axes=(j == 5), annotate_fmt=(None if j < 5 else r'$m = {}$')
+        )
+
+    fig1.tight_layout()
+    fig1.savefig(
+        '{}-prob-by-mismatch-all.pdf'.format(output_prefix_fmt.format('all')),
+        dpi=600, transparent=True
+    )
+    plt.close(fig1)
+    fig2.tight_layout()
+    fig2.savefig(
+        '{}-speed-vs-spec-by-mismatch-all.pdf'.format(output_prefix_fmt.format('all')),
+        dpi=600, transparent=True
+    )
+    plt.close(fig2)
+    fig3.tight_layout()
+    fig3.savefig(
+        '{}-spec-vs-rapid-by-mismatch-all.pdf'.format(output_prefix_fmt.format('all')),
+        dpi=600, transparent=True
+    )
+    plt.close(fig3)
 
 ##########################################################################
 if __name__ == '__main__':
     main()
+
