@@ -6,7 +6,7 @@
     "output_prefix":
         "data/Jones-2021-NatBiotechnol-fits-reg1e-1/Jones-2021-NatBiotechnol-fits-sgRNA1-eCas9-reg1e-1-binary-sample11",
     "data_specified_as_times": false,
-    "n_init": 20,
+    "n_init": 50,
     "cleave_pseudocount": 1e-8,
     "unbind_pseudocount": 0.0,
     "sqp_config": {
