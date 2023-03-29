@@ -73,7 +73,7 @@ typename Derived::Scalar logsumexp(const MatrixBase<Derived>& logx,
  * @returns Overall cleavage rate.
  */
 MainType computePerfectOverallCleaveRate(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
-									     const MainType bind_conc)
+                                         const MainType bind_conc)
 {
     // Array of DNA/RNA match parameters
     std::pair<PreciseType, PreciseType> match_rates = std::make_pair(
@@ -104,8 +104,8 @@ MainType computePerfectOverallCleaveRate(const Ref<const Matrix<MainType, Dynami
         bind_rate, terminal_unbind_rate, terminal_cleave_rate
     );
 
-	delete model;
-	return static_cast<MainType>(pow(overall_cleave_time_perfect, -1));
+    delete model;
+    return static_cast<MainType>(pow(overall_cleave_time_perfect, -1));
 }
 
 /**
@@ -238,7 +238,7 @@ Matrix<MainType, Dynamic, 7> computeCleavageStats(const Ref<const Matrix<MainTyp
         model->setEdgeLabels(i, match_rates); 
   
     // Compute cleavage probability, cleavage rate, dead unbinding rate, and 
-	// overall cleavage timescale against perfect-match substrate 
+    // overall cleavage timescale against perfect-match substrate 
     PreciseType prob_perfect = model->getUpperExitProb(terminal_unbind_rate, terminal_cleave_rate);
     PreciseType cleave_rate_perfect = model->getUpperExitRate(terminal_unbind_rate, terminal_cleave_rate); 
     PreciseType dead_unbind_rate_perfect = model->getLowerExitRate(terminal_unbind_rate);
@@ -247,7 +247,7 @@ Matrix<MainType, Dynamic, 7> computeCleavageStats(const Ref<const Matrix<MainTyp
     );
 
     // Compute cleavage probability, cleavage rate, dead unbinding rate, and
-	// overall cleavage timescale against each given mismatched substrate
+    // overall cleavage timescale against each given mismatched substrate
     Matrix<PreciseType, Dynamic, 7> stats(seqs.rows(), 7);  
     for (int i = 0; i < seqs.rows(); ++i)
     {
@@ -332,11 +332,11 @@ Matrix<MainType, Dynamic, 1> cleaveErrorAgainstData(const Ref<const Matrix<MainT
  *          rate values.
  */
 MainType cleaveErrorAgainstPerfectOverallRate(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
-		                                      const MainType cleave_rate,
-											  const MainType bind_conc)
+                                              const MainType cleave_rate,
+                                              const MainType bind_conc)
 {
     // Compute squared error between model-derived and measured values
-	return pow(computePerfectOverallCleaveRate(logrates, bind_conc) - cleave_rate, 2);
+    return pow(computePerfectOverallCleaveRate(logrates, bind_conc) - cleave_rate, 2);
 }
 
 /**
@@ -525,14 +525,14 @@ std::pair<Matrix<MainType, Dynamic, Dynamic>, Matrix<MainType, Dynamic, Dynamic>
  *                                in `zoom()` during SQP to `stdout`.
  */
 std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dynamic, 1> >& logrates,
-			                                Polytopes::LinearConstraints* constraints,
+                                            Polytopes::LinearConstraints* constraints,
                                             const MainType cleave_rate,
                                             const MainType bind_conc, const int ninit,
                                             boost::random::mt19937& rng,
                                             const MainType delta, const MainType beta,
                                             const MainType sqp_min_stepsize,
                                             const int scan_max_iter,
-											const MainType tol, const MainType x_tol,
+                                            const MainType tol, const MainType x_tol,
                                             const MainType qp_stepsize_tol, 
                                             const QuasiNewtonMethod quasi_newton,
                                             const int hessian_modify_max_iter, 
@@ -542,83 +542,83 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
 {
     const int N = constraints->getN();
     const int D = constraints->getD();
-	Matrix<mpq_rational, Dynamic, Dynamic> A = constraints->getA();
-	Matrix<mpq_rational, Dynamic, 1> b = constraints->getb();
+    Matrix<mpq_rational, Dynamic, Dynamic> A = constraints->getA();
+    Matrix<mpq_rational, Dynamic, 1> b = constraints->getb();
    
-	// Find the endpoints of the main chord containing the given parameter vector
-	const MainType bignum = 10000;            // TODO Better definition here?
-	const int endpoint_scan_max_iter = 50;    // TODO Customize?
-	MainType x_lower_min = 0;
-	MainType x_lower_max = bignum;
-	MainType x_upper_min = 0;
-	MainType x_upper_max = bignum;
-	for (int i = 0; i < endpoint_scan_max_iter; ++i)
-	{
-		MainType x_lower_mid = (x_lower_min + x_lower_max) / 2;
-	    Matrix<MainType, Dynamic, 1> logrates_lower = logrates - x_lower_mid * Matrix<MainType, Dynamic, 1>::Ones(D);
-		if (!constraints->query(logrates_lower.cast<mpq_rational>()))
-			x_lower_max = x_lower_mid;
-		else
-			x_lower_min = x_lower_mid;
-	}
-	for (int i = 0; i < endpoint_scan_max_iter; ++i)
-	{
-		MainType x_upper_mid = (x_upper_min + x_upper_max) / 2;
-	    Matrix<MainType, Dynamic, 1> logrates_upper = logrates + x_upper_mid * Matrix<MainType, Dynamic, 1>::Ones(D);
-		if (!constraints->query(logrates_upper.cast<mpq_rational>()))
-			x_upper_max = x_upper_mid;
-		else
-			x_upper_min = x_upper_mid;
-	}
-	MainType x_lower = -x_lower_min;
-	MainType x_upper = x_upper_min;
-	
-	// Set up a 1-D SQPOptimizer instance
+    // Find the endpoints of the main chord containing the given parameter vector
+    const MainType bignum = 10000;            // TODO Better definition here?
+    const int endpoint_scan_max_iter = 50;    // TODO Customize?
+    MainType x_lower_min = 0;
+    MainType x_lower_max = bignum;
+    MainType x_upper_min = 0;
+    MainType x_upper_max = bignum;
+    for (int i = 0; i < endpoint_scan_max_iter; ++i)
+    {
+        MainType x_lower_mid = (x_lower_min + x_lower_max) / 2;
+        Matrix<MainType, Dynamic, 1> logrates_lower = logrates - x_lower_mid * Matrix<MainType, Dynamic, 1>::Ones(D);
+        if (!constraints->query(logrates_lower.cast<mpq_rational>()))
+            x_lower_max = x_lower_mid;
+        else
+            x_lower_min = x_lower_mid;
+    }
+    for (int i = 0; i < endpoint_scan_max_iter; ++i)
+    {
+        MainType x_upper_mid = (x_upper_min + x_upper_max) / 2;
+        Matrix<MainType, Dynamic, 1> logrates_upper = logrates + x_upper_mid * Matrix<MainType, Dynamic, 1>::Ones(D);
+        if (!constraints->query(logrates_upper.cast<mpq_rational>()))
+            x_upper_max = x_upper_mid;
+        else
+            x_upper_min = x_upper_mid;
+    }
+    MainType x_lower = -x_lower_min;
+    MainType x_upper = x_upper_min;
+    
+    // Set up a 1-D SQPOptimizer instance
     SQPOptimizer1D<MainType>* opt = new SQPOptimizer1D<MainType>(x_lower, x_upper);
 
     // Define error function to be minimized 
     std::function<MainType(MainType)> func = [&logrates, &cleave_rate, &bind_conc](MainType x) -> MainType
         {
-			Matrix<MainType, Dynamic, 1> p = Matrix<MainType, Dynamic, 1>::Ones(logrates.size());
-			Matrix<MainType, Dynamic, 1> logrates_new = logrates + x * p;
-			return cleaveErrorAgainstPerfectOverallRate(logrates_new, cleave_rate, bind_conc);
+            Matrix<MainType, Dynamic, 1> p = Matrix<MainType, Dynamic, 1>::Ones(logrates.size());
+            Matrix<MainType, Dynamic, 1> logrates_new = logrates + x * p;
+            return cleaveErrorAgainstPerfectOverallRate(logrates_new, cleave_rate, bind_conc);
         };
 
-	// For each optimization attempt ... 
-	boost::random::uniform_real_distribution<double> scan_dist(
-		static_cast<double>(x_lower), static_cast<double>(x_upper)
-	);
+    // For each optimization attempt ... 
+    boost::random::uniform_real_distribution<double> scan_dist(
+        static_cast<double>(x_lower), static_cast<double>(x_upper)
+    );
     QuadraticProgramSolveMethod qp_solve_method = USE_CUSTOM_SOLVER;
-	MainType best_fit = 0;
-	MainType best_error = std::numeric_limits<MainType>::infinity();
-	for (int i = 0; i < ninit; ++i)
-	{
-		MainType x_init = static_cast<MainType>(scan_dist(rng));
+    MainType best_fit = 0;
+    MainType best_error = std::numeric_limits<MainType>::infinity();
+    for (int i = 0; i < ninit; ++i)
+    {
+        MainType x_init = static_cast<MainType>(scan_dist(rng));
         Matrix<MainType, Dynamic, 1> l_init = Matrix<MainType, Dynamic, 1>::Ones(2);
 
         // Obtain the parameter vector along the main chord that yields the 
-		// overall cleavage rate closest to the given value
-		//
-		// Use no regularization for this optimization
+        // overall cleavage rate closest to the given value
+        //
+        // Use no regularization for this optimization
         MainType fit = opt->run(
             func, quasi_newton, RegularizationMethod::NOREG, 0, 0,
             qp_solve_method, x_init, l_init, delta, beta, sqp_min_stepsize,
             scan_max_iter, tol, x_tol, qp_stepsize_tol, hessian_modify_max_iter,
             c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, false,
-			false, false
+            false, false
         );
 
         // Re-obtain error for the chosen parameter vector
-		Matrix<MainType, Dynamic, 1> logrates_new = logrates + fit * Matrix<MainType, Dynamic, 1>::Ones(D);
+        Matrix<MainType, Dynamic, 1> logrates_new = logrates + fit * Matrix<MainType, Dynamic, 1>::Ones(D);
         MainType error = cleaveErrorAgainstPerfectOverallRate(logrates_new, cleave_rate, bind_conc);
-		
-		// Store the parameter vector with the least error
-		if (error < best_error)
-		{
-			best_fit = fit;
-			best_error = error;
-		}
-	}
+        
+        // Store the parameter vector with the least error
+        if (error < best_error)
+        {
+            best_fit = fit;
+            best_error = error;
+        }
+    }
     delete opt;
 
     return std::make_pair(best_fit, best_error);
@@ -862,11 +862,11 @@ int main(int argc, char** argv)
     // specified first ...
     //
     // ... and thus normalize all overall cleavage rates and invert
-	MainType perfect_cleave_rate = cleave_data(0);
-	for (int i = 1; i < cleave_data.size(); ++i)
-		cleave_data(i) = cleave_data(i) / cleave_data(0);   // inverse overall cleavage rate ratio 
-															// = rate on mismatched / rate on perfect
-	cleave_data(0) = 1;
+    MainType perfect_cleave_rate = cleave_data(0);
+    for (int i = 1; i < cleave_data.size(); ++i)
+        cleave_data(i) = cleave_data(i) / cleave_data(0);   // inverse overall cleavage rate ratio 
+                                                            // = rate on mismatched / rate on perfect
+    cleave_data(0) = 1;
 
     // Add pseudocounts
     cleave_data += cleave_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_cleave_data);
@@ -891,24 +891,24 @@ int main(int argc, char** argv)
     Matrix<MainType, Dynamic, Dynamic> residuals = results.second;
     Matrix<MainType, Dynamic, 1> errors = residuals.rowwise().sum();
 
-	/** -------------------------------------------------------------- //
-	 *            SCAN MAIN CHORD CORRESPONDING TO EACH FIT            //
-	 *  -------------------------------------------------------------- */
-	// Scan main chord corresponding to each fit to optimize against the 
-	// perfect-match overall cleavage rate 
-	std::pair<MainType, MainType> scan_results;
-	const int n_scan_init = 100;     // TODO Customize?
-	const int scan_max_iter = 100;   // TODO Customize?
-	for (int i = 0; i < ninit; ++i)
-	{
-		scan_results = scanMainChord(
-			best_fits.row(i), constraints, perfect_cleave_rate, bind_conc,
-			n_scan_init, rng, delta, beta, sqp_min_stepsize, scan_max_iter,
-			tol, x_tol, qp_stepsize_tol, quasi_newton, hessian_modify_max_iter,
-			c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter
-		);
-		best_fits.row(i) += scan_results.first * Matrix<MainType, Dynamic, 1>::Ones(best_fits.cols());
-	}
+    /** -------------------------------------------------------------- //
+     *            SCAN MAIN CHORD CORRESPONDING TO EACH FIT            //
+     *  -------------------------------------------------------------- */
+    // Scan main chord corresponding to each fit to optimize against the 
+    // perfect-match overall cleavage rate 
+    std::pair<MainType, MainType> scan_results;
+    const int n_scan_init = 100;     // TODO Customize?
+    const int scan_max_iter = 100;   // TODO Customize?
+    for (int i = 0; i < ninit; ++i)
+    {
+        scan_results = scanMainChord(
+            best_fits.row(i), constraints, perfect_cleave_rate, bind_conc,
+            n_scan_init, rng, delta, beta, sqp_min_stepsize, scan_max_iter,
+            tol, x_tol, qp_stepsize_tol, quasi_newton, hessian_modify_max_iter,
+            c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter
+        );
+        best_fits.row(i) += scan_results.first * Matrix<MainType, Dynamic, 1>::Ones(best_fits.cols());
+    }
 
     // Output the fits to file
     std::ofstream outfile(outfilename); 
