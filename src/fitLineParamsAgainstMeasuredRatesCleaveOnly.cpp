@@ -546,7 +546,7 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
     Matrix<mpq_rational, Dynamic, 1> b = constraints->getb();
    
     // Find the endpoints of the main chord containing the given parameter vector
-	/*
+    /*
     const int endpoint_scan_max_iter = 20;    // TODO Customize?
     const mpq_rational a = 1;
     mpq_rational x_lower_min = 0;
@@ -582,26 +582,26 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
     }
     MainType x_lower = static_cast<MainType>(-x_lower_min);
     MainType x_upper = static_cast<MainType>(x_upper_min);
-	*/
-	Matrix<mpq_rational, Dynamic, 1> logrates_ = logrates.template cast<mpq_rational>();
-	Matrix<mpq_rational, Dynamic, 1> c = b - A * logrates_;
-	Matrix<mpq_rational, Dynamic, 1> d = A * Matrix<mpq_rational, Dynamic, 1>::Ones(D);
-	mpq_rational x_lower_ = std::numeric_limits<mpq_rational>::infinity(); 
-	mpq_rational x_upper_ = -std::numeric_limits<mpq_rational>::infinity();
-	for (int i = 0; i < N; ++i)
-	{
-		if (d(i) != 0)
-		{
-			mpq_rational bound = c(i) / d(i);
-			if (constraints->query(logrates_ + bound * Matrix<mpq_rational, Dynamic, 1>::Ones(D)))
-			{
-				if (bound < x_lower_)
-					x_lower_ = bound;
-				else if (bound > x_upper_)
-					x_upper_ = bound;
-			}
-		}
-	}
+    */
+    Matrix<mpq_rational, Dynamic, 1> logrates_ = logrates.template cast<mpq_rational>();
+    Matrix<mpq_rational, Dynamic, 1> c = b - A * logrates_;
+    Matrix<mpq_rational, Dynamic, 1> d = A * Matrix<mpq_rational, Dynamic, 1>::Ones(D);
+    mpq_rational x_lower_ = std::numeric_limits<mpq_rational>::infinity(); 
+    mpq_rational x_upper_ = -std::numeric_limits<mpq_rational>::infinity();
+    for (int i = 0; i < N; ++i)
+    {
+        if (d(i) != 0)
+        {
+            mpq_rational bound = c(i) / d(i);
+            if (constraints->query(logrates_ + bound * Matrix<mpq_rational, Dynamic, 1>::Ones(D)))
+            {
+                if (bound < x_lower_)
+                    x_lower_ = bound;
+                else if (bound > x_upper_)
+                    x_upper_ = bound;
+            }
+        }
+    }
     MainType x_lower = static_cast<MainType>(x_lower_);
     MainType x_upper = static_cast<MainType>(x_upper_);
     std::cout << logrates.transpose() << std::endl << std::flush;
