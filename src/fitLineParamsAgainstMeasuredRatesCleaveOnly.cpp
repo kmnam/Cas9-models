@@ -548,7 +548,10 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
     // Ensure that the given parameter vector lies inside the given polytope 
     Matrix<mpq_rational, Dynamic, 1> logrates_ = logrates.template cast<mpq_rational>();
     if (!constraints->query(logrates_))
-        logrates_ = constraints->approxNearestL2<mpq_rational>(logrates_);
+    {
+        logrates_ = constraints->approxNearestL2<mpq_rational>(logrates_).eval();
+        logrates = logrates_.template cast<MainType>();
+    }
    
     // Find the endpoints of the main chord containing the given parameter vector
     /*
@@ -608,6 +611,7 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
     }
     MainType x_lower = static_cast<MainType>(x_lower_);
     MainType x_upper = static_cast<MainType>(x_upper_);
+    std::cout << constraints->query(logrates_) << std::endl << std::flush; 
     std::cout << logrates.transpose() << std::endl << std::flush;
     std::cout << x_lower << " " << x_upper << std::endl << std::flush;
     
