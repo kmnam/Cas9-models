@@ -548,10 +548,7 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
     // Ensure that the given parameter vector lies inside the given polytope 
     Matrix<mpq_rational, Dynamic, 1> logrates_ = logrates.template cast<mpq_rational>();
     if (!constraints->query(logrates_))
-    {
         logrates_ = constraints->approxNearestL2<mpq_rational>(logrates_).eval();
-        logrates = logrates_.template cast<MainType>();
-    }
    
     // Find the endpoints of the main chord containing the given parameter vector
     /*
@@ -619,10 +616,10 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
     SQPOptimizer1D<MainType>* opt = new SQPOptimizer1D<MainType>(x_lower, x_upper);
 
     // Define error function to be minimized 
-    std::function<MainType(MainType)> func = [&logrates, &cleave_rate, &bind_conc](MainType x) -> MainType
+    std::function<MainType(MainType)> func = [&logrates_, &cleave_rate, &bind_conc](MainType x) -> MainType
         {
-            Matrix<MainType, Dynamic, 1> p = Matrix<MainType, Dynamic, 1>::Ones(logrates.size());
-            Matrix<MainType, Dynamic, 1> logrates_new = logrates + x * p;
+            Matrix<MainType, Dynamic, 1> p = Matrix<MainType, Dynamic, 1>::Ones(logrates_.size());
+            Matrix<MainType, Dynamic, 1> logrates_new = logrates_.template cast<MainType>() + x * p;
             return cleaveErrorAgainstPerfectOverallRate(logrates_new, cleave_rate, bind_conc);
         };
 
@@ -651,7 +648,7 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
         );
 
         // Re-obtain error for the chosen parameter vector
-        Matrix<MainType, Dynamic, 1> logrates_new = logrates + fit * Matrix<MainType, Dynamic, 1>::Ones(D);
+        Matrix<MainType, Dynamic, 1> logrates_new = logrates_.template cast<MainType>() + fit * Matrix<MainType, Dynamic, 1>::Ones(D);
         MainType error = cleaveErrorAgainstPerfectOverallRate(logrates_new, cleave_rate, bind_conc);
         
         // Store the parameter vector with the least error
