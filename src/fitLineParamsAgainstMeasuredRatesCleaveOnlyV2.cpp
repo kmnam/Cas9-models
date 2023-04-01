@@ -256,7 +256,7 @@ Matrix<MainType, Dynamic, 1> cleaveErrorAgainstData(const Ref<const Matrix<MainT
     // Compute overall cleavage rate ratios for the given complementarity patterns
     Matrix<MainType, Dynamic, 1> stats = computeOverallCleavageRates(logrates, cleave_seqs, bind_conc);
     
-	// Compute each residual contributing to overall sum-of-squares error
+    // Compute each residual contributing to overall sum-of-squares error
     Matrix<MainType, Dynamic, 1> residuals = (stats - cleave_data).array().pow(2); 
 
     return residuals;
