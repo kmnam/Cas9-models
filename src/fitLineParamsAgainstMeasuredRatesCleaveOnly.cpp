@@ -551,43 +551,6 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
         logrates_ = constraints->approxNearestL2<mpq_rational>(logrates_).eval();
    
     // Find the endpoints of the main chord containing the given parameter vector
-    /*
-    const int endpoint_scan_max_iter = 20;    // TODO Customize?
-    const mpq_rational a = 1;
-    mpq_rational x_lower_min = 0;
-    mpq_rational x_lower_max = 0;
-    mpq_rational x_upper_min = 0;
-    mpq_rational x_upper_max = 0;
-    Matrix<mpq_rational, Dynamic, 1> logrates_ = logrates.template cast<mpq_rational>();
-    while (constraints->query(logrates_ - x_lower_max * Matrix<mpq_rational, Dynamic, 1>::Ones(D)))
-        x_lower_max += a;
-    while (constraints->query(logrates_ + x_upper_max * Matrix<mpq_rational, Dynamic, 1>::Ones(D)))
-        x_upper_max += a;
-    std::cout << "initial bounds: (lower) " << x_lower_min << " " << x_lower_max 
-                             << " (upper) " << x_upper_min << " " << x_upper_max << std::endl << std::flush;
-    for (int i = 0; i < endpoint_scan_max_iter; ++i)
-    {
-        mpq_rational x_lower_mid = (x_lower_min + x_lower_max) / 2;
-        Matrix<mpq_rational, Dynamic, 1> logrates_lower = logrates_ - x_lower_mid * Matrix<mpq_rational, Dynamic, 1>::Ones(D);
-        if (!constraints->query(logrates_lower))
-            x_lower_max = x_lower_mid;
-        else
-            x_lower_min = x_lower_mid;
-        std::cout << "changing lower bounds to " << x_lower_min << " " << x_lower_max << std::endl << std::flush;
-    }
-    for (int i = 0; i < endpoint_scan_max_iter; ++i)
-    {
-        mpq_rational x_upper_mid = (x_upper_min + x_upper_max) / 2;
-        Matrix<mpq_rational, Dynamic, 1> logrates_upper = logrates_ + x_upper_mid * Matrix<mpq_rational, Dynamic, 1>::Ones(D);
-        if (!constraints->query(logrates_upper))
-            x_upper_max = x_upper_mid;
-        else
-            x_upper_min = x_upper_mid;
-        std::cout << "changing upper bounds to " << x_upper_min << " " << x_upper_max << std::endl << std::flush;
-    }
-    MainType x_lower = static_cast<MainType>(-x_lower_min);
-    MainType x_upper = static_cast<MainType>(x_upper_min);
-    */
     Matrix<mpq_rational, Dynamic, 1> c = b - A * logrates_;
     Matrix<mpq_rational, Dynamic, 1> d = A * Matrix<mpq_rational, Dynamic, 1>::Ones(D);
     mpq_rational x_lower_ = std::numeric_limits<mpq_rational>::infinity(); 
@@ -608,9 +571,9 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
     }
     MainType x_lower = static_cast<MainType>(x_lower_);
     MainType x_upper = static_cast<MainType>(x_upper_);
-    std::cout << constraints->query(logrates_) << std::endl << std::flush; 
-    std::cout << logrates.transpose() << std::endl << std::flush;
-    std::cout << x_lower << " " << x_upper << std::endl << std::flush;
+    //std::cout << constraints->query(logrates_) << std::endl << std::flush; 
+    //std::cout << logrates.transpose() << std::endl << std::flush;
+    //std::cout << x_lower << " " << x_upper << std::endl << std::flush;
     
     // Set up a 1-D SQPOptimizer instance
     SQPOptimizer1D<MainType>* opt = new SQPOptimizer1D<MainType>(x_lower, x_upper);
@@ -657,7 +620,7 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
             best_fit = fit;
             best_error = error;
         }
-        std::cout << "- fit number " << i << ": " << fit << std::endl << std::flush;
+        //std::cout << "- fit number " << i << ": " << fit << std::endl << std::flush;
     }
     delete opt;
 
@@ -930,7 +893,7 @@ int main(int argc, char** argv)
     Matrix<MainType, Dynamic, Dynamic> best_fits = results.first;
     Matrix<MainType, Dynamic, Dynamic> residuals = results.second;
     Matrix<MainType, Dynamic, 1> errors = residuals.rowwise().sum();
-    std::cout << "done with fitting\n" << std::flush;
+    //std::cout << "done with fitting\n" << std::flush;
 
     /** -------------------------------------------------------------- //
      *            SCAN MAIN CHORD CORRESPONDING TO EACH FIT            //
@@ -942,7 +905,7 @@ int main(int argc, char** argv)
     const int scan_max_iter = 100;   // TODO Customize?
     for (int i = 0; i < ninit; ++i)
     {
-        std::cout << "scanning for " << i << std::endl << std::flush;
+        //std::cout << "scanning for " << i << std::endl << std::flush;
         scan_results = scanMainChord(
             best_fits.row(i), constraints, perfect_cleave_rate, bind_conc,
             n_scan_init, rng, delta, beta, sqp_min_stepsize, scan_max_iter,
@@ -951,7 +914,7 @@ int main(int argc, char** argv)
         );
         best_fits.row(i) += scan_results.first * Matrix<MainType, Dynamic, 1>::Ones(best_fits.cols());
     }
-    std::cout << "done with scanning\n" << std::flush;
+    //std::cout << "done with scanning\n" << std::flush;
 
     // Output the fits to file
     std::ofstream outfile(outfilename); 
