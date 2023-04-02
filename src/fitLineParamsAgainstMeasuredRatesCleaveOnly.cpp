@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     3/29/2023
+ *     4/2/2023
  */
 
 #include <iostream>
@@ -571,9 +571,6 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
     }
     MainType x_lower = static_cast<MainType>(x_lower_);
     MainType x_upper = static_cast<MainType>(x_upper_);
-    //std::cout << constraints->query(logrates_) << std::endl << std::flush; 
-    //std::cout << logrates.transpose() << std::endl << std::flush;
-    //std::cout << x_lower << " " << x_upper << std::endl << std::flush;
     
     // Set up a 1-D SQPOptimizer instance
     SQPOptimizer1D<MainType>* opt = new SQPOptimizer1D<MainType>(x_lower, x_upper);
@@ -585,6 +582,11 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
             Matrix<MainType, Dynamic, 1> logrates_new = logrates_.template cast<MainType>() + x * p;
             return cleaveErrorAgainstPerfectOverallRate(logrates_new, cleave_rate, bind_conc);
         };
+
+    // Get the residual associated with the given parameter vector, and set 
+    // regularization weight to a fraction of this residual  
+    MainType orig_error = cleaveErrorAgainstPerfectOverallRate(logrates, cleave_rate, bind_conc);
+    MainType regularize_weight = 0.01 * orig_error;
 
     // For each optimization attempt ... 
     boost::random::uniform_real_distribution<double> scan_dist(
@@ -603,7 +605,7 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
         //
         // Use no regularization for this optimization
         MainType fit = opt->run(
-            func, quasi_newton, RegularizationMethod::NOREG, 0, 0,
+            func, quasi_newton, RegularizationMethod::L2, 0, regularize_weight,
             qp_solve_method, x_init, l_init, delta, beta, sqp_min_stepsize,
             scan_max_iter, tol, x_tol, qp_stepsize_tol, hessian_modify_max_iter,
             c1, c2, line_search_max_iter, zoom_max_iter, qp_max_iter, false,
