@@ -3,7 +3,7 @@ Authors:
     Kee-Myoung Nam
 
 Last updated:
-    3/16/2023
+    4/7/2023
 """
 import numpy as np
 import pandas as pd
@@ -118,6 +118,12 @@ def main():
     # Cleavage rates on perfect-match substrates 
     speeds = np.tile(cleave[:, 0].reshape((cleave.shape[0]), 1), 20)
 
+    # Ratios of model parameters
+    c_total = logrates[:, 0] - logrates[:, 1]        # c = b / d
+    cp_total = logrates[:, 2] - logrates[:, 3]       # cp = b' / d'
+    p_total = logrates[:, 2] - logrates[:, 1]        # p = b' / d
+    q_total = logrates[:, 0] - logrates[:, 3]        # q = b / d'
+
     ######################################################################
     # Plot how cleavage probability depends on mismatch position ...
     fig, axes = plt.subplot_mosaic(
@@ -214,10 +220,10 @@ def main():
         figsize=(12, 14)
     )
     colors = [
-        sns.color_palette('colorblind')[3],
-        sns.color_palette('colorblind')[0],
-        sns.color_palette('colorblind')[1],
-        sns.color_palette('colorblind')[2]
+        sns.color_palette('deep')[3],
+        sns.color_palette('deep')[0],
+        sns.color_palette('deep')[1],
+        sns.color_palette('deep')[2]
     ]
     colors_subsample = [
         sns.color_palette('pastel')[3],
@@ -288,6 +294,88 @@ def main():
         dpi=600, transparent=True
     )
     plt.close(fig3)
+
+    ######################################################################
+    # Plot boxplots of parametric ratios for high-rapidity parameter vectors
+    # from *all* parametric polytopes
+    for m, exp in enumerate(range(2, 6)):
+        # Parse output metrics
+        logrates = np.loadtxt(filename_fmts['logrates'].format(exp))
+        probs = np.loadtxt(filename_fmts['probs'].format(exp))
+        specs = np.loadtxt(filename_fmts['specs'].format(exp))
+        cleave = np.loadtxt(filename_fmts['cleave'].format(exp))
+        rapid = np.loadtxt(filename_fmts['rapid'].format(exp))
+
+        # Ratios of model parameters
+        c_total = logrates[:, 0] - logrates[:, 1]        # c = b / d
+        cp_total = logrates[:, 2] - logrates[:, 3]       # cp = b' / d'
+        p_total = logrates[:, 2] - logrates[:, 1]        # p = b' / d
+        q_total = logrates[:, 0] - logrates[:, 3]        # q = b / d'
+
+        c_valid = [c_total]
+        cp_valid = [cp_total]
+        p_valid = [p_total]
+        q_valid = [q_total]
+        nbins = 50
+        npoints_per_bin = 1
+        start_idx = 2
+        xmin = 0
+        xmax = specs.max()
+        ratio_min = -2 * exp
+        ratio_max = 2 * exp
+        x_bin_edges = np.linspace(xmin, xmax, nbins + 1)
+        fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(12, 10))
+        for i in range(start_idx, 20):       # For each mismatch position ...
+            c_valid_i = []
+            cp_valid_i = []
+            p_valid_i = []
+            q_valid_i = []
+            for j in range(nbins):   # ... and each bin along the specificity axis ... 
+                # Get indices of parameter vectors for top rapidity values in the 
+                # j-th bin
+                in_column = (
+                    (specs[:, i] >= x_bin_edges[j]) & (specs[:, i] < x_bin_edges[j+1])
+                )
+                rapid_top_idx = np.argsort(rapid[in_column, i])[-npoints_per_bin:]
+                logrates_valid = logrates[in_column, :][rapid_top_idx]
+                for k in range(logrates_valid.shape[0]):
+                    c_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 1])
+                    cp_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 3])
+                    p_valid_i.append(logrates_valid[k, 2] - logrates_valid[k, 1])
+                    q_valid_i.append(logrates_valid[k, 0] - logrates_valid[k, 3])
+            c_valid.append(c_valid_i)
+            cp_valid.append(cp_valid_i)
+            p_valid.append(p_valid_i)
+            q_valid.append(q_valid_i)
+        sns.boxplot(
+            data=c_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+            ax=axes[0], whis=(5, 95)
+        )
+        sns.boxplot(
+            data=p_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+            ax=axes[1], whis=(5, 95)
+        )
+        sns.boxplot(
+            data=q_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+            ax=axes[2], whis=(5, 95)
+        )
+        sns.boxplot(
+            data=cp_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
+            ax=axes[3], whis=(5, 95)
+        )
+        for i in range(4):
+            axes[i].patches[0].set_facecolor(sns.color_palette('deep')[4])
+            for j in range(1, 21 - start_idx):
+                axes[i].patches[j].set_facecolor(colors[m])
+            axes[i].set_xticklabels(['All'] + [str(k) for k in range(start_idx, 20)])
+            axes[i].set_ylim([ratio_min - 0.2, ratio_max + 0.2])
+        axes[0].set_ylabel(r"$\log_{10}(b/d)$")
+        axes[1].set_ylabel(r"$\log_{10}(b'/d)$")
+        axes[2].set_ylabel(r"$\log_{10}(b/d')$")
+        axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
+        plt.tight_layout()
+        plt.savefig('{}-highrapid-boxplot.pdf'.format(output_prefix_fmt.format(exp)))
+        plt.close()
 
 ##########################################################################
 if __name__ == '__main__':
