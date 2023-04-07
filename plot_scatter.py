@@ -99,11 +99,11 @@ def main():
     
     # Parse the output metrics for single-mismatch substrates
     filename_fmts = {
-        'logrates': 'data/line-{}-combined-single-logrates-subset.tsv',
-        'probs': 'data/line-{}-combined-single-probs-subset.tsv',
-        'specs': 'data/line-{}-combined-single-specs-subset.tsv',
-        'cleave': 'data/line-{}-combined-single-cleave-subset.tsv',
-        'rapid': 'data/line-{}-combined-single-rapid-subset.tsv'
+        'logrates': 'data/line-{}-combined-single-logrates.tsv',
+        'probs': 'data/line-{}-combined-single-probs.tsv',
+        'specs': 'data/line-{}-combined-single-specs.tsv',
+        'cleave': 'data/line-{}-combined-single-cleave.tsv',
+        'rapid': 'data/line-{}-combined-single-rapid.tsv'
     }
     output_prefix_fmt = 'plots/line-{}-combined-single'
     logrates = np.loadtxt(filename_fmts['logrates'].format(3))
@@ -369,12 +369,15 @@ def main():
                 axes[i].patches[j].set_facecolor(colors[m])
             axes[i].set_xticklabels(['All'] + [str(k) for k in range(start_idx, 20)])
             axes[i].set_ylim([ratio_min - 0.2, ratio_max + 0.2])
-        axes[0].set_ylabel(r"$\log_{10}(b/d)$")
-        axes[1].set_ylabel(r"$\log_{10}(b'/d)$")
-        axes[2].set_ylabel(r"$\log_{10}(b/d')$")
-        axes[3].set_ylabel(r"$\log_{10}(b'/d')$")
+        axes[0].set_ylabel(r"$\log_{10}(b/d)$", size=12)
+        axes[1].set_ylabel(r"$\log_{10}(b'/d)$", size=12)
+        axes[2].set_ylabel(r"$\log_{10}(b/d')$", size=12)
+        axes[3].set_ylabel(r"$\log_{10}(b'/d')$", size=12)
         plt.tight_layout()
-        plt.savefig('{}-highrapid-boxplot.pdf'.format(output_prefix_fmt.format(exp)))
+        plt.savefig(
+            '{}-highrapid-boxplot.pdf'.format(output_prefix_fmt.format(exp)),
+            transparent=True
+        )
         plt.close()
 
 ##########################################################################
