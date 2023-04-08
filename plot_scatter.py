@@ -414,12 +414,11 @@ def main():
             data=cp_valid, orient='v', width=0.7, showfliers=False, linewidth=2,
             ax=axes[m], whis=(5, 95)
         )
-        for i in range(4):
-            axes[i].patches[0].set_facecolor(sns.color_palette('deep')[4])
-            for j in range(1, 21 - start_idx):
-                axes[i].patches[j].set_facecolor(colors[m])
-            axes[i].set_xticklabels(['All'] + [str(k) for k in range(start_idx, 20)])
-            axes[i].set_ylim([ratio_min - 0.2, ratio_max + 0.2])
+        axes[m].patches[0].set_facecolor(sns.color_palette('deep')[4])
+        for j in range(1, 21 - start_idx):
+            axes[m].patches[j].set_facecolor(colors[m])
+        axes[m].set_xticklabels(['All'] + [str(k) for k in range(start_idx, 20)])
+        axes[m].set_ylim([ratio_min - 0.2, ratio_max + 0.2])
         axes[m].set_ylabel(r"$\log_{10}(b'/d')$", size=12)
     
     plt.tight_layout()
