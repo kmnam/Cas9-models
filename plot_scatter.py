@@ -32,7 +32,6 @@ def plot_metrics_by_mismatch_scatter(xvals, yvals, nbins, xlabel, ylabel, rng,
 
     # Divide the x-axis into bins 
     x_bin_edges = np.linspace(xmin, xmax, nbins + 1)
-    print(x_bin_edges)
 
     # Produce scatterplots for each mismatch position 
     max_row = max(int(c[0]) for c in ax_indices)
