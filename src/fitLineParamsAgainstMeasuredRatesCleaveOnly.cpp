@@ -13,7 +13,7 @@
  *     Kee-Myoung Nam 
  *
  * **Last updated:**
- *     4/2/2023
+ *     4/8/2023
  */
 
 #include <iostream>
@@ -602,8 +602,8 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
 
         // Obtain the parameter vector along the main chord that yields the 
         // overall cleavage rate closest to the given value
-        //
-        // Use no regularization for this optimization
+		//
+		// Use L2 regularization for this optimization
         MainType fit = opt->run(
             func, quasi_newton, RegularizationMethod::L2, 0, regularize_weight,
             qp_solve_method, x_init, l_init, delta, beta, sqp_min_stepsize,
@@ -622,7 +622,6 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
             best_fit = fit;
             best_error = error;
         }
-        //std::cout << "- fit number " << i << ": " << fit << std::endl << std::flush;
     }
     delete opt;
 
@@ -650,9 +649,12 @@ int main(int argc, char** argv)
     // Check that input/output file paths were specified 
     if (!json_data.if_contains("cleave_data_filename"))
         throw std::runtime_error("Cleavage rate dataset must be specified");
+    if (!json_data.if_contains("eval_data_filename"))
+        throw std::runtime_error("Evaluation cleavage rate dataset must be specified");
     if (!json_data.if_contains("output_prefix"))
         throw std::runtime_error("Output file prefix must be specified");
     std::string cleave_infilename = json_data["cleave_data_filename"].as_string().c_str();
+    std::string eval_infilename = json_data["eval_data_filename"].as_string().c_str();
     std::string outprefix = json_data["output_prefix"].as_string().c_str();
     std::string outfilename = outprefix + "-main.tsv"; 
     std::string residuals_filename = outprefix + "-residuals.tsv";
@@ -818,11 +820,13 @@ int main(int argc, char** argv)
 
     // Parse measured cleavage rates, along with the mismatched sequences on
     // which they were measured 
-    int n_cleave_data = 0; 
-    MatrixXi cleave_seqs = MatrixXi::Zero(0, length); 
-    Matrix<MainType, Dynamic, 1> cleave_data = Matrix<MainType, Dynamic, 1>::Zero(0); 
+    int n_cleave_data = 0, n_eval_data = 0; 
+    MatrixXi cleave_seqs = MatrixXi::Zero(0, length);
+    MatrixXi eval_seqs = MatrixXi::Zero(0, length);     
+    Matrix<MainType, Dynamic, 1> cleave_data = Matrix<MainType, Dynamic, 1>::Zero(0);
+    Matrix<MainType, Dynamic, 1> eval_data = Matrix<MainType, Dynamic, 1>::Zero(0);
     
-    // Parse the input file of overall cleavage rates
+    // Parse the two input files of overall cleavage rates
     std::ifstream infile;
     std::string line, token;
     infile.open(cleave_infilename);
@@ -858,23 +862,63 @@ int main(int argc, char** argv)
         }
     }
     infile.close();
+    infile.open(eval_infilename);
+    while (std::getline(infile, line))
+    {
+        std::stringstream ss;
+        ss << line;
+        std::getline(ss, token, '\t');
+        n_eval_data++;
+        eval_seqs.conservativeResize(n_eval_data, length);  
+        eval_data.conservativeResize(n_eval_data);
+
+        // Parse the sequence, character by character
+        if (token.size() != length)
+            throw std::runtime_error("Parsed input sequence of invalid length (!= 20)"); 
+        for (int j = 0; j < length; ++j)
+        {
+            if (token[j] == '0')
+                eval_seqs(n_eval_data - 1, j) = 0; 
+            else
+                eval_seqs(n_eval_data - 1, j) = 1;
+        }
+
+        // The second entry is the cleavage rate
+        std::getline(ss, token, '\t'); 
+        try
+        {
+            eval_data(n_eval_data - 1) = MainType(token);
+        }
+        catch (const std::out_of_range& e)
+        {
+            eval_data(n_eval_data - 1) = 0; 
+        }
+    }
+    infile.close();
 
     // Exit if no overall cleavage rates were specified 
     if (n_cleave_data == 0)
         throw std::runtime_error("Cleavage rate dataset is empty");
+    if (n_eval_data == 0)
+        throw std::runtime_error("Evaluation cleavage rate dataset is empty");
 
     // Assume that the cleavage rate for the perfect-match substrate is
-    // specified first ...
+    // specified first in both datasets ...
     //
     // ... and thus normalize all overall cleavage rates and invert
     MainType perfect_cleave_rate = cleave_data(0);
     for (int i = 1; i < cleave_data.size(); ++i)
-        cleave_data(i) = cleave_data(i) / cleave_data(0);   // inverse overall cleavage rate ratio 
-                                                            // = rate on mismatched / rate on perfect
+        cleave_data(i) = cleave_data(i) / perfect_cleave_rate;   // inverse overall cleavage rate ratio 
+                                                                 // = rate on mismatched / rate on perfect
     cleave_data(0) = 1;
+    for (int i = 1; i < eval_data.size(); ++i)
+        eval_data(i) = eval_data(i) / perfect_cleave_rate;       // inverse overall cleavage rate ratio 
+                                                                 // = rate on mismatched / rate on perfect
+    eval_data(0) = 1;
 
     // Add pseudocounts
     cleave_data += cleave_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_cleave_data);
+	eval_data += cleave_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_eval_data);
 
     // Define matrix of single-mismatch DNA sequences relative to the 
     // perfect-match sequence for cleavage rates
@@ -893,9 +937,6 @@ int main(int argc, char** argv)
         search_verbose, zoom_verbose
     );
     Matrix<MainType, Dynamic, Dynamic> best_fits = results.first;
-    Matrix<MainType, Dynamic, Dynamic> residuals = results.second;
-    Matrix<MainType, Dynamic, 1> errors = residuals.rowwise().sum();
-    //std::cout << "done with fitting\n" << std::flush;
 
     /** -------------------------------------------------------------- //
      *            SCAN MAIN CHORD CORRESPONDING TO EACH FIT            //
@@ -907,7 +948,6 @@ int main(int argc, char** argv)
     const int scan_max_iter = 100;   // TODO Customize?
     for (int i = 0; i < ninit; ++i)
     {
-        //std::cout << "scanning for " << i << std::endl << std::flush;
         scan_results = scanMainChord(
             best_fits.row(i), constraints, perfect_cleave_rate, bind_conc,
             n_scan_init, rng, delta, beta, sqp_min_stepsize, scan_max_iter,
@@ -916,9 +956,18 @@ int main(int argc, char** argv)
         );
         best_fits.row(i) += scan_results.first * Matrix<MainType, Dynamic, 1>::Ones(best_fits.cols());
     }
-    //std::cout << "done with scanning\n" << std::flush;
 
-    // Output the fits to file
+    /** -------------------------------------------------------------- //
+     *             GET RESIDUALS AGAINST EVALUATION DATASET            //
+	 *  -------------------------------------------------------------- */
+	Matrix<MainType, Dynamic, Dynamic> residuals(ninit, n_eval_data);
+	for (int i = 0; i < ninit; ++i)
+		residuals.row(i) = cleaveErrorAgainstData(best_fits.row(i), eval_seqs, eval_data, bind_conc);
+	Matrix<MainType, Dynamic, 1> errors = residuals.rowwise().sum();
+
+    /** -------------------------------------------------------------- //
+     *                       OUTPUT FITS TO FILE                       //
+     *  -------------------------------------------------------------- */
     std::ofstream outfile(outfilename); 
     outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     outfile << "fit_attempt\tmatch_forward\tmatch_reverse\tmismatch_forward\t"
@@ -963,7 +1012,8 @@ int main(int argc, char** argv)
     }
     outfile.close();
 
-    // Output the optimal cleavage rate ratio residuals to file 
+    // Output the optimal cleavage rate ratio residuals against the 
+	// evaluation dataset to file 
     std::ofstream residuals_outfile(residuals_filename);
     residuals_outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     residuals_outfile << "seq\t";
@@ -978,7 +1028,7 @@ int main(int argc, char** argv)
     {
         // Output the sequence ... 
         for (int j = 0; j < length; ++j)
-            residuals_outfile << (cleave_seqs(i, j) ? '1' : '0');
+            residuals_outfile << (eval_seqs(i, j) ? '1' : '0');
         residuals_outfile << '\t';
 
         // ... and each vector of cleavage rate residuals 
