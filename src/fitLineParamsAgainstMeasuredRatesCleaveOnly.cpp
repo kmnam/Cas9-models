@@ -583,10 +583,8 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
             return cleaveErrorAgainstPerfectOverallRate(logrates_new, cleave_rate, bind_conc);
         };
 
-    // Get the residual associated with the given parameter vector, and set 
-    // regularization weight to a fraction of this residual  
-    MainType orig_error = cleaveErrorAgainstPerfectOverallRate(logrates, cleave_rate, bind_conc);
-    MainType regularize_weight = 0.01 * orig_error;
+    // Set L2 regularization weight 
+    MainType regularize_weight = 0.01;
 
     // For each optimization attempt ... 
     boost::random::uniform_real_distribution<double> scan_dist(
@@ -602,8 +600,8 @@ std::pair<MainType, MainType> scanMainChord(const Ref<const Matrix<MainType, Dyn
 
         // Obtain the parameter vector along the main chord that yields the 
         // overall cleavage rate closest to the given value
-		//
-		// Use L2 regularization for this optimization
+        //
+        // Use L2 regularization for this optimization
         MainType fit = opt->run(
             func, quasi_newton, RegularizationMethod::L2, 0, regularize_weight,
             qp_solve_method, x_init, l_init, delta, beta, sqp_min_stepsize,
@@ -918,7 +916,7 @@ int main(int argc, char** argv)
 
     // Add pseudocounts
     cleave_data += cleave_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_cleave_data);
-	eval_data += cleave_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_eval_data);
+    eval_data += cleave_pseudocount * Matrix<MainType, Dynamic, 1>::Ones(n_eval_data);
 
     // Define matrix of single-mismatch DNA sequences relative to the 
     // perfect-match sequence for cleavage rates
@@ -959,11 +957,11 @@ int main(int argc, char** argv)
 
     /** -------------------------------------------------------------- //
      *             GET RESIDUALS AGAINST EVALUATION DATASET            //
-	 *  -------------------------------------------------------------- */
-	Matrix<MainType, Dynamic, Dynamic> residuals(ninit, n_eval_data);
-	for (int i = 0; i < ninit; ++i)
-		residuals.row(i) = cleaveErrorAgainstData(best_fits.row(i), eval_seqs, eval_data, bind_conc);
-	Matrix<MainType, Dynamic, 1> errors = residuals.rowwise().sum();
+     *  -------------------------------------------------------------- */
+    Matrix<MainType, Dynamic, Dynamic> residuals(ninit, n_eval_data);
+    for (int i = 0; i < ninit; ++i)
+        residuals.row(i) = cleaveErrorAgainstData(best_fits.row(i), eval_seqs, eval_data, bind_conc);
+    Matrix<MainType, Dynamic, 1> errors = residuals.rowwise().sum();
 
     /** -------------------------------------------------------------- //
      *                       OUTPUT FITS TO FILE                       //
@@ -1013,7 +1011,7 @@ int main(int argc, char** argv)
     outfile.close();
 
     // Output the optimal cleavage rate ratio residuals against the 
-	// evaluation dataset to file 
+    // evaluation dataset to file 
     std::ofstream residuals_outfile(residuals_filename);
     residuals_outfile << std::setprecision(std::numeric_limits<double>::max_digits10 - 1);
     residuals_outfile << "seq\t";
