@@ -420,7 +420,7 @@ def main():
             axes[m].patches[j].set_facecolor(colors[m])
         axes[m].set_xticklabels(['All'] + [str(k) for k in range(start_idx, 20)])
         axes[m].set_ylim([ratio_min - 0.2, ratio_max + 0.2])
-        axes[i].set_yticks([ratio_min, -exp, 0, exp, ratio_max])
+        axes[m].set_yticks([ratio_min, -exp, 0, exp, ratio_max])
         axes[m].set_ylabel(r"$\log_{10}(b'/d')$", size=12)
     
     plt.tight_layout()
