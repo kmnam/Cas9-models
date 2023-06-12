@@ -3,7 +3,7 @@ Authors:
     Kee-Myoung Nam
 
 Last updated:
-    4/8/2023
+    6/12/2023
 """
 import numpy as np
 import pandas as pd
@@ -184,17 +184,17 @@ def main():
     )
     plt.close()
 
-    # Plot a subset of plots for mismatch positions 5, 7, 9, 11, 13, 15, 17, 19
+    # Plot a subset of plots for mismatch positions 4, 9, 14, 19
     fig, axes = plt.subplot_mosaic(
-        [['{}{}'.format(i, j) for j in range(4)] for i in range(2)],
-        figsize=(12, 6)
+        [['{}{}'.format(i, j) for j in range(2)] for i in range(2)],
+        figsize=(6, 6)
     )
     plot_metrics_by_mismatch_scatter(
         specs, rapid, 50,
         r'$\log_{10}{(\mathrm{Spec}(\mathbf{u}^{\{m\}}))}$',
         r'$\log_{10}{(\mathrm{Rapid}(\mathbf{u}^{\{m\}}))}$',
-        rng, axes, npoints_per_bin=1, indices=[5, 7, 9, 11, 13, 15, 17, 19], xmin=0,
-        ax_indices=['{}{}'.format(i, j) for i in range(2) for j in range(4)],
+        rng, axes, npoints_per_bin=1, indices=[4, 9, 14, 19], xmin=0,
+        ax_indices=['{}{}'.format(i, j) for i in range(2) for j in range(2)],
         annotate_fmt=r'$m = {}$'
     )
     plt.tight_layout()
